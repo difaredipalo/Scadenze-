@@ -24,7 +24,13 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onAdd(selectedType, { ...formData, id: Math.random().toString(36).substr(2, 9) });
+    const finalData = { ...formData };
+    if (selectedType === 'personale') {
+      finalData.inForza = true;
+      if (!finalData.categoria) finalData.categoria = 'operaio';
+      delete finalData.indeterminato;
+    }
+    onAdd(selectedType, { ...finalData, id: Math.random().toString(36).substr(2, 9) });
     onClose();
     setFormData({});
   };
@@ -87,9 +93,35 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
                   <input required name="cognome" placeholder="Cognome" onChange={handleInputChange} className={inputClasses} />
                 </div>
                 <input required name="ruolo" placeholder="Inquadramento / Mansione" onChange={handleInputChange} className={inputClasses} />
+                <select name="categoria" onChange={handleInputChange} className={inputClasses} defaultValue="operaio">
+                  <option value="operaio">Operaio</option>
+                  <option value="impiegato">Impiegato</option>
+                  <option value="amministratore">Amministratore</option>
+                </select>
                 <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza Contratto</label>
-                  <input required type="date" name="scadenzaContratto" onChange={handleInputChange} className={inputClasses} />
+                  <div className="flex justify-between items-center px-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scadenza Contratto</label>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={formData.indeterminato} 
+                        onChange={(e) => setFormData({...formData, indeterminato: e.target.checked, scadenzaContratto: e.target.checked ? undefined : formData.scadenzaContratto})}
+                        className="w-3 h-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Indeterminato</span>
+                    </label>
+                  </div>
+                  <input 
+                    required={!formData.indeterminato} 
+                    type="date" 
+                    name="scadenzaContratto" 
+                    onChange={handleInputChange} 
+                    className={`${inputClasses} ${formData.indeterminato ? 'opacity-50 pointer-events-none' : ''}`} 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza Visita Medica</label>
+                  <input required type="date" name="scadenzaVisitaMedica" onChange={handleInputChange} className={inputClasses} />
                 </div>
               </>
             )}
@@ -100,6 +132,10 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza Assicurazione</label>
                   <input required type="date" name="scadenzaAssicurazione" onChange={handleInputChange} className={inputClasses} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Verifica Periodica Annuale</label>
+                  <input type="date" name="scadenzaVerificaPeriodica" onChange={handleInputChange} className={inputClasses} />
                 </div>
               </>
             )}

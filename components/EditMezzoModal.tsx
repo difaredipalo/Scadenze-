@@ -84,7 +84,7 @@ const EditMezzoModal: React.FC<EditMezzoModalProps> = ({ isOpen, mezzo, onClose,
             )}
 
             {activeTab === 'scadenze' && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-in fade-in">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Scadenza Assicurazione</label>
                   <input type="date" name="scadenzaAssicurazione" value={formData.scadenzaAssicurazione || ''} onChange={handleInputChange} className={inputClasses} />
@@ -96,6 +96,10 @@ const EditMezzoModal: React.FC<EditMezzoModalProps> = ({ isOpen, mezzo, onClose,
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Scadenza Bollo</label>
                   <input type="date" name="scadenzaBollo" value={formData.scadenzaBollo || ''} onChange={handleInputChange} className={inputClasses} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Verifica Periodica Annuale</label>
+                  <input type="date" name="scadenzaVerificaPeriodica" value={formData.scadenzaVerificaPeriodica || ''} onChange={handleInputChange} className={inputClasses} />
                 </div>
               </div>
             )}

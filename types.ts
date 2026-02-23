@@ -54,14 +54,18 @@ export interface Formazione {
   scadenza: string;
 }
 
+export type CategoriaPersonale = 'operaio' | 'impiegato' | 'amministratore';
+
 export interface Personale {
   id: string;
   nome: string;
   cognome: string;
   ruolo: string;
+  categoria: CategoriaPersonale;
   codiceFiscale?: string;
-  scadenzaContratto: string;
+  scadenzaContratto?: string; // Se undefined o vuoto = Indeterminato
   scadenzaVisitaMedica: string;
+  inForza: boolean;
   corsiFormazione: Formazione[];
   note?: string;
 }
@@ -80,6 +84,7 @@ export interface Mezzo {
   scadenzaAssicurazione: string;
   prossimaRevisione: string;
   scadenzaBollo?: string;
+  scadenzaVerificaPeriodica?: string;
   stato: MezzoStato;
   storicoManutenzioni: Manutenzione[];
 }
@@ -97,6 +102,7 @@ export interface Documento {
 
 export interface AppSettings {
   nomeAzienda: string;
+  theme: 'light' | 'dark';
 }
 
 export type AppData = {

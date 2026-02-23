@@ -26,8 +26,8 @@ const INITIAL_DATA: AppData = {
     { id: '2', nome: 'Riqualificazione Centro', cliente: 'Comune Milano', scadenza: '2025-03-20', stato: 'in apertura', progresso: 10, importoTotale: 500000, indirizzo: 'Piazza Duomo, Milano', tecnici: [], checklistDocumenti: [], salList: [], subappalti: [] },
   ],
   personale: [
-    { id: 'p1', nome: 'Mario', cognome: 'Rossi', ruolo: 'Capocantiere', scadenzaContratto: '2025-06-30', scadenzaVisitaMedica: '2024-11-15', corsiFormazione: [] },
-    { id: 'p2', nome: 'Luigi', cognome: 'Verdi', ruolo: 'Operaio Specializzato', scadenzaContratto: '2024-12-31', scadenzaVisitaMedica: '2024-09-20', corsiFormazione: [] },
+    { id: 'p1', nome: 'Mario', cognome: 'Rossi', ruolo: 'Capocantiere', categoria: 'operaio', scadenzaContratto: '2025-06-30', scadenzaVisitaMedica: '2024-11-15', inForza: true, corsiFormazione: [] },
+    { id: 'p2', nome: 'Luigi', cognome: 'Verdi', ruolo: 'Operaio Specializzato', categoria: 'operaio', scadenzaContratto: '2024-12-31', scadenzaVisitaMedica: '2024-09-20', inForza: true, corsiFormazione: [] },
   ],
   mezzi: [
     { id: 'm1', modello: 'Iveco Eurocargo', targa: 'EF123GH', scadenzaAssicurazione: '2024-12-01', prossimaRevisione: '2025-02-15', stato: 'in_uso', storicoManutenzioni: [] },
@@ -38,18 +38,35 @@ const INITIAL_DATA: AppData = {
     { id: 'd2', titolo: 'POS Cantiere A', categoria: 'Sicurezza', scadenza: '2024-12-15', ente: 'ASL', priorita: 'media' },
   ],
   settings: {
-    nomeAzienda: 'Edilizia Generale SRL'
+    nomeAzienda: 'Edilizia Generale SRL',
+    theme: 'light'
   }
 };
 
 const App: React.FC = () => {
   const [data, setData] = useState<AppData>(() => {
     const saved = localStorage.getItem('scadenze_plus_data');
-    return saved ? JSON.parse(saved) : INITIAL_DATA;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        // Migrazione: assicura che il personale abbia i nuovi campi
+        parsed.personale = (parsed.personale || []).map((p: any) => ({
+          ...p,
+          categoria: p.categoria || 'operaio',
+          inForza: p.inForza !== undefined ? p.inForza : true
+        }));
+        if (!parsed.settings.theme) parsed.settings.theme = 'light';
+        return parsed;
+      } catch (e) {
+        return INITIAL_DATA;
+      }
+    }
+    return INITIAL_DATA;
   });
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'impostazioni'>('dashboard');
+  const [showOnlyActivePersonale, setShowOnlyActivePersonale] = useState(true);
   const [aiInsight, setAiInsight] = useState<string>('Analisi in corso...');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +77,11 @@ const App: React.FC = () => {
 
   useEffect(() => {
     localStorage.setItem('scadenze_plus_data', JSON.stringify(data));
+    if (data.settings.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
   }, [data]);
 
   useEffect(() => {
@@ -85,11 +107,15 @@ const App: React.FC = () => {
     const s = search.toLowerCase();
     return {
       cantieri: data.cantieri.filter(c => c.nome.toLowerCase().includes(s) || c.cliente.toLowerCase().includes(s)),
-      personale: data.personale.filter(p => p.nome.toLowerCase().includes(s) || p.cognome.toLowerCase().includes(s)),
+      personale: data.personale.filter(p => {
+        const matchesSearch = p.nome.toLowerCase().includes(s) || p.cognome.toLowerCase().includes(s);
+        const matchesActive = showOnlyActivePersonale ? p.inForza : true;
+        return matchesSearch && matchesActive;
+      }),
       mezzi: data.mezzi.filter(m => m.modello.toLowerCase().includes(s) || m.targa.toLowerCase().includes(s)),
       documenti: data.documenti.filter(d => d.titolo.toLowerCase().includes(s)),
     };
-  }, [data, search]);
+  }, [data, search, showOnlyActivePersonale]);
 
   const alerts = useMemo(() => {
     const today = new Date();
@@ -102,8 +128,20 @@ const App: React.FC = () => {
       else if (diff <= 30) list.push({ type: label, title: itemTitle, date: dateStr, status: 'warning' });
     };
     data.cantieri.forEach(c => check(c.scadenza, 'Cantiere', c.nome));
-    data.personale.forEach(p => { check(p.scadenzaContratto, 'Contratto', `${p.nome} ${p.cognome}`); check(p.scadenzaVisitaMedica, 'Visita', `${p.nome} ${p.cognome}`); });
-    data.mezzi.forEach(m => { check(m.scadenzaAssicurazione, 'Ass.', m.modello); check(m.prossimaRevisione, 'Rev.', m.modello); });
+    data.personale.forEach(p => { 
+      if (p.inForza) {
+        if (p.scadenzaContratto) check(p.scadenzaContratto, 'Contratto', `${p.nome} ${p.cognome}`); 
+        check(p.scadenzaVisitaMedica, 'Visita', `${p.nome} ${p.cognome}`); 
+        p.corsiFormazione.forEach(f => {
+          if (f.scadenza) check(f.scadenza, `Corso: ${f.corso}`, `${p.nome} ${p.cognome}`);
+        });
+      }
+    });
+    data.mezzi.forEach(m => { 
+      check(m.scadenzaAssicurazione, 'Ass.', m.modello); 
+      check(m.prossimaRevisione, 'Rev.', m.modello); 
+      if (m.scadenzaVerificaPeriodica) check(m.scadenzaVerificaPeriodica, 'Verifica', m.modello);
+    });
     data.documenti.forEach(d => check(d.scadenza, 'Doc.', d.titolo));
     return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
   }, [data]);
@@ -123,8 +161,8 @@ const App: React.FC = () => {
       head = [['Nome', 'Ruolo', 'Contratto', 'Visita']];
       body = filteredData.personale.map(p => [`${p.nome} ${p.cognome}`, p.ruolo, p.scadenzaContratto, p.scadenzaVisitaMedica]);
     } else if (type === 'mezzo') {
-      head = [['Modello', 'Targa', 'Ass.', 'Rev.']];
-      body = filteredData.mezzi.map(m => [m.modello, m.targa, m.scadenzaAssicurazione, m.prossimaRevisione]);
+      head = [['Modello', 'Targa', 'Ass.', 'Rev.', 'Verifica']];
+      body = filteredData.mezzi.map(m => [m.modello, m.targa, m.scadenzaAssicurazione, m.prossimaRevisione, m.scadenzaVerificaPeriodica || '-']);
     } else if (type === 'documento') {
       head = [['Titolo', 'Ente', 'Scadenza', 'Priorità']];
       body = filteredData.documenti.map(d => [d.titolo, d.ente, d.scadenza, d.priorita]);
@@ -157,7 +195,7 @@ const App: React.FC = () => {
 
     // Foglio Mezzi
     const wsMezzi = XLSX.utils.json_to_sheet(data.mezzi.map(m => ({
-      Modello: m.modello, Targa: m.targa, Assicurazione: m.scadenzaAssicurazione, Revisione: m.prossimaRevisione, Stato: m.stato
+      Modello: m.modello, Targa: m.targa, Assicurazione: m.scadenzaAssicurazione, Revisione: m.prossimaRevisione, Verifica_Periodica: m.scadenzaVerificaPeriodica || '-', Stato: m.stato
     })));
     XLSX.utils.book_append_sheet(wb, wsMezzi, "MEZZI");
 
@@ -265,16 +303,58 @@ const App: React.FC = () => {
 
   const renderList = (type: EntityType) => {
     const items = filteredData[getPluralKey(type)];
+    
+    const personaleStats = type === 'personale' ? {
+      totali: data.personale.filter(p => p.inForza).length,
+      amministratori: data.personale.filter(p => p.inForza && p.categoria === 'amministratore').length,
+      impiegati: data.personale.filter(p => p.inForza && p.categoria === 'impiegato').length,
+      operai: data.personale.filter(p => p.inForza && p.categoria === 'operaio').length,
+    } : null;
+
     return (
       <div className="animate-in slide-in-from-bottom-4 duration-500">
-        <div className="bg-white px-8 py-4 rounded-[2rem] border border-slate-100 mb-6 flex items-center justify-between">
+        {type === 'personale' && personaleStats && (
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Totali in Forza</p>
+              <p className="text-2xl font-black text-slate-900 dark:text-white">{personaleStats.totali}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amministratori</p>
+              <p className="text-2xl font-black text-blue-600">{personaleStats.amministratori}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Impiegati</p>
+              <p className="text-2xl font-black text-indigo-600">{personaleStats.impiegati}</p>
+            </div>
+            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 shadow-sm">
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Operai</p>
+              <p className="text-2xl font-black text-slate-600 dark:text-slate-300">{personaleStats.operai}</p>
+            </div>
+          </div>
+        )}
+
+        <div className="bg-white dark:bg-slate-900 px-8 py-4 rounded-[2rem] border border-slate-100 dark:border-slate-800 mb-6 flex items-center justify-between">
            <div>
-              <h2 className="text-xl font-black text-slate-900 uppercase tracking-tight">{type}</h2>
+              <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{type}</h2>
               <p className="text-[10px] text-slate-400 font-black uppercase">Database records filtrati</p>
            </div>
-           <div className="flex gap-2">
-              <button onClick={() => exportToPdf(type)} title="PDF" className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-500 rounded-xl transition-all"><Icons.Pdf /></button>
-              <button onClick={() => exportToExcel(type)} title="Excel" className="p-2.5 bg-slate-50 text-slate-400 hover:text-emerald-600 rounded-xl transition-all"><Icons.Excel /></button>
+           <div className="flex items-center gap-4">
+              {type === 'personale' && (
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    checked={showOnlyActivePersonale} 
+                    onChange={(e) => setShowOnlyActivePersonale(e.target.checked)}
+                    className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 text-blue-600 focus:ring-blue-500 bg-white dark:bg-slate-800"
+                  />
+                  <span className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">Solo in forza</span>
+                </label>
+              )}
+              <div className="flex gap-2">
+                 <button onClick={() => exportToPdf(type)} title="PDF" className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-red-500 rounded-xl transition-all border border-slate-100 dark:border-slate-700"><Icons.Pdf /></button>
+                 <button onClick={() => exportToExcel(type)} title="Excel" className="p-2.5 bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-emerald-600 rounded-xl transition-all border border-slate-100 dark:border-slate-700"><Icons.Excel /></button>
+              </div>
            </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -284,30 +364,46 @@ const App: React.FC = () => {
               if (type==='personale') setSelectedPersonale(item);
               if (type==='mezzo') setSelectedMezzo(item);
               if (type==='documento') setSelectedDocumento(item);
-            }} className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
+            }} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
               <div className="flex justify-between items-start mb-6">
-                <div className="p-4 bg-slate-50 rounded-2xl group-hover:bg-blue-50 transition-colors">
+                <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
                   {type === 'cantiere' && <Icons.Cantiere />}
                   {type === 'personale' && <Icons.Personale />}
                   {type === 'mezzo' && <Icons.Mezzi />}
                   {type === 'documento' && <Icons.Documenti />}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); deleteEntity(type, item.id); }} className="p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                <button onClick={(e) => { e.stopPropagation(); deleteEntity(type, item.id); }} className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
                   <Icons.Trash />
                 </button>
               </div>
-              <h4 className="text-lg font-black text-slate-900 truncate">{item.nome || item.modello || item.titolo} {item.cognome || ''}</h4>
-              <p className="text-xs font-bold text-slate-400 uppercase mt-1">{item.cliente || item.ruolo || item.targa || item.ente}</p>
-              <div className="mt-6 pt-6 border-t border-slate-50 flex justify-between items-center">
+              <h4 className="text-lg font-black text-slate-900 dark:text-white truncate">{item.nome || item.modello || item.titolo} {item.cognome || ''}</h4>
+              <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mt-1">{item.cliente || item.ruolo || item.targa || item.ente}</p>
+              <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-800 flex justify-between items-center">
                 <div className="flex flex-col">
-                  <span className="text-[9px] font-black text-slate-300 uppercase">Scadenza</span>
-                  <span className="text-xs font-bold text-slate-600">{item.scadenza || item.scadenzaContratto || item.scadenzaAssicurazione}</span>
+                  <span className="text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase">Scadenza</span>
+                  <div className="flex flex-col gap-0.5">
+                    <span className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                      {item.scadenza || (type === 'personale' ? (item.scadenzaContratto || 'Indeterminato') : item.scadenzaAssicurazione)}
+                    </span>
+                    {type === 'mezzo' && item.scadenzaVerificaPeriodica && (
+                      <span className="text-[10px] font-bold text-blue-500">
+                        Verifica: {item.scadenzaVerificaPeriodica}
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="px-3 py-1 bg-slate-50 rounded-lg text-[9px] font-black text-slate-500 uppercase">{item.stato || item.priorita || 'Attivo'}</div>
+                <div className="flex flex-col items-end">
+                  <div className={`px-3 py-1 rounded-lg text-[9px] font-black uppercase ${type === 'personale' && !item.inForza ? 'bg-red-50 dark:bg-red-900/20 text-red-500' : 'bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400'}`}>
+                    {type === 'personale' ? (item.inForza ? 'In Forza' : 'Cessato') : (item.stato || item.priorita || 'Attivo')}
+                  </div>
+                  {type === 'personale' && (
+                    <span className="text-[8px] font-black text-slate-300 dark:text-slate-600 uppercase mt-1">{item.categoria}</span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
-          <button onClick={() => setIsModalOpen(true)} className="border-4 border-dashed border-slate-100 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 text-slate-300 hover:text-blue-500 hover:bg-blue-50/30 transition-all">
+          <button onClick={() => setIsModalOpen(true)} className="border-4 border-dashed border-slate-100 dark:border-slate-800 rounded-[2rem] p-8 flex flex-col items-center justify-center gap-4 text-slate-300 dark:text-slate-700 hover:text-blue-500 hover:bg-blue-50/30 dark:hover:bg-blue-900/10 transition-all">
             <Icons.Plus />
             <span className="text-[10px] font-black uppercase tracking-widest">Aggiungi {type}</span>
           </button>
@@ -323,7 +419,25 @@ const App: React.FC = () => {
         <div className="space-y-6">
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Impresa</label>
-            <input type="text" value={data.settings.nomeAzienda} onChange={(e)=>setData({...data, settings: {...data.settings, nomeAzienda: e.target.value}})} className="w-full p-4 bg-slate-50 border-2 border-slate-100 rounded-2xl font-bold text-slate-900 focus:border-blue-500 outline-none transition-all" />
+            <input type="text" value={data.settings.nomeAzienda} onChange={(e)=>setData({...data, settings: {...data.settings, nomeAzienda: e.target.value}})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tema Applicazione</label>
+            <div className="grid grid-cols-2 gap-4">
+              <button 
+                onClick={() => setData({...data, settings: {...data.settings, theme: 'light'}})}
+                className={`p-4 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest transition-all ${data.settings.theme === 'light' ? 'bg-blue-600 text-white border-blue-600 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700'}`}
+              >
+                ☀️ Chiaro
+              </button>
+              <button 
+                onClick={() => setData({...data, settings: {...data.settings, theme: 'dark'}})}
+                className={`p-4 rounded-2xl border-2 font-black uppercase text-[10px] tracking-widest transition-all ${data.settings.theme === 'dark' ? 'bg-slate-900 text-white border-slate-900 shadow-lg' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 border-slate-100 dark:border-slate-700'}`}
+              >
+                🌙 Scuro
+              </button>
+            </div>
           </div>
           
           <div className="pt-8 border-t border-slate-50">
@@ -348,13 +462,13 @@ const App: React.FC = () => {
   );
 
   return (
-    <div className="h-screen flex bg-[#f8fafc] overflow-hidden">
+    <div className="h-screen flex bg-[#f8fafc] dark:bg-slate-950 overflow-hidden transition-colors duration-300">
       {/* Sidebar ERP */}
-      <aside className="w-24 md:w-72 bg-white border-r border-slate-100 flex flex-col shrink-0 z-30 transition-all duration-500">
+      <aside className="w-24 md:w-72 bg-white dark:bg-slate-900 border-r border-slate-100 dark:border-slate-800 flex flex-col shrink-0 z-30 transition-all duration-500">
         <div className="p-8 flex items-center gap-4">
           <div className="w-14 h-14 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-600/30 shrink-0"><Icons.Cantiere /></div>
           <div className="hidden md:flex flex-col">
-            <h1 className="text-3xl font-black tracking-tighter uppercase leading-none text-slate-900">SCADENZE +</h1>
+            <h1 className="text-3xl font-black tracking-tighter uppercase leading-none text-slate-900 dark:text-white">SCADENZE +</h1>
             <span className="text-[10px] font-black text-blue-600 uppercase tracking-[0.2em] mt-1.5">GESTIONALE AZIENDE</span>
           </div>
         </div>
@@ -368,7 +482,7 @@ const App: React.FC = () => {
             { id: 'documento', label: 'Archivio', icon: <Icons.Documenti /> },
             { id: 'impostazioni', label: 'Setup', icon: <Icons.Settings /> },
           ].map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-50 hover:text-slate-600'}`}>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'}`}>
               {item.icon}
               <span className="hidden md:block font-black text-[10px] uppercase tracking-widest">{item.label}</span>
             </button>
@@ -376,21 +490,21 @@ const App: React.FC = () => {
         </nav>
 
         {/* Firma Azienda in Sidebar */}
-        <div className="p-8 border-t border-slate-50">
-           <div className="hidden md:block bg-slate-50 p-6 rounded-3xl border border-slate-100">
+        <div className="p-8 border-t border-slate-50 dark:border-slate-800">
+           <div className="hidden md:block bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Impresa attiva</p>
-              <p className="text-xs font-black text-slate-900 truncate">{data.settings.nomeAzienda}</p>
+              <p className="text-xs font-black text-slate-900 dark:text-white truncate">{data.settings.nomeAzienda}</p>
            </div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 bg-white border-b border-slate-100 flex items-center justify-between px-10 shrink-0">
+        <header className="h-20 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between px-10 shrink-0">
           <div className="relative flex-1 max-w-md">
-            <span className="absolute inset-y-0 left-4 flex items-center text-slate-300"><Icons.Search /></span>
-            <input type="text" placeholder="Ricerca rapida database..." className="w-full pl-12 pr-6 py-3 bg-slate-50 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500/10 outline-none transition-all" value={search} onChange={(e)=>setSearch(e.target.value)} />
+            <span className="absolute inset-y-0 left-4 flex items-center text-slate-300 dark:text-slate-600"><Icons.Search /></span>
+            <input type="text" placeholder="Ricerca rapida database..." className="w-full pl-12 pr-6 py-3 bg-slate-50 dark:bg-slate-800 rounded-2xl text-sm font-bold focus:ring-2 focus:ring-blue-500/10 outline-none transition-all dark:text-white" value={search} onChange={(e)=>setSearch(e.target.value)} />
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-slate-900 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg hover:scale-105 active:scale-95">
+          <button onClick={() => setIsModalOpen(true)} className="bg-slate-900 dark:bg-blue-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 dark:hover:bg-blue-500 transition-all shadow-lg hover:scale-105 active:scale-95">
             + NUOVO RECORD
           </button>
         </header>

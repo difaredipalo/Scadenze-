@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Personale, Formazione } from '../types';
+import { FORMAZIONI_PREDEFINITE, Icons } from '../constants';
 
 interface EditPersonaleModalProps {
   isOpen: boolean;
@@ -76,14 +77,46 @@ const EditPersonaleModal: React.FC<EditPersonaleModalProps> = ({ isOpen, persona
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Ruolo / Mansione</label>
                   <input name="ruolo" value={formData.ruolo || ''} onChange={handleInputChange} className={inputClasses} />
                 </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Categoria</label>
+                  <select name="categoria" value={formData.categoria} onChange={handleInputChange} className={inputClasses}>
+                    <option value="operaio">Operaio</option>
+                    <option value="impiegato">Impiegato</option>
+                    <option value="amministratore">Amministratore</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Stato Occupazionale</label>
+                  <select name="inForza" value={formData.inForza ? 'true' : 'false'} onChange={(e) => setFormData({...formData, inForza: e.target.value === 'true'})} className={inputClasses}>
+                    <option value="true">In Forza</option>
+                    <option value="false">Non più in forza (Cessato)</option>
+                  </select>
+                </div>
               </div>
             )}
 
             {activeTab === 'scadenze' && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-in fade-in">
                 <div className="space-y-2">
-                  <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Scadenza Contratto</label>
-                  <input type="date" name="scadenzaContratto" value={formData.scadenzaContratto || ''} onChange={handleInputChange} className={inputClasses} />
+                  <div className="flex justify-between items-center">
+                    <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Scadenza Contratto</label>
+                    <label className="flex items-center gap-1 cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={!formData.scadenzaContratto} 
+                        onChange={(e) => setFormData({...formData, scadenzaContratto: e.target.checked ? undefined : ''})}
+                        className="w-3 h-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                      />
+                      <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Indeterminato</span>
+                    </label>
+                  </div>
+                  <input 
+                    type="date" 
+                    name="scadenzaContratto" 
+                    value={formData.scadenzaContratto || ''} 
+                    onChange={handleInputChange} 
+                    className={`${inputClasses} ${!formData.scadenzaContratto ? 'opacity-50 pointer-events-none' : ''}`} 
+                  />
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Scadenza Visita Medica</label>
@@ -98,13 +131,59 @@ const EditPersonaleModal: React.FC<EditPersonaleModalProps> = ({ isOpen, persona
                   <h3 className="font-black text-slate-900 uppercase text-xs tracking-widest">Registro Corsi Sicurezza</h3>
                   <button type="button" onClick={addFormazione} className="bg-slate-900 text-white px-4 py-2 rounded-xl text-[10px] font-black hover:bg-blue-600 transition-all">+ NUOVO CORSO</button>
                 </div>
-                {formData.corsiFormazione?.map((c, idx) => (
-                  <div key={idx} className="grid grid-cols-1 md:grid-cols-3 gap-4 p-5 bg-white rounded-[2rem] border-2 border-slate-100">
-                    <input placeholder="Nome Corso (es. Antincendio)" value={c.corso} onChange={e => updateFormazione(idx, { corso: e.target.value })} className={inputClasses} />
-                    <input type="date" value={c.data} onChange={e => updateFormazione(idx, { data: e.target.value })} className={inputClasses} />
-                    <input type="date" value={c.scadenza} onChange={e => updateFormazione(idx, { scadenza: e.target.value })} className={inputClasses} />
-                  </div>
-                ))}
+                {formData.corsiFormazione?.map((c, idx) => {
+                  const isPredefined = FORMAZIONI_PREDEFINITE.includes(c.corso) || c.corso === '';
+                  return (
+                    <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 p-5 bg-white rounded-[2rem] border-2 border-slate-100">
+                      <div className="md:col-span-5 space-y-2">
+                        <select 
+                          value={isPredefined ? c.corso : 'altro'} 
+                          onChange={e => {
+                            const val = e.target.value;
+                            updateFormazione(idx, { corso: val === 'altro' ? '' : val });
+                          }} 
+                          className={inputClasses}
+                        >
+                          <option value="">Seleziona Corso...</option>
+                          {FORMAZIONI_PREDEFINITE.map(f => <option key={f} value={f}>{f}</option>)}
+                          <option value="altro">Altro (Inserimento manuale)...</option>
+                        </select>
+                        {!isPredefined && (
+                          <input 
+                            placeholder="Specifica corso..." 
+                            value={c.corso} 
+                            onChange={e => updateFormazione(idx, { corso: e.target.value })} 
+                            className={`${inputClasses} mt-2 border-blue-200 bg-blue-50/30`} 
+                          />
+                        )}
+                        {isPredefined && c.corso === '' && (
+                          <div className="text-[10px] font-bold text-slate-400 italic px-1">Scegli dalla lista o seleziona "Altro"</div>
+                        )}
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Data Corso</label>
+                        <input type="date" value={c.data} onChange={e => updateFormazione(idx, { data: e.target.value })} className={inputClasses} />
+                      </div>
+                      <div className="md:col-span-3">
+                        <label className="text-[9px] font-black text-slate-400 uppercase ml-1">Scadenza</label>
+                        <input type="date" value={c.scadenza} onChange={e => updateFormazione(idx, { scadenza: e.target.value })} className={inputClasses} />
+                      </div>
+                      <div className="md:col-span-1 flex items-end justify-center">
+                        <button 
+                          type="button" 
+                          onClick={() => {
+                            const list = [...(formData.corsiFormazione || [])];
+                            list.splice(idx, 1);
+                            setFormData({ ...formData, corsiFormazione: list });
+                          }}
+                          className="p-3 text-slate-300 hover:text-red-500 transition-colors"
+                        >
+                          <Icons.Trash />
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </form>
