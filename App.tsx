@@ -8,6 +8,7 @@ import EditCantiereModal from './components/EditCantiereModal';
 import EditPersonaleModal from './components/EditPersonaleModal';
 import EditMezzoModal from './components/EditMezzoModal';
 import EditDocumentoModal from './components/EditDocumentoModal';
+import Login from './components/Login';
 import { getInsights } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
@@ -39,7 +40,9 @@ const INITIAL_DATA: AppData = {
   ],
   settings: {
     nomeAzienda: 'Edilizia Generale SRL',
-    theme: 'light'
+    theme: 'light',
+    username: 'admin',
+    password: 'admin'
   }
 };
 
@@ -56,6 +59,8 @@ const App: React.FC = () => {
           inForza: p.inForza !== undefined ? p.inForza : true
         }));
         if (!parsed.settings.theme) parsed.settings.theme = 'light';
+        if (!parsed.settings.username) parsed.settings.username = 'admin';
+        if (!parsed.settings.password) parsed.settings.password = 'admin';
         return parsed;
       } catch (e) {
         return INITIAL_DATA;
@@ -65,6 +70,7 @@ const App: React.FC = () => {
   });
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'impostazioni'>('dashboard');
   const [showOnlyActivePersonale, setShowOnlyActivePersonale] = useState(true);
   const [aiInsight, setAiInsight] = useState<string>('Analisi in corso...');
@@ -440,8 +446,25 @@ const App: React.FC = () => {
             </div>
           </div>
           
-          <div className="pt-8 border-t border-slate-50">
-             <h4 className="text-xs font-black text-slate-900 uppercase tracking-widest mb-6">Backup & Esportazione Dati</h4>
+          <div className="pt-8 border-t border-slate-50 dark:border-slate-800">
+             <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest mb-6">Profilo Utente & Sicurezza</h4>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Username</label>
+                   <input type="text" value={data.settings.username} onChange={(e)=>setData({...data, settings: {...data.settings, username: e.target.value}})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" />
+                </div>
+                <div className="space-y-2">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nuova Password</label>
+                   <input type="password" value={data.settings.password} onChange={(e)=>setData({...data, settings: {...data.settings, password: e.target.value}})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" />
+                </div>
+                <button onClick={() => setIsLoggedIn(false)} className="md:col-span-2 flex items-center justify-center gap-2 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-all">
+                   Disconnetti Sessione
+                </button>
+             </div>
+          </div>
+
+          <div className="pt-8 border-t border-slate-50 dark:border-slate-800">
+             <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest mb-6">Backup & Esportazione Dati</h4>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <button onClick={handleJsonExport} className="flex items-center justify-center gap-2 p-4 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 transition-all">
                    <Icons.Export /> Backup JSON (Totale)
@@ -460,6 +483,18 @@ const App: React.FC = () => {
       </div>
     </div>
   );
+
+  const handleLogin = (u: string, p: string) => {
+    if (u === data.settings.username && p === data.settings.password) {
+      setIsLoggedIn(true);
+      return true;
+    }
+    return false;
+  };
+
+  if (!isLoggedIn) {
+    return <Login onLogin={handleLogin} />;
+  }
 
   return (
     <div className="h-screen flex bg-[#f8fafc] dark:bg-slate-950 overflow-hidden transition-colors duration-300">

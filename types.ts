@@ -103,6 +103,8 @@ export interface Documento {
 export interface AppSettings {
   nomeAzienda: string;
   theme: 'light' | 'dark';
+  username?: string;
+  password?: string;
 }
 
 export type AppData = {
