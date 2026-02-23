@@ -138,7 +138,7 @@ const App: React.FC = () => {
       if (p.inForza) {
         if (p.scadenzaContratto) check(p.scadenzaContratto, 'Contratto', `${p.nome} ${p.cognome}`); 
         check(p.scadenzaVisitaMedica, 'Visita', `${p.nome} ${p.cognome}`); 
-        p.corsiFormazione.forEach(f => {
+        (p.corsiFormazione || []).forEach(f => {
           if (f.scadenza) check(f.scadenza, `Corso: ${f.corso}`, `${p.nome} ${p.cognome}`);
         });
       }

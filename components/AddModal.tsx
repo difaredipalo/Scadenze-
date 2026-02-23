@@ -28,7 +28,21 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
     if (selectedType === 'personale') {
       finalData.inForza = true;
       if (!finalData.categoria) finalData.categoria = 'operaio';
+      finalData.corsiFormazione = [];
       delete finalData.indeterminato;
+    }
+    if (selectedType === 'cantiere') {
+      finalData.tecnici = [];
+      finalData.checklistDocumenti = [];
+      finalData.salList = [];
+      finalData.subappalti = [];
+      finalData.progresso = 0;
+      finalData.stato = 'in apertura';
+      finalData.importoTotale = 0;
+    }
+    if (selectedType === 'mezzo') {
+      finalData.storicoManutenzioni = [];
+      finalData.stato = 'disponibile';
     }
     onAdd(selectedType, { ...finalData, id: Math.random().toString(36).substr(2, 9) });
     onClose();
