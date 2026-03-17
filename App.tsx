@@ -8,6 +8,7 @@ import EditCantiereModal from './components/EditCantiereModal';
 import EditPersonaleModal from './components/EditPersonaleModal';
 import EditMezzoModal from './components/EditMezzoModal';
 import EditDocumentoModal from './components/EditDocumentoModal';
+import GaraCalculator from './components/GaraCalculator';
 import Login from './components/Login';
 import { getInsights } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -71,7 +72,7 @@ const App: React.FC = () => {
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'impostazioni'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'impostazioni'>('dashboard');
   const [showOnlyActivePersonale, setShowOnlyActivePersonale] = useState(true);
   const [aiInsight, setAiInsight] = useState<string>('Analisi in corso...');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,7 +134,11 @@ const App: React.FC = () => {
       if (diff < 0) list.push({ type: label, title: itemTitle, date: dateStr, status: 'critical' });
       else if (diff <= 30) list.push({ type: label, title: itemTitle, date: dateStr, status: 'warning' });
     };
-    data.cantieri.forEach(c => check(c.scadenza, 'Cantiere', c.nome));
+    data.cantieri.forEach(c => {
+      check(c.scadenza, 'Cantiere', c.nome);
+      if (c.scadenzaDNL) check(c.scadenzaDNL, 'DNL', c.nome);
+      if (c.scadenzaSuoloPubblico) check(c.scadenzaSuoloPubblico, 'Suolo Pubblico', c.nome);
+    });
     data.personale.forEach(p => { 
       if (p.inForza) {
         if (p.scadenzaContratto) check(p.scadenzaContratto, 'Contratto', `${p.nome} ${p.cognome}`); 
@@ -175,6 +180,39 @@ const App: React.FC = () => {
     }
     (doc as any).autoTable({ startY: 30, head, body, theme: 'grid', headStyles: { fillColor: [15, 23, 42] } });
     doc.save(`Export_${type}_${new Date().toISOString().split('T')[0]}.pdf`);
+  };
+
+  const generateTemplatePdf = (templateType: string, entityData: any) => {
+    const doc = new jsPDF();
+    doc.setFontSize(22);
+    doc.text(templateType.toUpperCase(), 105, 30, { align: 'center' });
+    
+    doc.setFontSize(12);
+    doc.text(`Azienda: ${data.settings.nomeAzienda}`, 20, 50);
+    doc.text(`Data: ${new Date().toLocaleDateString()}`, 20, 60);
+    
+    doc.line(20, 65, 190, 65);
+    
+    let y = 80;
+    if (templateType === 'Dichiarazione Cantiere') {
+      doc.text(`Il sottoscritto legale rappresentante della ditta ${data.settings.nomeAzienda},`, 20, y);
+      y += 10;
+      doc.text(`DICHIARA`, 105, y, { align: 'center' });
+      y += 10;
+      doc.text(`che i lavori presso il cantiere "${entityData.nome}" sito in ${entityData.indirizzo || 'N/D'}`, 20, y);
+      y += 10;
+      doc.text(`per il cliente ${entityData.cliente} sono in regola con le normative vigenti.`, 20, y);
+    } else {
+      doc.text(`Documento generato per: ${entityData.nome || entityData.titolo}`, 20, y);
+      y += 10;
+      doc.text(`Tipologia: ${templateType}`, 20, y);
+    }
+    
+    y += 40;
+    doc.text("Firma", 150, y);
+    doc.line(130, y + 5, 180, y + 5);
+    
+    doc.save(`${templateType.replace(/\s+/g, '_')}_${entityData.id}.pdf`);
   };
 
   const exportToExcel = (type: EntityType) => {
@@ -367,7 +405,6 @@ const App: React.FC = () => {
           {items.map((item: any) => (
             <div key={item.id} onClick={() => {
               if (type==='cantiere') setSelectedCantiere(item);
-              if (type==='personale') setSelectedPersonale(item);
               if (type==='mezzo') setSelectedMezzo(item);
               if (type==='documento') setSelectedDocumento(item);
             }} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
@@ -378,9 +415,16 @@ const App: React.FC = () => {
                   {type === 'mezzo' && <Icons.Mezzi />}
                   {type === 'documento' && <Icons.Documenti />}
                 </div>
-                <button onClick={(e) => { e.stopPropagation(); deleteEntity(type, item.id); }} className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
-                  <Icons.Trash />
-                </button>
+                <div className="flex gap-1">
+                  {type === 'cantiere' && (
+                    <button onClick={(e) => { e.stopPropagation(); generateTemplatePdf('Dichiarazione Cantiere', item); }} title="Genera PDF" className="p-2 text-slate-300 dark:text-slate-600 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all">
+                      <Icons.Pdf />
+                    </button>
+                  )}
+                  <button onClick={(e) => { e.stopPropagation(); deleteEntity(type, item.id); }} className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
+                    <Icons.Trash />
+                  </button>
+                </div>
               </div>
               <h4 className="text-lg font-black text-slate-900 dark:text-white truncate">{item.nome || item.modello || item.titolo} {item.cognome || ''}</h4>
               <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mt-1">{item.cliente || item.ruolo || item.targa || item.ente}</p>
@@ -395,6 +439,12 @@ const App: React.FC = () => {
                       <span className="text-[10px] font-bold text-blue-500">
                         Verifica: {item.scadenzaVerificaPeriodica}
                       </span>
+                    )}
+                    {type === 'cantiere' && (item.scadenzaDNL || item.scadenzaSuoloPubblico) && (
+                      <div className="flex flex-col gap-0.5 mt-1">
+                        {item.scadenzaDNL && <span className="text-[9px] font-bold text-amber-600">DNL: {item.scadenzaDNL}</span>}
+                        {item.scadenzaSuoloPubblico && <span className="text-[9px] font-bold text-indigo-600">Suolo: {item.scadenzaSuoloPubblico}</span>}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -515,6 +565,7 @@ const App: React.FC = () => {
             { id: 'personale', label: 'Personale', icon: <Icons.Personale /> },
             { id: 'mezzo', label: 'Mezzi', icon: <Icons.Mezzi /> },
             { id: 'documento', label: 'Archivio', icon: <Icons.Documenti /> },
+            { id: 'calcolatore', label: 'Calcolatore', icon: <Icons.Calculator /> },
             { id: 'impostazioni', label: 'Setup', icon: <Icons.Settings /> },
           ].map(item => (
             <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'}`}>
@@ -546,7 +597,9 @@ const App: React.FC = () => {
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
           {activeTab === 'dashboard' ? renderDashboard() : 
-           activeTab === 'impostazioni' ? renderSettings() : renderList(activeTab)}
+           activeTab === 'impostazioni' ? renderSettings() : 
+           activeTab === 'calcolatore' ? <GaraCalculator /> :
+           renderList(activeTab)}
         </div>
       </main>
 

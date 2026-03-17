@@ -98,6 +98,16 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Data Consegna Prevista</label>
                    <input required type="date" name="scadenza" onChange={handleInputChange} className={inputClasses} />
                 </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza DNL</label>
+                    <input type="date" name="scadenzaDNL" onChange={handleInputChange} className={inputClasses} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza Suolo Pubblico</label>
+                    <input type="date" name="scadenzaSuoloPubblico" onChange={handleInputChange} className={inputClasses} />
+                  </div>
+                </div>
               </>
             )}
             {selectedType === 'personale' && (

@@ -143,6 +143,14 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
                   <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Data Inizio Lavori</label>
                   <input type="date" name="dataInizio" value={formData.dataInizio || ''} onChange={handleInputChange} className={inputBaseClasses} />
                 </div>
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Scadenza DNL</label>
+                  <input type="date" name="scadenzaDNL" value={formData.scadenzaDNL || ''} onChange={handleInputChange} className={inputBaseClasses} />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Scadenza Suolo Pubblico</label>
+                  <input type="date" name="scadenzaSuoloPubblico" value={formData.scadenzaSuoloPubblico || ''} onChange={handleInputChange} className={inputBaseClasses} />
+                </div>
                 <div className="col-span-full bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm flex flex-col md:flex-row items-center gap-6">
                    <div className="flex-1 space-y-2 w-full">
                       <div className="flex justify-between items-center">

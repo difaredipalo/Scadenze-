@@ -38,6 +38,8 @@ export interface Cantiere {
   direttoreLavori?: string;
   dataInizio?: string;
   scadenza: string;
+  scadenzaDNL?: string;
+  scadenzaSuoloPubblico?: string;
   stato: CantiereStato;
   progresso: number;
   importoTotale: number;
