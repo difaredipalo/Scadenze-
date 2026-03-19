@@ -405,6 +405,7 @@ const App: React.FC = () => {
           {items.map((item: any) => (
             <div key={item.id} onClick={() => {
               if (type==='cantiere') setSelectedCantiere(item);
+              if (type==='personale') setSelectedPersonale(item);
               if (type==='mezzo') setSelectedMezzo(item);
               if (type==='documento') setSelectedDocumento(item);
             }} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
