@@ -11,11 +11,11 @@
   },
   "dependencies": {
     "@google/genai": "1.42.0",
+    "jspdf": "2.5.2",
+    "jspdf-autotable": "3.8.2",
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "recharts": "2.15.0",
-    "jspdf": "2.5.2",
-    "jspdf-autotable": "3.8.2",
     "xlsx": "0.18.5"
   },
   "devDependencies": {

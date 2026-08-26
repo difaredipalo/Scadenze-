@@ -1,7 +1,7 @@
 
 export type EntityType = 'cantiere' | 'personale' | 'mezzo' | 'documento';
 export type CantiereStato = 'aperto' | 'chiuso' | 'in pausa' | 'in apertura';
-export type MezzoStato = 'disponibile' | 'in_uso' | 'manutenzione';
+export type MezzoStato = 'disponibile' | 'non in uso' | 'manutenzione';
 
 export interface Tecnico {
   nome: string;
@@ -22,6 +22,15 @@ export interface SAL {
   importo: number;
 }
 
+export interface ExtraCantiere {
+  id: string;
+  titolo: string;
+  descrizione: string;
+  importo: number;
+  data?: string;
+  stato?: 'approvato' | 'in attesa' | 'fatturato';
+}
+
 export interface Subappalto {
   id: string;
   azienda: string;
@@ -37,6 +46,7 @@ export interface Cantiere {
   indirizzo?: string;
   direttoreLavori?: string;
   dataInizio?: string;
+  dataConsegna?: string;
   scadenza: string;
   scadenzaDNL?: string;
   scadenzaSuoloPubblico?: string;
@@ -47,6 +57,7 @@ export interface Cantiere {
   tecnici: Tecnico[];
   checklistDocumenti: ChecklistItem[];
   salList: SAL[];
+  extraList?: ExtraCantiere[];
   subappalti: Subappalto[];
 }
 

@@ -1,5 +1,8 @@
 {
   "name": "Scadenze +",
-  "description": "Un sistema di gestione professionale per monitorare scadenze di cantieri, personale, mezzi e documentazione tecnica.",
-  "requestFramePermissions": []
+  "description": "Sistema di gestione professionale per monitorare scadenze di cantieri, personale, mezzi e documenti tecnici con calcolatore gare e analisi AI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

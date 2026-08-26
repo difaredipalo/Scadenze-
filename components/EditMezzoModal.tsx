@@ -74,10 +74,10 @@ const EditMezzoModal: React.FC<EditMezzoModalProps> = ({ isOpen, mezzo, onClose,
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-widest">Stato Veicolo</label>
-                  <select name="stato" value={formData.stato} onChange={handleInputChange} className={inputClasses}>
+                  <select name="stato" value={formData.stato || 'disponibile'} onChange={handleInputChange} className={inputClasses}>
                     <option value="disponibile">Disponibile</option>
-                    <option value="in_uso">In Uso</option>
-                    <option value="manutenzione">In Manutenzione</option>
+                    <option value="non in uso">Non in uso</option>
+                    <option value="manutenzione">Manutenzione</option>
                   </select>
                 </div>
               </div>

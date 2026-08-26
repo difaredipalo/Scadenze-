@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Cantiere, CantiereStato, Tecnico, ChecklistItem, SAL, Subappalto } from '../types';
+import { Cantiere, CantiereStato, Tecnico, ChecklistItem, SAL, Subappalto, ExtraCantiere } from '../types';
 
 interface EditCantiereModalProps {
   isOpen: boolean;
@@ -9,7 +9,7 @@ interface EditCantiereModalProps {
   onSave: (updated: Cantiere) => void;
 }
 
-type TabType = 'generale' | 'tecnici' | 'documenti' | 'sal' | 'subappalti';
+type TabType = 'generale' | 'extra' | 'sal' | 'subappalti' | 'tecnici' | 'documenti';
 
 const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere, onClose, onSave }) => {
   const [formData, setFormData] = useState<Partial<Cantiere>>({});
@@ -22,20 +22,26 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
         tecnici: cantiere.tecnici || [],
         checklistDocumenti: cantiere.checklistDocumenti || [],
         salList: cantiere.salList || [],
+        extraList: cantiere.extraList || [],
         subappalti: cantiere.subappalti || [],
         importoTotale: cantiere.importoTotale || 0,
       });
     }
   }, [cantiere]);
 
+  // Total Extra Calculation
+  const totalExtra = useMemo(() => {
+    return (formData.extraList || []).reduce((acc, curr) => acc + (Number(curr.importo) || 0), 0);
+  }, [formData.extraList]);
+
   // Automatic Progress Calculation
   const calculatedProgresso = useMemo(() => {
     const totalSAL = (formData.salList || []).reduce((acc, curr) => acc + (Number(curr.importo) || 0), 0);
-    const totalCantiere = Number(formData.importoTotale) || 0;
+    const totalCantiere = (Number(formData.importoTotale) || 0) + totalExtra;
     if (totalCantiere <= 0) return 0;
     const progress = Math.min(100, Math.round((totalSAL / totalCantiere) * 100));
     return progress;
-  }, [formData.salList, formData.importoTotale]);
+  }, [formData.salList, formData.importoTotale, totalExtra]);
 
   if (!isOpen || !cantiere) return null;
 
@@ -105,10 +111,20 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
         {/* Tabs Bar */}
         <div className="px-8 py-4 flex gap-3 overflow-x-auto custom-scrollbar bg-white border-b border-slate-50">
           <button onClick={() => setActiveTab('generale')} className={tabClasses('generale')}>Generale</button>
-          <button onClick={() => setActiveTab('tecnici')} className={tabClasses('tecnici')}>Tecnici</button>
-          <button onClick={() => setActiveTab('documenti')} className={tabClasses('documenti')}>Documentazione</button>
+          <button onClick={() => setActiveTab('extra')} className={tabClasses('extra')}>
+            <span className="flex items-center gap-2">
+              <span>Extra / Varianti</span>
+              {formData.extraList && formData.extraList.length > 0 && (
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'extra' ? 'bg-white text-blue-600' : 'bg-amber-100 text-amber-800'}`}>
+                  {formData.extraList.length}
+                </span>
+              )}
+            </span>
+          </button>
           <button onClick={() => setActiveTab('sal')} className={tabClasses('sal')}>SAL (Avanzamento)</button>
           <button onClick={() => setActiveTab('subappalti')} className={tabClasses('subappalti')}>Subappalti</button>
+          <button onClick={() => setActiveTab('tecnici')} className={tabClasses('tecnici')}>Tecnici</button>
+          <button onClick={() => setActiveTab('documenti')} className={tabClasses('documenti')}>Documentazione</button>
         </div>
 
         {/* Content */}
@@ -136,12 +152,24 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
                   </select>
                 </div>
                 <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Direttore Lavori</label>
+                  <input name="direttoreLavori" value={formData.direttoreLavori || ''} onChange={handleInputChange} className={inputBaseClasses} placeholder="Es: Arch. Bianchi" />
+                </div>
+                <div className="space-y-3">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Indirizzo Cantiere</label>
                   <input name="indirizzo" value={formData.indirizzo || ''} onChange={handleInputChange} className={inputBaseClasses} placeholder="Es: Via Roma 1, Milano" />
                 </div>
                 <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Data Consegna Cantiere</label>
+                  <input type="date" name="dataConsegna" value={formData.dataConsegna || ''} onChange={handleInputChange} className={inputBaseClasses} />
+                </div>
+                <div className="space-y-3">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Data Inizio Lavori</label>
                   <input type="date" name="dataInizio" value={formData.dataInizio || ''} onChange={handleInputChange} className={inputBaseClasses} />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Scadenza / Fine Lavori</label>
+                  <input required type="date" name="scadenza" value={formData.scadenza || ''} onChange={handleInputChange} className={inputBaseClasses} />
                 </div>
                 <div className="space-y-3">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Scadenza DNL</label>
@@ -168,6 +196,153 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
                 <div className="col-span-full space-y-3">
                   <label className="text-xs font-black text-slate-400 uppercase tracking-[0.2em]">Note di Progetto</label>
                   <textarea name="note" value={formData.note || ''} onChange={handleInputChange} rows={3} className={inputBaseClasses} placeholder="Annotazioni interne..." />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'extra' && (
+              <div className="space-y-8 animate-in fade-in slide-in-from-top-2 duration-300">
+                {/* Extra Summary Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white p-5 rounded-3xl border-2 border-slate-100 shadow-sm">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Contratto Base</p>
+                    <p className="text-2xl font-black text-slate-800 mt-1">
+                      € {(Number(formData.importoTotale) || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="bg-amber-500/10 p-5 rounded-3xl border-2 border-amber-200 shadow-sm">
+                    <div className="flex justify-between items-center">
+                      <p className="text-[10px] font-black text-amber-800 uppercase tracking-widest">Totale Lavori Extra</p>
+                      <span className="px-2 py-0.5 bg-amber-500 text-white rounded-lg text-[10px] font-black">
+                        {formData.extraList?.length || 0} Registrati
+                      </span>
+                    </div>
+                    <p className="text-2xl font-black text-amber-600 mt-1">
+                      + € {totalExtra.toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                  <div className="bg-slate-900 text-white p-5 rounded-3xl shadow-lg border border-slate-800">
+                    <p className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Totale Progetto (Base + Extra)</p>
+                    <p className="text-2xl font-black text-white mt-1">
+                      € {((Number(formData.importoTotale) || 0) + totalExtra).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Header & Add Button */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-2">
+                  <div>
+                    <h3 className="text-xl font-black text-slate-900 tracking-tight">Registro Lavori Extra & Varianti</h3>
+                    <p className="text-xs text-slate-400 font-bold mt-1">Aggiungi gli extra (Extra 1, Extra 2, Extra 3...) con descrizione e relativo importo</p>
+                  </div>
+                  <button 
+                    type="button" 
+                    onClick={() => {
+                      const nextNum = (formData.extraList?.length || 0) + 1;
+                      addArrayItem('extraList', {
+                        id: Math.random().toString(36).substr(2, 9),
+                        titolo: `Extra ${nextNum}`,
+                        descrizione: '',
+                        importo: 0,
+                        data: new Date().toISOString().split('T')[0],
+                        stato: 'approvato'
+                      });
+                    }} 
+                    className="bg-amber-500 text-white px-6 py-3 rounded-2xl font-black text-xs hover:bg-amber-600 shadow-lg shadow-amber-500/20 transition-all flex items-center gap-2 hover:scale-105 active:scale-95"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5v14"/></svg> 
+                    + AGGIUNGI EXTRA
+                  </button>
+                </div>
+
+                {/* Extra List */}
+                <div className="space-y-4">
+                  {formData.extraList?.map((extra, idx) => (
+                    <div key={extra.id || idx} className="p-6 md:p-8 bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm space-y-5 transition-all hover:border-amber-200">
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                        <div className="md:col-span-3 space-y-2">
+                          <label className="text-[10px] font-black text-amber-600 uppercase tracking-widest flex items-center gap-1.5">
+                            <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+                            Identificativo
+                          </label>
+                          <input 
+                            placeholder={`Es: Extra ${idx + 1}`} 
+                            value={extra.titolo} 
+                            onChange={e => updateArrayItem('extraList', idx, { titolo: e.target.value })} 
+                            className={inputBaseClasses} 
+                          />
+                        </div>
+
+                        <div className="md:col-span-3 space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Registrazione</label>
+                          <input 
+                            type="date" 
+                            value={extra.data || ''} 
+                            onChange={e => updateArrayItem('extraList', idx, { data: e.target.value })} 
+                            className={inputBaseClasses} 
+                          />
+                        </div>
+
+                        <div className="md:col-span-3 space-y-2">
+                          <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Stato Extra</label>
+                          <select 
+                            value={extra.stato || 'approvato'} 
+                            onChange={e => updateArrayItem('extraList', idx, { stato: e.target.value })} 
+                            className={inputBaseClasses}
+                          >
+                            <option value="approvato">Approvato</option>
+                            <option value="in attesa">In attesa</option>
+                            <option value="fatturato">Fatturato</option>
+                          </select>
+                        </div>
+
+                        <div className="md:col-span-3 space-y-2">
+                          <label className="text-[10px] font-black text-slate-900 uppercase tracking-widest">Importo (€)</label>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number" 
+                              step="0.01" 
+                              placeholder="0.00" 
+                              value={extra.importo || ''} 
+                              onChange={e => updateArrayItem('extraList', idx, { importo: parseFloat(e.target.value) || 0 })} 
+                              className={inputBaseClasses + " font-black text-amber-600"} 
+                            />
+                            <button 
+                              type="button" 
+                              onClick={() => removeArrayItem('extraList', extra.id)} 
+                              title="Elimina questo extra"
+                              className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2 pt-2 border-t border-slate-50">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Descrizione del lavoro extra</label>
+                        <textarea 
+                          rows={2}
+                          placeholder="Descrivi dettagliatamente le lavorazioni aggiuntive, le modifiche richieste dal committente o i materiali extra..." 
+                          value={extra.descrizione || ''} 
+                          onChange={e => updateArrayItem('extraList', idx, { descrizione: e.target.value })} 
+                          className={inputBaseClasses + " font-medium text-sm"} 
+                        />
+                      </div>
+                    </div>
+                  ))}
+
+                  {(!formData.extraList || formData.extraList.length === 0) && (
+                    <div className="p-12 text-center bg-white rounded-[2rem] border-2 border-dashed border-slate-200 space-y-3">
+                      <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mx-auto text-xl font-black">
+                        +€
+                      </div>
+                      <p className="text-slate-700 font-black text-base">Nessun lavoro extra registrato per questo cantiere</p>
+                      <p className="text-slate-400 text-xs font-medium max-w-md mx-auto">
+                        Durante l'esecuzione dei lavori emergono spesso varianti o opere accessorie. Clicca su "+ AGGIUNGI EXTRA" per catalogare Extra 1, Extra 2, Extra 3 con descrizione e importo.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

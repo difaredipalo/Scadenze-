@@ -35,6 +35,7 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
       finalData.tecnici = [];
       finalData.checklistDocumenti = [];
       finalData.salList = [];
+      finalData.extraList = [];
       finalData.subappalti = [];
       finalData.progresso = 0;
       finalData.stato = 'in apertura';
@@ -42,7 +43,7 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
     }
     if (selectedType === 'mezzo') {
       finalData.storicoManutenzioni = [];
-      finalData.stato = 'disponibile';
+      if (!finalData.stato) finalData.stato = 'disponibile';
     }
     onAdd(selectedType, { ...finalData, id: Math.random().toString(36).substr(2, 9) });
     onClose();
@@ -94,9 +95,17 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
               <>
                 <input required name="nome" placeholder="Nome Cantiere" onChange={handleInputChange} className={inputClasses} />
                 <input required name="cliente" placeholder="Cliente Committente" onChange={handleInputChange} className={inputClasses} />
-                <div className="space-y-2">
-                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Data Consegna Prevista</label>
-                   <input required type="date" name="scadenza" onChange={handleInputChange} className={inputClasses} />
+                <input name="direttoreLavori" placeholder="Direttore dei Lavori (opzionale)" onChange={handleInputChange} className={inputClasses} />
+                <input name="indirizzo" placeholder="Indirizzo Cantiere (opzionale)" onChange={handleInputChange} className={inputClasses} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Data Consegna Cantiere</label>
+                    <input type="date" name="dataConsegna" onChange={handleInputChange} className={inputClasses} />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza / Fine Lavori</label>
+                    <input required type="date" name="scadenza" onChange={handleInputChange} className={inputClasses} />
+                  </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-2">
@@ -153,6 +162,14 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
               <>
                 <input required name="modello" placeholder="Modello Veicolo / Macchinario" onChange={handleInputChange} className={inputClasses} />
                 <input required name="targa" placeholder="Targa o Matricola" onChange={handleInputChange} className={inputClasses} />
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Stato Operativo</label>
+                  <select name="stato" onChange={handleInputChange} className={inputClasses} defaultValue="disponibile">
+                    <option value="disponibile">Disponibile</option>
+                    <option value="non in uso">Non in uso</option>
+                    <option value="manutenzione">Manutenzione</option>
+                  </select>
+                </div>
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza Assicurazione</label>
                   <input required type="date" name="scadenzaAssicurazione" onChange={handleInputChange} className={inputClasses} />
