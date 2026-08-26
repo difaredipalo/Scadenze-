@@ -10,7 +10,7 @@ import EditMezzoModal from './components/EditMezzoModal';
 import EditDocumentoModal from './components/EditDocumentoModal';
 import GaraCalculator from './components/GaraCalculator';
 import Login from './components/Login';
-import { getInsights } from './services/geminiService';
+import { getInsights, getGeminiApiKey, saveGeminiApiKey } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -107,6 +107,24 @@ const App: React.FC = () => {
   const [selectedPersonale, setSelectedPersonale] = useState<Personale | null>(null);
   const [selectedMezzo, setSelectedMezzo] = useState<Mezzo | null>(null);
   const [selectedDocumento, setSelectedDocumento] = useState<Documento | null>(null);
+
+  // Gemini AI State
+  const [geminiKeyInput, setGeminiKeyInput] = useState(() => getGeminiApiKey());
+  const [isTestingGemini, setIsTestingGemini] = useState(false);
+
+  const handleSaveGeminiKey = async () => {
+    saveGeminiApiKey(geminiKeyInput);
+    setIsTestingGemini(true);
+    try {
+      const result = await getInsights(data);
+      setAiInsight(result);
+      showCloudToast('success', 'Gemini AI collegato e funzionante con successo!');
+    } catch (err: any) {
+      showCloudToast('error', 'Errore durante la verifica della chiave Gemini.');
+    } finally {
+      setIsTestingGemini(false);
+    }
+  };
 
   // Supabase Cloud State
   const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(() => getSupabaseConfig());
@@ -866,9 +884,34 @@ const App: React.FC = () => {
           </div>
 
           <div className="bg-slate-900 text-white p-8 rounded-[2.5rem] flex flex-col shadow-2xl relative overflow-hidden">
-            <div className="relative z-10">
-              <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.3em] mb-6">Gemini AI Assistant</h3>
-              <p className="text-lg font-medium italic text-slate-200 leading-relaxed mb-8">"{aiInsight}"</p>
+            <div className="relative z-10 flex-1 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-xs font-black text-blue-400 uppercase tracking-[0.3em] flex items-center gap-2">
+                    <Icons.AI /> Gemini AI Assistant
+                  </h3>
+                  <button 
+                    onClick={async () => {
+                      setAiInsight('Analisi in corso...');
+                      const res = await getInsights(data);
+                      setAiInsight(res);
+                    }} 
+                    title="Rianalizza con l'AI"
+                    className="p-2 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition-colors"
+                  >
+                    <Icons.Sync />
+                  </button>
+                </div>
+                <p className="text-base font-medium italic text-slate-200 leading-relaxed mb-6">"{aiInsight}"</p>
+                {aiInsight.includes('Configura la tua API Key') && (
+                  <button
+                    onClick={() => setActiveTab('impostazioni')}
+                    className="mb-6 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                  >
+                    ⚙️ Configura API Key in Impostazioni
+                  </button>
+                )}
+              </div>
               <div className="pt-6 border-t border-slate-800 space-y-4">
                  <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Focus Urgenti</p>
                  <div className="space-y-3 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
@@ -1651,6 +1694,50 @@ const App: React.FC = () => {
             </div>
           </div>
           
+          {/* ================= GEMINI AI ASSISTANT ================= */}
+          <div className="pt-8 border-t border-slate-50 dark:border-slate-800">
+             <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                   <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl">
+                      <Icons.AI />
+                   </div>
+                   <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Gemini AI Assistant</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Analisi predittiva scadenze & consigli operativi</p>
+                   </div>
+                </div>
+                <div className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                  geminiKeyInput ? 'bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300' : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${geminiKeyInput ? 'bg-blue-500 animate-pulse' : 'bg-slate-400'}`} />
+                  {geminiKeyInput ? 'Configurato' : 'Non Configurato'}
+                </div>
+             </div>
+
+             <div className="space-y-4">
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Google Gemini API Key</label>
+                   <input 
+                     type="password" 
+                     placeholder="AIzaSy..." 
+                     value={geminiKeyInput} 
+                     onChange={(e) => setGeminiKeyInput(e.target.value)} 
+                     className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-mono text-xs font-bold text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+                   />
+                </div>
+                <button
+                  onClick={handleSaveGeminiKey}
+                  disabled={isTestingGemini}
+                  className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 disabled:opacity-50"
+                >
+                  <Icons.AI /> {isTestingGemini ? 'Test Connessione AI...' : 'Salva & Attiva Assistente AI'}
+                </button>
+             </div>
+             <p className="mt-3 text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+               Puoi ottenere una chiave gratuita su <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 underline font-bold">Google AI Studio</a> oppure impostarla come variabile d'ambiente <code>GEMINI_API_KEY</code> su Render.
+             </p>
+          </div>
+
           {/* ================= SUPABASE CLOUD DATABASE ================= */}
           <div className="pt-8 border-t border-slate-50 dark:border-slate-800">
              <div className="flex items-center justify-between mb-4">
