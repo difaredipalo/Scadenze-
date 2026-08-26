@@ -348,14 +348,34 @@ const App: React.FC = () => {
 
   const alerts = useMemo(() => {
     const today = new Date();
-    const list: { type: string; title: string; date: string; status: 'critical' | 'warning' }[] = [];
+    today.setHours(0, 0, 0, 0);
+    const list: { 
+      type: string; 
+      title: string; 
+      date: string; 
+      diffDays: number;
+      diffText: string;
+      status: 'critical' | 'warning';
+    }[] = [];
+
     const check = (dateStr: string, label: string, itemTitle: string) => {
       if (!dateStr || typeof dateStr !== 'string') return;
       const d = new Date(dateStr);
       if (isNaN(d.getTime())) return;
+      d.setHours(0, 0, 0, 0);
       const diff = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      if (diff < 0) list.push({ type: label, title: itemTitle || 'Elemento', date: dateStr, status: 'critical' });
-      else if (diff <= 30) list.push({ type: label, title: itemTitle || 'Elemento', date: dateStr, status: 'warning' });
+      
+      const diffText = diff < 0 
+        ? `Scaduto da ${Math.abs(diff)} ${Math.abs(diff) === 1 ? 'giorno' : 'giorni'}` 
+        : diff === 0 
+          ? 'Scade oggi' 
+          : `Scade tra ${diff} ${diff === 1 ? 'giorno' : 'giorni'}`;
+
+      if (diff < 0) {
+        list.push({ type: label, title: itemTitle || 'Elemento', date: dateStr, diffDays: diff, diffText, status: 'critical' });
+      } else if (diff <= 30) {
+        list.push({ type: label, title: itemTitle || 'Elemento', date: dateStr, diffDays: diff, diffText, status: 'warning' });
+      }
     };
     (data.cantieri || []).forEach(c => {
       if (!c) return;
@@ -374,13 +394,13 @@ const App: React.FC = () => {
     });
     (data.mezzi || []).forEach(m => { 
       if (!m) return;
-      check(m.scadenzaAssicurazione, 'Ass.', m.modello); 
-      check(m.prossimaRevisione, 'Rev.', m.modello); 
+      check(m.scadenzaAssicurazione, 'Assicurazione', m.modello); 
+      check(m.prossimaRevisione, 'Revisione', m.modello); 
       if (m.scadenzaVerificaPeriodica) check(m.scadenzaVerificaPeriodica, 'Verifica', m.modello);
     });
     (data.documenti || []).forEach(d => {
       if (!d) return;
-      check(d.scadenza, 'Doc.', d.titolo);
+      check(d.scadenza, 'Documento', d.titolo);
     });
     return list.sort((a, b) => (new Date(a.date).getTime() || 0) - (new Date(b.date).getTime() || 0));
   }, [data]);
@@ -389,10 +409,14 @@ const App: React.FC = () => {
     const doc = new jsPDF();
     doc.setFontSize(20);
     doc.text(`REPORT ${type.toUpperCase()} - ${data.settings.nomeAzienda}`, 14, 20);
-    let head = [], body = [];
+    let head: string[][] = [], body: any[][] = [];
     if (type === 'dashboard') {
-      head = [['Tipo', 'Oggetto', 'Scadenza', 'Urgenza']];
-      body = alerts.map(a => [a.type, a.title, a.date, a.status]);
+      head = [['Tipo', 'Oggetto', 'Data Scadenza', 'Scade tra', 'Urgenza']];
+      body = alerts.map(a => {
+        const d = new Date(a.date);
+        const formattedDate = !isNaN(d.getTime()) ? d.toLocaleDateString('it-IT') : a.date;
+        return [a.type, a.title, formattedDate, a.diffText, ''];
+      });
     } else if (type === 'cantiere') {
       head = [['Nome', 'Cliente', 'Scadenza', 'Stato']];
       body = filteredData.cantieri.map(c => [c.nome, c.cliente, c.scadenza, c.stato]);
@@ -406,7 +430,27 @@ const App: React.FC = () => {
       head = [['Titolo', 'Ente', 'Scadenza', 'Priorità']];
       body = filteredData.documenti.map(d => [d.titolo, d.ente, d.scadenza, d.priorita]);
     }
-    (doc as any).autoTable({ startY: 30, head, body, theme: 'grid', headStyles: { fillColor: [15, 23, 42] } });
+    (doc as any).autoTable({ 
+      startY: 30, 
+      head, 
+      body, 
+      theme: 'grid', 
+      headStyles: { fillColor: [15, 23, 42] },
+      didParseCell: (dataCell: any) => {
+        if (type === 'dashboard' && dataCell.section === 'body') {
+          const alertItem = alerts[dataCell.row.index];
+          if (alertItem && dataCell.column.index === 4) {
+            // Colonna Urgenza: nessun testo scritto, solo colore rosso per critico e giallo per warning
+            dataCell.cell.text = '';
+            if (alertItem.status === 'critical') {
+              dataCell.cell.styles.fillColor = [239, 68, 68]; // Rosso
+            } else if (alertItem.status === 'warning') {
+              dataCell.cell.styles.fillColor = [245, 158, 11]; // Giallo
+            }
+          }
+        }
+      }
+    });
     doc.save(`Export_${type}_${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
@@ -942,15 +986,20 @@ const App: React.FC = () => {
                 )}
               </div>
               <div className="pt-6 border-t border-slate-800 space-y-4">
-                 <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Focus Urgenti</p>
+                 <div className="flex items-center justify-between">
+                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Focus Urgenti</p>
+                   <span className="text-[9px] font-black text-slate-400 uppercase">Scade tra</span>
+                 </div>
                  <div className="space-y-3 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
                    {alerts.slice(0, 5).map((a, i) => (
                      <div key={i} className="flex items-center justify-between text-xs">
                        <div className="flex items-center gap-2">
-                          <div className={`w-1.5 h-1.5 rounded-full ${a.status==='critical'?'bg-red-500':'bg-amber-500'}`} />
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${a.status==='critical'?'bg-red-500 shadow-sm shadow-red-500/50':'bg-amber-500 shadow-sm shadow-amber-500/50'}`} />
                           <span className="font-bold text-slate-300 truncate max-w-[120px]">{a.title}</span>
                        </div>
-                       <span className="text-[10px] text-slate-500 font-black">{new Date(a.date).toLocaleDateString()}</span>
+                       <span className={`text-[10px] font-black ${a.status==='critical'?'text-red-400':'text-amber-400'}`}>
+                         {a.diffText}
+                       </span>
                      </div>
                    ))}
                    {alerts.length === 0 && (
@@ -961,6 +1010,92 @@ const App: React.FC = () => {
             </div>
             <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[80px] rounded-full -mr-32 -mt-32"></div>
           </div>
+        </div>
+
+        {/* ================= REPORT SCADENZE DASHBOARD ================= */}
+        <div className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+            <div>
+              <div className="flex items-center gap-3">
+                <h3 className="text-xl font-black uppercase tracking-tight text-slate-900 dark:text-white">
+                  Report Scadenze & Monitoraggio
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-black bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400">
+                  {alerts.length}
+                </span>
+              </div>
+              <p className="text-xs font-medium text-slate-400 mt-1 flex items-center gap-2 flex-wrap">
+                <span>Legenda urgenza:</span>
+                <span className="inline-flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> Critico / Scaduto
+                </span>
+                <span className="text-slate-300 dark:text-slate-700">•</span>
+                <span className="inline-flex items-center gap-1 font-bold text-slate-600 dark:text-slate-300">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 inline-block" /> In Scadenza (entro 30gg)
+                </span>
+              </p>
+            </div>
+            <button 
+              onClick={() => exportToPdf('dashboard')} 
+              className="flex items-center gap-2 px-4 py-2.5 bg-slate-900 dark:bg-blue-600 hover:bg-blue-600 dark:hover:bg-blue-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm"
+            >
+              <Icons.Pdf /> ESPORTA REPORT PDF
+            </button>
+          </div>
+
+          {alerts.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 dark:text-slate-500">
+              <p className="text-sm font-bold">Nessuna scadenza critica o imminente rilevata nei prossimi 30 giorni.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-100 dark:border-slate-800 text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                    <th className="pb-3 px-3">Tipo</th>
+                    <th className="pb-3 px-3">Oggetto / Elemento</th>
+                    <th className="pb-3 px-3">Data Scadenza</th>
+                    <th className="pb-3 px-3">Scade tra</th>
+                    <th className="pb-3 px-3 text-center">Urgenza</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60 font-medium">
+                  {alerts.map((a, i) => (
+                    <tr key={i} className="hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
+                      <td className="py-3.5 px-3 font-bold text-slate-700 dark:text-slate-200">
+                        <span className="px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-black text-slate-600 dark:text-slate-300">
+                          {a.type}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3 font-black text-slate-900 dark:text-white">
+                        {a.title}
+                      </td>
+                      <td className="py-3.5 px-3 font-mono font-bold text-slate-600 dark:text-slate-300">
+                        {new Date(a.date).toLocaleDateString('it-IT')}
+                      </td>
+                      <td className="py-3.5 px-3 font-bold">
+                        <span className={`px-2.5 py-1 rounded-md text-[11px] font-black ${
+                          a.status === 'critical'
+                            ? 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400'
+                            : 'bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400'
+                        }`}>
+                          {a.diffText}
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <span 
+                          title={a.status === 'critical' ? 'Critico' : 'Warning'}
+                          className={`inline-block w-3.5 h-3.5 rounded-full ${
+                            a.status === 'critical' ? 'bg-red-500' : 'bg-amber-500'
+                          }`}
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       </div>
     );
