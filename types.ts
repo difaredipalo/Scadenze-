@@ -99,6 +99,7 @@ export interface Mezzo {
   scadenzaBollo?: string;
   scadenzaVerificaPeriodica?: string;
   stato: MezzoStato;
+  note?: string;
   storicoManutenzioni: Manutenzione[];
 }
 

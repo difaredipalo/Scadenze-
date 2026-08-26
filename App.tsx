@@ -15,6 +15,15 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
+import {
+  getSupabaseConfig,
+  saveSupabaseConfig,
+  checkSupabaseConnection,
+  fetchAllDataFromSupabase,
+  syncAllDataToSupabase,
+  getSupabaseSQLSchema,
+  SupabaseConfig,
+} from './services/supabaseService';
 
 const INITIAL_DATA: AppData = {
   cantieri: [
@@ -98,6 +107,107 @@ const App: React.FC = () => {
   const [selectedPersonale, setSelectedPersonale] = useState<Personale | null>(null);
   const [selectedMezzo, setSelectedMezzo] = useState<Mezzo | null>(null);
   const [selectedDocumento, setSelectedDocumento] = useState<Documento | null>(null);
+
+  // Supabase Cloud State
+  const [supabaseConfig, setSupabaseConfig] = useState<SupabaseConfig>(() => getSupabaseConfig());
+  const [supabaseStatus, setSupabaseStatus] = useState<{
+    connected: boolean;
+    checking: boolean;
+    message: string;
+    latencyMs?: number;
+  }>({
+    connected: false,
+    checking: false,
+    message: 'Non verificato',
+  });
+  const [isSyncingToCloud, setIsSyncingToCloud] = useState(false);
+  const [isPullingFromCloud, setIsPullingFromCloud] = useState(false);
+  const [lastCloudSync, setLastCloudSync] = useState<string | null>(() => localStorage.getItem('scadenze_last_cloud_sync'));
+  const [cloudToast, setCloudToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+
+  const showCloudToast = (type: 'success' | 'error' | 'info', message: string) => {
+    setCloudToast({ type, message });
+    setTimeout(() => {
+      setCloudToast(null);
+    }, 4500);
+  };
+
+  const verifySupabaseConnection = async (customConfig?: SupabaseConfig, silent = false) => {
+    if (customConfig) {
+      saveSupabaseConfig(customConfig);
+      setSupabaseConfig(customConfig);
+    }
+    setSupabaseStatus(prev => ({ ...prev, checking: true }));
+    const res = await checkSupabaseConnection();
+    setSupabaseStatus({
+      connected: res.ok,
+      checking: false,
+      message: res.message,
+      latencyMs: res.latencyMs,
+    });
+    if (!silent) {
+      if (res.ok) {
+        showCloudToast('success', res.message);
+      } else {
+        showCloudToast('error', res.message);
+      }
+    }
+    return res.ok;
+  };
+
+  // Check Supabase connection on mount
+  useEffect(() => {
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.anonKey) {
+      verifySupabaseConnection(cfg, true);
+    }
+  }, []);
+
+  const handleSyncToSupabase = async () => {
+    setIsSyncingToCloud(true);
+    const res = await syncAllDataToSupabase(data);
+    setIsSyncingToCloud(false);
+    if (res.ok) {
+      const nowStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setLastCloudSync(nowStr);
+      localStorage.setItem('scadenze_last_cloud_sync', nowStr);
+      setSupabaseStatus(prev => ({ ...prev, connected: true, message: 'Connessione attiva e sincronizzata' }));
+      showCloudToast('success', 'Tutti i dati sono stati sincronizzati con successo sul database Supabase!');
+    } else {
+      showCloudToast('error', res.message);
+    }
+  };
+
+  const handlePullFromSupabase = async () => {
+    setIsPullingFromCloud(true);
+    const res = await fetchAllDataFromSupabase();
+    setIsPullingFromCloud(false);
+    if (res.data) {
+      setData(prev => ({
+        ...prev,
+        ...res.data,
+        settings: {
+          ...prev.settings,
+          ...(res.data?.settings || {}),
+        }
+      }));
+      const nowStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setLastCloudSync(nowStr);
+      localStorage.setItem('scadenze_last_cloud_sync', nowStr);
+      showCloudToast('success', 'Dati scaricati e ripristinati con successo dal database Supabase!');
+    } else {
+      showCloudToast('error', res.error || 'Nessun dato trovato da scaricare');
+    }
+  };
+
+  const handleCopySupabaseSql = () => {
+    const sql = getSupabaseSQLSchema();
+    navigator.clipboard.writeText(sql);
+    setCopiedSql(true);
+    showCloudToast('success', 'Script SQL copiato negli appunti! Incollalo nel SQL Editor di Supabase.');
+    setTimeout(() => setCopiedSql(false), 4000);
+  };
 
   // Salvataggio automatico su localStorage e gestione tema
   useEffect(() => {
@@ -1541,6 +1651,116 @@ const App: React.FC = () => {
             </div>
           </div>
           
+          {/* ================= SUPABASE CLOUD DATABASE ================= */}
+          <div className="pt-8 border-t border-slate-50 dark:border-slate-800">
+             <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                   <div className="p-2.5 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
+                      <Icons.Database />
+                   </div>
+                   <div>
+                      <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Database Cloud Supabase</h4>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase">Sincronizzazione Real-Time & Cloud PostgreSQL</p>
+                   </div>
+                </div>
+
+                {/* Status Badge */}
+                <div className={`px-3 py-1 rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 ${
+                  supabaseStatus.connected ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' :
+                  supabaseStatus.checking ? 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300' :
+                  'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                }`}>
+                  <span className={`w-2 h-2 rounded-full ${
+                    supabaseStatus.connected ? 'bg-emerald-500 animate-pulse' :
+                    supabaseStatus.checking ? 'bg-amber-500 animate-ping' :
+                    'bg-slate-400'
+                  }`} />
+                  {supabaseStatus.checking ? 'Verifica in corso...' :
+                   supabaseStatus.connected ? `Connesso (${supabaseStatus.latencyMs || 0}ms)` :
+                   'Non Connesso'}
+                </div>
+             </div>
+
+             {/* Connection Status Message */}
+             <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 mb-6 text-xs font-bold text-slate-600 dark:text-slate-300">
+                <p className="flex items-center justify-between">
+                   <span>Stato: <strong className="text-slate-900 dark:text-white">{supabaseStatus.message}</strong></span>
+                   {lastCloudSync && (
+                     <span className="text-[10px] text-slate-400 uppercase">Ultimo sync: {lastCloudSync}</span>
+                   )}
+                </p>
+             </div>
+
+             {/* Credentials Form */}
+             <div className="space-y-4 mb-6">
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supabase Project URL</label>
+                   <input 
+                     type="text" 
+                     placeholder="https://xyzcompany.supabase.co" 
+                     value={supabaseConfig.url} 
+                     onChange={(e) => setSupabaseConfig({ ...supabaseConfig, url: e.target.value })} 
+                     className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-mono text-xs font-bold text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-all" 
+                   />
+                </div>
+                <div className="space-y-1.5">
+                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supabase Anon Public API Key</label>
+                   <input 
+                     type="password" 
+                     placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." 
+                     value={supabaseConfig.anonKey} 
+                     onChange={(e) => setSupabaseConfig({ ...supabaseConfig, anonKey: e.target.value })} 
+                     className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-mono text-xs font-bold text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-all" 
+                   />
+                </div>
+                <div className="flex gap-3">
+                   <button
+                     onClick={() => verifySupabaseConnection(supabaseConfig, false)}
+                     disabled={supabaseStatus.checking}
+                     className="flex-1 py-3 bg-slate-900 dark:bg-slate-750 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-emerald-600 transition-all flex items-center justify-center gap-2 shadow-sm"
+                   >
+                     <Icons.Sync /> Salva & Verifica Connessione
+                   </button>
+                   <button
+                     onClick={handleCopySupabaseSql}
+                     className="py-3 px-4 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-100 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 border border-blue-200 dark:border-blue-800"
+                   >
+                     <Icons.Copy /> {copiedSql ? '✓ Copiato!' : 'Copia Schema SQL'}
+                   </button>
+                </div>
+             </div>
+
+             {/* Cloud Actions Buttons */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <button 
+                  onClick={handleSyncToSupabase} 
+                  disabled={isSyncingToCloud}
+                  className="flex items-center justify-center gap-2 p-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-emerald-600/20 disabled:opacity-50"
+                >
+                  <Icons.Sync /> {isSyncingToCloud ? 'Sincronizzazione in corso...' : '⬆️ Invia Dati Locali a Supabase'}
+                </button>
+                <button 
+                  onClick={handlePullFromSupabase} 
+                  disabled={isPullingFromCloud}
+                  className="flex items-center justify-center gap-2 p-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-indigo-600/20 disabled:opacity-50"
+                >
+                  <Icons.Cloud /> {isPullingFromCloud ? 'Download in corso...' : '⬇️ Scarica Dati da Supabase'}
+                </button>
+             </div>
+
+             {/* Guida Rapida Configurazione */}
+             <div className="mt-6 p-4 rounded-2xl bg-blue-50/60 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 space-y-2 text-xs">
+                <p className="font-black text-blue-900 dark:text-blue-300 uppercase text-[10px] tracking-wider">
+                   📌 Come configurare Supabase in 3 passi:
+                </p>
+                <ol className="list-decimal list-inside space-y-1 text-slate-600 dark:text-slate-400 font-medium">
+                   <li>Crea un account/progetto gratuito su <a href="https://supabase.com" target="_blank" rel="noreferrer" className="text-blue-600 dark:text-blue-400 font-bold underline">supabase.com</a>.</li>
+                   <li>Clicca su <strong>"Copia Schema SQL"</strong> qui sopra e incollalo nel <em>SQL Editor</em> di Supabase, poi clicca <em>Run</em>.</li>
+                   <li>Copia da Supabase (<em>Project Settings &gt; API</em>) l'<strong>URL</strong> e la <strong>Anon Key</strong> e incollali nei campi qui sopra (oppure in <code>.env.example</code>).</li>
+                </ol>
+             </div>
+          </div>
+
           <div className="pt-8 border-t border-slate-50 dark:border-slate-800">
              <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest mb-6">Profilo Utente & Sicurezza</h4>
              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -1620,12 +1840,27 @@ const App: React.FC = () => {
           ))}
         </nav>
 
-        {/* Firma Azienda in Sidebar */}
-        <div className="p-8 border-t border-slate-50 dark:border-slate-800">
-           <div className="hidden md:block bg-slate-50 dark:bg-slate-800 p-6 rounded-3xl border border-slate-100 dark:border-slate-700">
+        {/* Firma Azienda & Stato Supabase Cloud in Sidebar */}
+        <div className="p-4 md:p-6 border-t border-slate-50 dark:border-slate-800 space-y-3">
+           <div className="hidden md:block bg-slate-50 dark:bg-slate-800 p-4 rounded-2xl border border-slate-100 dark:border-slate-700">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Impresa attiva</p>
               <p className="text-xs font-black text-slate-900 dark:text-white truncate">{data.settings.nomeAzienda}</p>
            </div>
+           <button 
+             onClick={() => setActiveTab('impostazioni')}
+             className="w-full hidden md:flex items-center justify-between p-3 rounded-2xl bg-emerald-50/70 dark:bg-emerald-950/30 border border-emerald-100 dark:border-emerald-900/40 text-emerald-800 dark:text-emerald-300 hover:bg-emerald-100/70 transition-all text-left"
+           >
+              <div className="flex items-center gap-2">
+                 <span className={`w-2 h-2 rounded-full ${supabaseStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                 <div>
+                    <p className="text-[9px] font-black uppercase tracking-wider">Supabase Cloud</p>
+                    <p className="text-[8px] font-semibold text-emerald-600 dark:text-emerald-400">
+                      {supabaseStatus.connected ? 'Attivo & Connesso' : 'Configura Cloud'}
+                    </p>
+                 </div>
+              </div>
+              <Icons.Database />
+           </button>
         </div>
       </aside>
 
@@ -1797,10 +2032,52 @@ const App: React.FC = () => {
               </div>
             )}
           </div>
-          <button onClick={() => setIsModalOpen(true)} className="bg-slate-900 dark:bg-blue-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 dark:hover:bg-blue-500 transition-all shadow-lg hover:scale-105 active:scale-95">
-            + NUOVO RECORD
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Quick Supabase Cloud Sync Button */}
+            <button 
+              onClick={handleSyncToSupabase}
+              disabled={isSyncingToCloud}
+              title={supabaseStatus.connected ? "Sincronizza subito con Supabase Cloud" : "Configura o connetti Supabase"}
+              className={`flex items-center gap-2 px-4 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-sm ${
+                supabaseStatus.connected 
+                  ? 'bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 hover:bg-emerald-100'
+                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 border border-transparent'
+              }`}
+            >
+              <span className={`w-2 h-2 rounded-full ${supabaseStatus.connected ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+              <Icons.Cloud />
+              <span className="hidden sm:inline">
+                {isSyncingToCloud ? 'Sync...' : 'Cloud Sync'}
+              </span>
+            </button>
+
+            <button onClick={() => setIsModalOpen(true)} className="bg-slate-900 dark:bg-blue-600 text-white px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-blue-600 dark:hover:bg-blue-500 transition-all shadow-lg hover:scale-105 active:scale-95">
+              + NUOVO RECORD
+            </button>
+          </div>
         </header>
+
+        {/* Global Toast Notification */}
+        {cloudToast && (
+          <div className="fixed top-6 right-6 z-50 animate-in slide-in-from-top-4 duration-300">
+            <div className={`p-4 rounded-2xl shadow-2xl border flex items-center gap-3 max-w-md text-xs font-bold ${
+              cloudToast.type === 'success' ? 'bg-emerald-600 text-white border-emerald-500 shadow-emerald-600/30' :
+              cloudToast.type === 'error' ? 'bg-rose-600 text-white border-rose-500 shadow-rose-600/30' :
+              'bg-blue-600 text-white border-blue-500 shadow-blue-600/30'
+            }`}>
+              <div className="shrink-0">
+                {cloudToast.type === 'success' ? '✓' : cloudToast.type === 'error' ? '⚠️' : 'ℹ️'}
+              </div>
+              <p className="flex-1">{cloudToast.message}</p>
+              <button 
+                onClick={() => setCloudToast(null)} 
+                className="text-white/80 hover:text-white text-sm font-black ml-2"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
           {activeTab === 'dashboard' ? renderDashboard() : 
