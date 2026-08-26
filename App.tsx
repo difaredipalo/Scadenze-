@@ -10,7 +10,7 @@ import EditMezzoModal from './components/EditMezzoModal';
 import EditDocumentoModal from './components/EditDocumentoModal';
 import GaraCalculator from './components/GaraCalculator';
 import Login from './components/Login';
-import { getInsights, getGeminiApiKey, saveGeminiApiKey } from './services/geminiService';
+import { getInsights, getGeminiApiKey, saveGeminiApiKey, testGeminiApiKey } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
@@ -116,9 +116,18 @@ const App: React.FC = () => {
     saveGeminiApiKey(geminiKeyInput);
     setIsTestingGemini(true);
     try {
+      if (geminiKeyInput && geminiKeyInput.trim().length > 0) {
+        const testRes = await testGeminiApiKey(geminiKeyInput);
+        if (testRes.ok) {
+          showCloudToast('success', 'Gemini AI collegato e attivo!');
+        } else {
+          showCloudToast('error', testRes.message);
+        }
+      } else {
+        showCloudToast('info', 'Chiave API rimossa. L\'assistente userà l\'analisi euristica locale.');
+      }
       const result = await getInsights(data);
       setAiInsight(result);
-      showCloudToast('success', 'Gemini AI collegato e funzionante con successo!');
     } catch (err: any) {
       showCloudToast('error', 'Errore durante la verifica della chiave Gemini.');
     } finally {
@@ -266,94 +275,114 @@ const App: React.FC = () => {
       case 'personale': return 'personale';
       case 'mezzo': return 'mezzi';
       case 'documento': return 'documenti';
+      default: return 'cantieri';
     }
   };
 
   const filteredData = useMemo(() => {
-    const s = search.trim().toLowerCase();
+    const s = (search || '').trim().toLowerCase();
+    const cantieri = Array.isArray(data?.cantieri) ? data.cantieri : [];
+    const personale = Array.isArray(data?.personale) ? data.personale : [];
+    const mezzi = Array.isArray(data?.mezzi) ? data.mezzi : [];
+    const documenti = Array.isArray(data?.documenti) ? data.documenti : [];
+
     return {
-      cantieri: data.cantieri.filter(c => {
+      cantieri: cantieri.filter(c => {
+        if (!c) return false;
         const matchesSearch = !s || 
-          c.nome.toLowerCase().includes(s) || 
-          c.cliente.toLowerCase().includes(s) ||
-          (c.indirizzo && c.indirizzo.toLowerCase().includes(s)) ||
-          (c.direttoreLavori && c.direttoreLavori.toLowerCase().includes(s)) ||
-          (c.note && c.note.toLowerCase().includes(s)) ||
-          (c.stato && c.stato.toLowerCase().includes(s)) ||
-          (c.extraList && c.extraList.some(e => e.titolo.toLowerCase().includes(s) || e.descrizione.toLowerCase().includes(s)));
+          (c.nome && String(c.nome).toLowerCase().includes(s)) || 
+          (c.cliente && String(c.cliente).toLowerCase().includes(s)) ||
+          (c.indirizzo && String(c.indirizzo).toLowerCase().includes(s)) ||
+          (c.direttoreLavori && String(c.direttoreLavori).toLowerCase().includes(s)) ||
+          (c.note && String(c.note).toLowerCase().includes(s)) ||
+          (c.stato && String(c.stato).toLowerCase().includes(s)) ||
+          (Array.isArray(c.extraList) && c.extraList.some(e => e && ((e.titolo && String(e.titolo).toLowerCase().includes(s)) || (e.descrizione && String(e.descrizione).toLowerCase().includes(s)))));
         const matchesStatus = hideClosedCantieri ? c.stato !== 'chiuso' : true;
-        return matchesSearch && matchesStatus;
+        return Boolean(matchesSearch && matchesStatus);
       }),
-      personale: data.personale.filter(p => {
-        const fullName = `${p.nome} ${p.cognome}`.toLowerCase();
+      personale: personale.filter(p => {
+        if (!p) return false;
+        const fullName = `${p.nome || ''} ${p.cognome || ''}`.toLowerCase();
         const matchesSearch = !s || 
-          p.nome.toLowerCase().includes(s) || 
-          p.cognome.toLowerCase().includes(s) ||
+          (p.nome && String(p.nome).toLowerCase().includes(s)) || 
+          (p.cognome && String(p.cognome).toLowerCase().includes(s)) ||
           fullName.includes(s) ||
-          p.ruolo.toLowerCase().includes(s) ||
-          p.categoria.toLowerCase().includes(s) ||
-          (p.codiceFiscale && p.codiceFiscale.toLowerCase().includes(s)) ||
-          (p.note && p.note.toLowerCase().includes(s)) ||
-          (p.corsiFormazione && p.corsiFormazione.some(c => c.corso.toLowerCase().includes(s)));
-        const matchesActive = showOnlyActivePersonale ? p.inForza : true;
-        return matchesSearch && matchesActive;
+          (p.ruolo && String(p.ruolo).toLowerCase().includes(s)) ||
+          (p.categoria && String(p.categoria).toLowerCase().includes(s)) ||
+          (p.codiceFiscale && String(p.codiceFiscale).toLowerCase().includes(s)) ||
+          (p.note && String(p.note).toLowerCase().includes(s)) ||
+          (Array.isArray(p.corsiFormazione) && p.corsiFormazione.some(c => c && c.corso && String(c.corso).toLowerCase().includes(s)));
+        const matchesActive = showOnlyActivePersonale ? Boolean(p.inForza) : true;
+        return Boolean(matchesSearch && matchesActive);
       }),
-      mezzi: data.mezzi.filter(m => {
+      mezzi: mezzi.filter(m => {
+        if (!m) return false;
         const matchesSearch = !s || 
-          m.modello.toLowerCase().includes(s) || 
-          m.targa.toLowerCase().includes(s) ||
-          (m.telaio && m.telaio.toLowerCase().includes(s)) ||
-          m.stato.toLowerCase().includes(s);
+          (m.modello && String(m.modello).toLowerCase().includes(s)) || 
+          (m.targa && String(m.targa).toLowerCase().includes(s)) ||
+          (m.telaio && String(m.telaio).toLowerCase().includes(s)) ||
+          (m.note && String(m.note).toLowerCase().includes(s)) ||
+          (m.stato && String(m.stato).toLowerCase().includes(s));
         const matchesStatus = hideNotInUseMezzi ? (m.stato !== 'non in uso' && m.stato !== 'non_in_uso') : true;
-        return matchesSearch && matchesStatus;
+        return Boolean(matchesSearch && matchesStatus);
       }),
-      documenti: data.documenti.filter(d => {
+      documenti: documenti.filter(d => {
+        if (!d) return false;
         return !s || 
-          d.titolo.toLowerCase().includes(s) || 
-          d.ente.toLowerCase().includes(s) ||
-          d.categoria.toLowerCase().includes(s) ||
-          d.priorita.toLowerCase().includes(s) ||
-          (d.note && d.note.toLowerCase().includes(s));
+          (d.titolo && String(d.titolo).toLowerCase().includes(s)) || 
+          (d.ente && String(d.ente).toLowerCase().includes(s)) ||
+          (d.categoria && String(d.categoria).toLowerCase().includes(s)) ||
+          (d.priorita && String(d.priorita).toLowerCase().includes(s)) ||
+          (d.note && String(d.note).toLowerCase().includes(s));
       }),
     };
   }, [data, search, showOnlyActivePersonale, hideClosedCantieri, hideNotInUseMezzi]);
 
   const totalSearchResultsCount = useMemo(() => {
-    if (!search.trim()) return 0;
-    return filteredData.cantieri.length + filteredData.personale.length + filteredData.mezzi.length + filteredData.documenti.length;
+    if (!search || !search.trim()) return 0;
+    return (filteredData.cantieri?.length || 0) + 
+           (filteredData.personale?.length || 0) + 
+           (filteredData.mezzi?.length || 0) + 
+           (filteredData.documenti?.length || 0);
   }, [filteredData, search]);
 
   const alerts = useMemo(() => {
     const today = new Date();
     const list: { type: string; title: string; date: string; status: 'critical' | 'warning' }[] = [];
     const check = (dateStr: string, label: string, itemTitle: string) => {
-      if (!dateStr) return;
+      if (!dateStr || typeof dateStr !== 'string') return;
       const d = new Date(dateStr);
+      if (isNaN(d.getTime())) return;
       const diff = Math.ceil((d.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      if (diff < 0) list.push({ type: label, title: itemTitle, date: dateStr, status: 'critical' });
-      else if (diff <= 30) list.push({ type: label, title: itemTitle, date: dateStr, status: 'warning' });
+      if (diff < 0) list.push({ type: label, title: itemTitle || 'Elemento', date: dateStr, status: 'critical' });
+      else if (diff <= 30) list.push({ type: label, title: itemTitle || 'Elemento', date: dateStr, status: 'warning' });
     };
-    data.cantieri.forEach(c => {
+    (data.cantieri || []).forEach(c => {
+      if (!c) return;
       check(c.scadenza, 'Cantiere', c.nome);
       if (c.scadenzaDNL) check(c.scadenzaDNL, 'DNL', c.nome);
       if (c.scadenzaSuoloPubblico) check(c.scadenzaSuoloPubblico, 'Suolo Pubblico', c.nome);
     });
-    data.personale.forEach(p => { 
-      if (p.inForza) {
-        if (p.scadenzaContratto) check(p.scadenzaContratto, 'Contratto', `${p.nome} ${p.cognome}`); 
-        check(p.scadenzaVisitaMedica, 'Visita', `${p.nome} ${p.cognome}`); 
+    (data.personale || []).forEach(p => { 
+      if (p && p.inForza) {
+        if (p.scadenzaContratto) check(p.scadenzaContratto, 'Contratto', `${p.nome || ''} ${p.cognome || ''}`.trim()); 
+        check(p.scadenzaVisitaMedica, 'Visita', `${p.nome || ''} ${p.cognome || ''}`.trim()); 
         (p.corsiFormazione || []).forEach(f => {
-          if (f.scadenza) check(f.scadenza, `Corso: ${f.corso}`, `${p.nome} ${p.cognome}`);
+          if (f && f.scadenza) check(f.scadenza, `Corso: ${f.corso || ''}`, `${p.nome || ''} ${p.cognome || ''}`.trim());
         });
       }
     });
-    data.mezzi.forEach(m => { 
+    (data.mezzi || []).forEach(m => { 
+      if (!m) return;
       check(m.scadenzaAssicurazione, 'Ass.', m.modello); 
       check(m.prossimaRevisione, 'Rev.', m.modello); 
       if (m.scadenzaVerificaPeriodica) check(m.scadenzaVerificaPeriodica, 'Verifica', m.modello);
     });
-    data.documenti.forEach(d => check(d.scadenza, 'Doc.', d.titolo));
-    return list.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    (data.documenti || []).forEach(d => {
+      if (!d) return;
+      check(d.scadenza, 'Doc.', d.titolo);
+    });
+    return list.sort((a, b) => (new Date(a.date).getTime() || 0) - (new Date(b.date).getTime() || 0));
   }, [data]);
 
   const exportToPdf = (type: EntityType | 'dashboard') => {
@@ -938,13 +967,21 @@ const App: React.FC = () => {
   };
 
   const getDateStatus = (dateStr?: string): { status: 'expired' | 'warning' | 'ok' | 'none'; label: string; formatted: string } => {
-    if (!dateStr) return { status: 'none', label: 'Non impostata', formatted: '-' };
+    if (!dateStr || typeof dateStr !== 'string') return { status: 'none', label: 'Non impostata', formatted: '-' };
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const target = new Date(dateStr);
+    if (isNaN(target.getTime())) {
+      return { status: 'none', label: 'Data non valida', formatted: String(dateStr) };
+    }
     target.setHours(0, 0, 0, 0);
     const diffDays = Math.ceil((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-    const formatted = new Date(dateStr).toLocaleDateString('it-IT');
+    let formatted = dateStr;
+    try {
+      formatted = target.toLocaleDateString('it-IT');
+    } catch {
+      formatted = String(dateStr);
+    }
 
     if (diffDays < 0) {
       return { status: 'expired', label: `Scaduto (${Math.abs(diffDays)}gg fa)`, formatted };
