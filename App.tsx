@@ -152,6 +152,8 @@ const App: React.FC = () => {
   const [lastCloudSync, setLastCloudSync] = useState<string | null>(() => localStorage.getItem('scadenze_last_cloud_sync'));
   const [cloudToast, setCloudToast] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
   const [copiedSql, setCopiedSql] = useState(false);
+  const isInitialCloudLoadDone = useRef(false);
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const showCloudToast = (type: 'success' | 'error' | 'info', message: string) => {
     setCloudToast({ type, message });
@@ -183,12 +185,39 @@ const App: React.FC = () => {
     return res.ok;
   };
 
-  // Check Supabase connection on mount
+  // Caricamento e sincronizzazione automatica iniziale all'avvio dell'app da Supabase
   useEffect(() => {
-    const cfg = getSupabaseConfig();
-    if (cfg.url && cfg.anonKey) {
-      verifySupabaseConnection(cfg, true);
-    }
+    const initCloudData = async () => {
+      const cfg = getSupabaseConfig();
+      if (!cfg.url || !cfg.anonKey) return;
+
+      const isConnected = await verifySupabaseConnection(cfg, true);
+      if (isConnected && !isInitialCloudLoadDone.current) {
+        setIsPullingFromCloud(true);
+        const res = await fetchAllDataFromSupabase();
+        setIsPullingFromCloud(false);
+        if (res.data) {
+          setData(prev => ({
+            ...prev,
+            ...res.data,
+            settings: {
+              ...prev.settings,
+              ...(res.data?.settings || {}),
+            }
+          }));
+          const nowStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          setLastCloudSync(nowStr);
+          localStorage.setItem('scadenze_last_cloud_sync', nowStr);
+          showCloudToast('info', 'Database Supabase sincronizzato in tempo reale!');
+        } else {
+          // Se il DB remoto è ancora vuoto, sincronizza i dati locali esistenti
+          syncAllDataToSupabase(data);
+        }
+        isInitialCloudLoadDone.current = true;
+      }
+    };
+
+    initCloudData();
   }, []);
 
   const handleSyncToSupabase = async () => {
@@ -236,13 +265,29 @@ const App: React.FC = () => {
     setTimeout(() => setCopiedSql(false), 4000);
   };
 
-  // Salvataggio automatico su localStorage e gestione tema
+  // Salvataggio automatico continuo su localStorage e AUTO-SYNC su Supabase Cloud (Debounced)
   useEffect(() => {
     localStorage.setItem('scadenze_plus_data', JSON.stringify(data));
     if (data.settings.theme === 'dark') {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+
+    // Auto-sync in background su Supabase ogni volta che i dati cambiano
+    const cfg = getSupabaseConfig();
+    if (cfg.url && cfg.anonKey && isInitialCloudLoadDone.current) {
+      if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = setTimeout(async () => {
+        setIsSyncingToCloud(true);
+        const res = await syncAllDataToSupabase(data);
+        setIsSyncingToCloud(false);
+        if (res.ok) {
+          const nowStr = new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+          setLastCloudSync(nowStr);
+          localStorage.setItem('scadenze_last_cloud_sync', nowStr);
+        }
+      }, 1000);
     }
   }, [data]);
 
@@ -1942,11 +1987,19 @@ const App: React.FC = () => {
 
              {/* Connection Status Message */}
              <div className="p-4 bg-slate-50 dark:bg-slate-800/80 rounded-2xl border border-slate-100 dark:border-slate-700/60 mb-6 text-xs font-bold text-slate-600 dark:text-slate-300">
-                <p className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                    <span>Stato: <strong className="text-slate-900 dark:text-white">{supabaseStatus.message}</strong></span>
-                   {lastCloudSync && (
-                     <span className="text-[10px] text-slate-400 uppercase">Ultimo sync: {lastCloudSync}</span>
-                   )}
+                   <div className="flex items-center gap-2">
+                     <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 text-[10px] font-black uppercase">
+                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> Auto-Sync Attivo
+                     </span>
+                     {lastCloudSync && (
+                       <span className="text-[10px] text-slate-400 uppercase">Ultimo sync: {lastCloudSync}</span>
+                     )}
+                   </div>
+                </div>
+                <p className="text-[11px] text-slate-400 font-normal mt-2">
+                  ⚡ <strong>Sincronizzazione Automatica:</strong> Ogni modifica, nuovo cantiere, mezzo o documento viene salvato istantaneamente su Supabase Cloud. All'apertura su qualsiasi browser o dispositivo, i dati verranno caricati automaticamente.
                 </p>
              </div>
 

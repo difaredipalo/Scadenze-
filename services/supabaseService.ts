@@ -8,11 +8,11 @@ export interface SupabaseConfig {
 
 // Get credentials from Vite env or localStorage override
 export const getSupabaseConfig = (): SupabaseConfig => {
-  const envUrl = import.meta.env.VITE_SUPABASE_URL || '';
-  const envKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
+  const envUrl = (import.meta.env.VITE_SUPABASE_URL || '').trim();
+  const envKey = (import.meta.env.VITE_SUPABASE_ANON_KEY || '').trim();
 
-  const savedUrl = localStorage.getItem('scadenze_supabase_url') || '';
-  const savedKey = localStorage.getItem('scadenze_supabase_key') || '';
+  const savedUrl = (localStorage.getItem('scadenze_supabase_url') || '').trim();
+  const savedKey = (localStorage.getItem('scadenze_supabase_key') || '').trim();
 
   return {
     url: savedUrl || envUrl,
@@ -21,13 +21,13 @@ export const getSupabaseConfig = (): SupabaseConfig => {
 };
 
 export const saveSupabaseConfig = (config: SupabaseConfig) => {
-  if (config.url) {
+  if (config.url && config.url.trim()) {
     localStorage.setItem('scadenze_supabase_url', config.url.trim());
   } else {
     localStorage.removeItem('scadenze_supabase_url');
   }
 
-  if (config.anonKey) {
+  if (config.anonKey && config.anonKey.trim()) {
     localStorage.setItem('scadenze_supabase_key', config.anonKey.trim());
   } else {
     localStorage.removeItem('scadenze_supabase_key');
