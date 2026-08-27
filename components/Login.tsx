@@ -3,17 +3,18 @@ import React, { useState } from 'react';
 import { Icons } from '../constants';
 
 interface LoginProps {
-  onLogin: (user: string, pass: string) => boolean;
+  onLogin: (user: string, pass: string, remember?: boolean) => boolean;
 }
 
 const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (onLogin(username, password)) {
+    if (onLogin(username, password, rememberMe)) {
       setError(false);
     } else {
       setError(true);
@@ -62,6 +63,19 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
                 placeholder="••••••••"
               />
             </div>
+          </div>
+
+          <div className="flex items-center gap-3 pt-1 px-1">
+            <input 
+              type="checkbox" 
+              id="rememberMe" 
+              checked={rememberMe} 
+              onChange={(e) => setRememberMe(e.target.checked)}
+              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
+            />
+            <label htmlFor="rememberMe" className="text-xs font-bold text-slate-600 dark:text-slate-300 cursor-pointer select-none">
+              Rimani sempre connesso su questo browser
+            </label>
           </div>
 
           {error && (

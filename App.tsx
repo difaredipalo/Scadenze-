@@ -94,7 +94,14 @@ const App: React.FC = () => {
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
+    try {
+      const savedAuth = localStorage.getItem('scadenze_plus_is_logged_in');
+      return savedAuth === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'impostazioni'>('dashboard');
   const [showOnlyActivePersonale, setShowOnlyActivePersonale] = useState(true);
   const [hideClosedCantieri, setHideClosedCantieri] = useState(false);
@@ -2111,12 +2118,20 @@ const App: React.FC = () => {
     </div>
   );
 
-  const handleLogin = (u: string, p: string) => {
+  const handleLogin = (u: string, p: string, remember: boolean = true) => {
     if (u === data.settings.username && p === data.settings.password) {
       setIsLoggedIn(true);
+      if (remember) {
+        localStorage.setItem('scadenze_plus_is_logged_in', 'true');
+      }
       return true;
     }
     return false;
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    localStorage.removeItem('scadenze_plus_is_logged_in');
   };
 
   if (!isLoggedIn) {
@@ -2172,6 +2187,15 @@ const App: React.FC = () => {
                  </div>
               </div>
               <Icons.Database />
+           </button>
+
+           <button 
+             onClick={handleLogout}
+             title="Disconnetti sessione"
+             className="w-full flex items-center justify-center md:justify-start gap-2 p-2.5 rounded-xl text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all text-left text-[10px] font-black uppercase tracking-wider"
+           >
+             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" x2="9" y1="12" y2="12"/></svg>
+             <span className="hidden md:inline">Disconnetti</span>
            </button>
         </div>
       </aside>
