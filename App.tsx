@@ -1961,6 +1961,64 @@ const App: React.FC = () => {
           </div>
 
           <div className="space-y-2">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logo Impresa (Utilizzato nei Tesserini)</label>
+            <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700">
+              {data.settings.logoAzienda ? (
+                <div className="w-16 h-16 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0 overflow-hidden shadow-xs">
+                  <img src={data.settings.logoAzienda} alt="Logo" className="max-h-full max-w-full object-contain" />
+                </div>
+              ) : (
+                <div className="w-16 h-16 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-400 text-xl shrink-0 font-black">
+                  🏢
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-xs font-black text-slate-800 dark:text-slate-200 truncate">
+                  {data.settings.logoAzienda ? 'Logo Caricato' : 'Nessun logo aziendale'}
+                </p>
+                <p className="text-[10px] text-slate-400">
+                  Mostrato in alto a sinistra sui tesserini di cantiere
+                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <label className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider cursor-pointer transition-colors shadow-xs">
+                    {data.settings.logoAzienda ? 'Cambia Logo' : '+ Carica Logo'}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = () => {
+                            setData(prev => ({
+                              ...prev,
+                              settings: { ...prev.settings, logoAzienda: reader.result as string }
+                            }));
+                          };
+                          reader.readAsDataURL(file);
+                        }
+                      }}
+                    />
+                  </label>
+                  {data.settings.logoAzienda && (
+                    <button
+                      type="button"
+                      onClick={() => setData(prev => ({
+                        ...prev,
+                        settings: { ...prev.settings, logoAzienda: undefined }
+                      }))}
+                      className="px-3 py-1.5 text-rose-500 hover:text-rose-700 text-xs font-bold transition-colors"
+                    >
+                      Rimuovi
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tema Applicazione</label>
             <div className="grid grid-cols-2 gap-4">
               <button 
@@ -2518,6 +2576,7 @@ const App: React.FC = () => {
         settings={data.settings}
         initialPersonaleId={badgePersonaleId}
         onUpdatePersonale={(u) => updateEntity('personale', u)}
+        onUpdateSettings={(newSettings) => setData(prev => ({ ...prev, settings: newSettings }))}
       />
     </div>
   );

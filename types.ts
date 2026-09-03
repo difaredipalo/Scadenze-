@@ -123,6 +123,7 @@ export interface AppSettings {
   theme: 'light' | 'dark';
   username?: string;
   password?: string;
+  logoAzienda?: string;
 }
 
 export type AppData = {

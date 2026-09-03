@@ -12,6 +12,7 @@ interface BadgeGeneratorModalProps {
   settings: AppSettings;
   initialPersonaleId?: string;
   onUpdatePersonale: (updated: Personale) => void;
+  onUpdateSettings?: (updated: AppSettings) => void;
 }
 
 export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
@@ -22,6 +23,7 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
   settings,
   initialPersonaleId,
   onUpdatePersonale,
+  onUpdateSettings,
 }) => {
   const [selectedPersonaleId, setSelectedPersonaleId] = useState<string>(
     initialPersonaleId || (personaleList[0]?.id || '')
@@ -31,8 +33,10 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
   const [badgeView, setBadgeView] = useState<'both' | 'front' | 'back'>('both');
   const [printMode, setPrintMode] = useState<'single' | 'sheet'>('single');
   const [subappaltoDitta, setSubappaltoDitta] = useState<string>('');
+  const [includeLogo, setIncludeLogo] = useState<boolean>(true);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
 
@@ -40,16 +44,97 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
   const currentCantiere = cantieriList.find(c => c.id === selectedCantiereId);
   const activeWorkers = personaleList.filter(p => p.inForza);
 
+  const activeLogo = settings.logoAzienda;
+  const showLogoOnBadge = includeLogo && !!activeLogo;
+
+  // Funzione per ritagliare e centrare qualsiasi foto al rapporto standard fototessera 4:5 (20x25 mm)
+  // evitando che la foto risulti schiacciata o allungata sia a video che nel PDF
+  const cropImageToFototessera = (source: File | string, callback: (croppedBase64: string) => void) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const targetRatio = 0.8; // rapporto 4:5 (20mm x 25mm o 35mm x 45mm standard fototessera)
+      const origW = img.width;
+      const origH = img.height;
+      if (!origW || !origH) {
+        if (typeof source === 'string') callback(source);
+        return;
+      }
+      const origRatio = origW / origH;
+
+      let sX = 0;
+      let sY = 0;
+      let sW = origW;
+      let sH = origH;
+
+      if (origRatio > targetRatio) {
+        // Immagine più larga (es. orizzontale o quadrata): ritaglia i lati al centro
+        sW = origH * targetRatio;
+        sX = (origW - sW) / 2;
+      } else {
+        // Immagine più alta/stretta: ritaglia sopra e sotto al centro
+        sH = origW / targetRatio;
+        sY = (origH - sH) / 2;
+      }
+
+      const canvas = document.createElement('canvas');
+      canvas.width = 600;
+      canvas.height = 750; // Risoluzione 600x750 px a 300 DPI per stampa definita
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.drawImage(img, sX, sY, sW, sH, 0, 0, 600, 750);
+        callback(canvas.toDataURL('image/jpeg', 0.92));
+      } else {
+        if (typeof source === 'string') callback(source);
+      }
+    };
+
+    if (typeof source === 'string') {
+      img.src = source;
+    } else {
+      const reader = new FileReader();
+      reader.onload = () => {
+        img.src = reader.result as string;
+      };
+      reader.readAsDataURL(source);
+    }
+  };
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>, targetPersonale?: Personale) => {
     const file = e.target.files?.[0];
     const target = targetPersonale || currentPersonale;
     if (file && target) {
+      cropImageToFototessera(file, (croppedBase64) => {
+        onUpdatePersonale({ ...target, foto: croppedBase64 });
+      });
+    }
+  };
+
+  const handleAutoFitCurrentPhoto = () => {
+    if (currentPersonale?.foto) {
+      cropImageToFototessera(currentPersonale.foto, (croppedBase64) => {
+        onUpdatePersonale({ ...currentPersonale, foto: croppedBase64 });
+      });
+    }
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && onUpdateSettings) {
       const reader = new FileReader();
-      reader.onloadend = () => {
+      reader.onload = () => {
         const base64 = reader.result as string;
-        onUpdatePersonale({ ...target, foto: base64 });
+        onUpdateSettings({ ...settings, logoAzienda: base64 });
       };
       reader.readAsDataURL(file);
+    }
+  };
+
+  const handleRemoveLogo = () => {
+    if (onUpdateSettings) {
+      onUpdateSettings({ ...settings, logoAzienda: undefined });
     }
   };
 
@@ -173,18 +258,50 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
       doc.setFillColor(15, 23, 42); // slate-900
       doc.rect(x, y, w, headerH, 'F');
 
-      // Nome Azienda
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(isVert ? 7.5 : 8);
-      doc.setFont('helvetica', 'bold');
       const companyName = (settings.nomeAzienda || 'IMPRESA EDILE').toUpperCase();
-      doc.text(companyName.substring(0, 30), x + w / 2, y + (isVert ? 5.5 : 5), { align: 'center' });
 
-      // Sottotitolo Legge 81/08
-      doc.setFontSize(isVert ? 5 : 5.5);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(147, 197, 253); // blue-300
-      doc.text("TESSERINO DI RICONOSCIMENTO (D.Lgs. 81/08)", x + w / 2, y + (isVert ? 10.5 : 9), { align: 'center' });
+      if (showLogoOnBadge && activeLogo) {
+        // LOGO AZIENDALE IN ALTO A SINISTRA
+        const logoBoxSize = isVert ? 9.5 : 8.0;
+        const logoX = x + (isVert ? 2.5 : 3.0);
+        const logoY = y + (isVert ? 2.25 : 1.5);
+
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(logoX, logoY, logoBoxSize, logoBoxSize, 0.8, 0.8, 'F');
+        try {
+          doc.addImage(activeLogo, 'PNG', logoX + 0.4, logoY + 0.4, logoBoxSize - 0.8, logoBoxSize - 0.8);
+        } catch {
+          try {
+            doc.addImage(activeLogo, 'JPEG', logoX + 0.4, logoY + 0.4, logoBoxSize - 0.8, logoBoxSize - 0.8);
+          } catch {
+            // Ignora se formato non supportato da jspdf
+          }
+        }
+
+        // Testo Intestazione affiancato al logo
+        const textX = x + (isVert ? 13.5 : 13.0);
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(isVert ? 7.2 : 7.6);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyName.substring(0, isVert ? 22 : 32), textX, y + (isVert ? 5.5 : 5.0));
+
+        doc.setFontSize(isVert ? 4.8 : 5.0);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(147, 197, 253); // blue-300
+        doc.text(isVert ? "TESSERINO D.LGS. 81/08" : "TESSERINO DI RICONOSCIMENTO (D.Lgs. 81/08)", textX, y + (isVert ? 9.8 : 9.0));
+      } else {
+        // Nome Azienda centrato
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(isVert ? 7.5 : 8);
+        doc.setFont('helvetica', 'bold');
+        doc.text(companyName.substring(0, 30), x + w / 2, y + (isVert ? 5.5 : 5), { align: 'center' });
+
+        // Sottotitolo Legge 81/08 centrato
+        doc.setFontSize(isVert ? 5 : 5.5);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(147, 197, 253); // blue-300
+        doc.text("TESSERINO DI RICONOSCIMENTO (D.Lgs. 81/08)", x + w / 2, y + (isVert ? 10.5 : 9), { align: 'center' });
+      }
 
       if (isVert) {
         // LAYOUT VERTICALE (54 x 85.6 mm)
@@ -284,11 +401,11 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
 
       } else {
         // LAYOUT ORIZZONTALE (85.6 x 54 mm)
-        // Foto Lavoratore (a sinistra)
+        // Foto Lavoratore (a sinistra, proporzioni 4:5 precise 20x25 mm)
         const photoW = 20;
-        const photoH = 26;
+        const photoH = 25;
         const photoX = x + 5;
-        const photoY = y + 14;
+        const photoY = y + 14.5;
 
         if (worker.foto) {
           try {
@@ -446,8 +563,6 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
           doc.setLineDashPattern([2, 2], 0);
           doc.setDrawColor(148, 163, 184);
           doc.line(105, startY, 105, startY + 85.6);
-          doc.setFontSize(5.5);
-          doc.text("PIEGARE QUI", 105, startY + 43, { align: 'center', angle: 90 });
           doc.setLineDashPattern([], 0);
         } else if (badgeView === 'front') {
           drawPdfBadge(doc, currentPersonale, (210 - 54) / 2, startY, true, false, cantiereName);
@@ -611,18 +726,36 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
         )}
 
         {/* Intestazione Aziendale */}
-        <div className="bg-slate-900 text-white px-2 py-1.5 text-center relative z-10">
-          <p className="text-[8.5px] font-black uppercase tracking-wider truncate drop-shadow-sm leading-tight">
-            {settings.nomeAzienda}
-          </p>
-          <div className="flex items-center justify-center gap-1 mt-0.5">
-            <span className="text-[6px] font-bold text-blue-300 uppercase tracking-widest leading-none">
-              TESSERINO DI RICONOSCIMENTO
-            </span>
-            <span className="text-[5.5px] text-slate-300 leading-none">
-              • D.Lgs. 81/08
-            </span>
-          </div>
+        <div className="bg-slate-900 text-white px-2 py-1.5 flex items-center relative z-10 min-h-[34px]">
+          {showLogoOnBadge && activeLogo ? (
+            <div className="flex items-center gap-1.5 w-full text-left">
+              <div className="w-7 h-7 rounded bg-white p-0.5 shrink-0 flex items-center justify-center overflow-hidden border border-slate-700 shadow-xs">
+                <img src={activeLogo} alt="Logo" className="max-h-full max-w-full object-contain" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[8px] font-black uppercase tracking-wider truncate leading-tight">
+                  {settings.nomeAzienda}
+                </p>
+                <span className="text-[5.5px] font-bold text-blue-300 uppercase tracking-widest block leading-none mt-0.5 truncate">
+                  Tesserino D.Lgs. 81/08
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="w-full text-center">
+              <p className="text-[8.5px] font-black uppercase tracking-wider truncate drop-shadow-sm leading-tight">
+                {settings.nomeAzienda}
+              </p>
+              <div className="flex items-center justify-center gap-1 mt-0.5">
+                <span className="text-[6px] font-bold text-blue-300 uppercase tracking-widest leading-none">
+                  TESSERINO DI RICONOSCIMENTO
+                </span>
+                <span className="text-[5.5px] text-slate-300 leading-none">
+                  • D.Lgs. 81/08
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Contenuto Badge */}
@@ -692,10 +825,10 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
                 <img 
                   src={personale.foto} 
                   alt="Foto" 
-                  className="w-[20mm] h-[26mm] object-cover rounded-md border border-slate-900 shadow-xs bg-slate-100" 
+                  className="w-[20mm] h-[25mm] object-cover rounded-md border border-slate-900 shadow-xs bg-slate-100" 
                 />
               ) : (
-                <div className="w-[20mm] h-[26mm] rounded-md border border-dashed border-slate-400 bg-slate-50 flex flex-col items-center justify-center text-slate-400 gap-0.5">
+                <div className="w-[20mm] h-[25mm] rounded-md border border-dashed border-slate-400 bg-slate-50 flex flex-col items-center justify-center text-slate-400 gap-0.5">
                   <span className="text-xs">📷</span>
                   <span className="text-[7.5px] font-bold">FOTO</span>
                 </div>
@@ -862,33 +995,52 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
 
                   {/* Caricamento Fototessera */}
                   {currentPersonale && (
-                    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-between">
-                      <div className="flex items-center gap-2.5">
-                        {currentPersonale.foto ? (
-                          <img src={currentPersonale.foto} alt="Foto" className="w-9 h-11 object-cover rounded-lg border border-slate-300" />
-                        ) : (
-                          <div className="w-9 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-xs">📷</div>
-                        )}
-                        <div>
-                          <p className="text-xs font-black text-slate-800">Fototessera</p>
-                          <p className="text-[10px] text-slate-400">{currentPersonale.foto ? 'Presente' : 'Nessuna foto'}</p>
+                    <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2.5">
+                          {currentPersonale.foto ? (
+                            <img src={currentPersonale.foto} alt="Foto" className="w-9 h-11 object-cover rounded-lg border border-slate-300 shadow-xs" />
+                          ) : (
+                            <div className="w-9 h-11 rounded-lg bg-slate-200 flex items-center justify-center text-xs">📷</div>
+                          )}
+                          <div>
+                            <p className="text-xs font-black text-slate-800">Fototessera</p>
+                            <p className="text-[10px] text-slate-400">{currentPersonale.foto ? 'Presente (4:5)' : 'Nessuna foto'}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          {currentPersonale.foto && (
+                            <button
+                              type="button"
+                              onClick={handleAutoFitCurrentPhoto}
+                              title="Riadatta e centra automaticamente la foto nel formato 4:5 per eliminare qualsiasi allungamento o distorsione"
+                              className="px-2.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-[10px] font-bold transition-all flex items-center gap-1"
+                            >
+                              <span>📐</span> Adatta 4:5
+                            </button>
+                          )}
+                          <input 
+                            type="file" 
+                            ref={fileInputRef} 
+                            accept="image/*" 
+                            onChange={(e) => handlePhotoUpload(e)} 
+                            className="hidden" 
+                          />
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            className="px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-500 text-blue-600 rounded-lg text-xs font-black uppercase transition-all"
+                          >
+                            {currentPersonale.foto ? 'Cambia' : '+ Carica'}
+                          </button>
                         </div>
                       </div>
-                      <div>
-                        <input 
-                          type="file" 
-                          ref={fileInputRef} 
-                          accept="image/*" 
-                          onChange={(e) => handlePhotoUpload(e)} 
-                          className="hidden" 
-                        />
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="px-3 py-1.5 bg-white border border-slate-200 hover:border-blue-500 text-blue-600 rounded-lg text-xs font-black uppercase transition-all"
-                        >
-                          {currentPersonale.foto ? 'Cambia Foto' : '+ Carica Foto'}
-                        </button>
+
+                      <div className="p-2 bg-blue-50/70 border border-blue-100 rounded-lg text-[10px] text-blue-900 leading-snug flex items-start gap-1.5">
+                        <span className="font-black text-blue-600 text-xs shrink-0">ℹ️</span>
+                        <span>
+                          <strong>Dimensioni ideali foto:</strong> formato fototessera <strong>4:5</strong> (es. <strong>480×600 px</strong> o <strong>600×750 px</strong>). Il sistema esegue il ritaglio proporzionato automatico centrato evitando che la foto appaia stirata o deformata.
+                        </span>
                       </div>
                     </div>
                   )}
@@ -1011,6 +1163,87 @@ export const BadgeGeneratorModal: React.FC<BadgeGeneratorModalProps> = ({
                     onChange={(e) => setSubappaltoDitta(e.target.value)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800"
                   />
+                </div>
+
+                {/* Logo Aziendale sul Tesserino (Scelta Utente In Alto a Sinistra) */}
+                <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">🏢</span>
+                      <div>
+                        <p className="text-xs font-black text-slate-800 uppercase tracking-wide">Logo Aziendale sul Tesserino</p>
+                        <p className="text-[10px] text-slate-400">In alto a sinistra sul fronte del badge</p>
+                      </div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input 
+                        type="checkbox" 
+                        checked={includeLogo} 
+                        onChange={(e) => setIncludeLogo(e.target.checked)} 
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                  </div>
+
+                  {includeLogo && (
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between gap-2">
+                      {settings.logoAzienda ? (
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-2 min-w-0">
+                            <div className="w-8 h-8 rounded-lg bg-white border border-slate-300 p-0.5 flex items-center justify-center shrink-0 shadow-xs overflow-hidden">
+                              <img src={settings.logoAzienda} alt="Logo" className="max-h-full max-w-full object-contain" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-[10.5px] font-bold text-slate-800 truncate">Logo Impresa</p>
+                              <p className="text-[9px] text-emerald-600 font-bold">Attivo sul badge</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <input 
+                              type="file" 
+                              ref={logoInputRef} 
+                              accept="image/*" 
+                              onChange={handleLogoUpload} 
+                              className="hidden" 
+                            />
+                            <button
+                              type="button"
+                              onClick={() => logoInputRef.current?.click()}
+                              className="px-2.5 py-1 bg-white border border-slate-200 hover:border-blue-500 text-blue-600 rounded-lg text-[10px] font-black uppercase transition-all"
+                            >
+                              Cambia
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRemoveLogo}
+                              className="px-2 py-1 text-rose-500 hover:text-rose-700 text-[10px] font-bold transition-all"
+                            >
+                              Rimuovi
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between w-full">
+                          <span className="text-[10px] text-slate-500 font-medium">Nessun logo caricato</span>
+                          <input 
+                            type="file" 
+                            ref={logoInputRef} 
+                            accept="image/*" 
+                            onChange={handleLogoUpload} 
+                            className="hidden" 
+                          />
+                          <button
+                            type="button"
+                            onClick={() => logoInputRef.current?.click()}
+                            className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-black uppercase tracking-wider transition-colors shadow-xs"
+                          >
+                            + Carica Logo Aziendale
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
