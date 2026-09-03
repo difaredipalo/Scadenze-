@@ -54,6 +54,17 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormData((prev: any) => ({ ...prev, foto: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const inputClasses = "w-full p-4 bg-white border-2 border-slate-200 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-600 outline-none text-slate-900 font-black placeholder:text-slate-300 transition-all";
 
   return (
@@ -125,12 +136,34 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
                   <input required name="nome" placeholder="Nome" onChange={handleInputChange} className={inputClasses} />
                   <input required name="cognome" placeholder="Cognome" onChange={handleInputChange} className={inputClasses} />
                 </div>
-                <input required name="ruolo" placeholder="Inquadramento / Mansione" onChange={handleInputChange} className={inputClasses} />
-                <select name="categoria" onChange={handleInputChange} className={inputClasses} defaultValue="operaio">
-                  <option value="operaio">Operaio</option>
-                  <option value="impiegato">Impiegato</option>
-                  <option value="amministratore">Amministratore</option>
-                </select>
+                <input name="codiceFiscale" placeholder="Codice Fiscale (es. RSSMRA80A01H501Z)" onChange={handleInputChange} className={inputClasses} />
+                <input required name="ruolo" placeholder="Inquadramento / Mansione (es. Muratore, Carpentiere)" onChange={handleInputChange} className={inputClasses} />
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Categoria</label>
+                    <select name="categoria" onChange={handleInputChange} className={inputClasses} defaultValue="operaio">
+                      <option value="operaio">Operaio</option>
+                      <option value="impiegato">Impiegato</option>
+                      <option value="amministratore">Amministratore</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-blue-600 uppercase ml-1 font-black">Data di Assunzione 🎖️</label>
+                    <input type="date" name="dataAssunzione" onChange={handleInputChange} className={`${inputClasses} border-blue-200 bg-blue-50/20`} />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Data di Nascita</label>
+                    <input type="date" name="dataNascita" onChange={handleInputChange} className={inputClasses} />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Luogo di Nascita</label>
+                    <input name="luogoNascita" placeholder="es. Roma (RM)" onChange={handleInputChange} className={inputClasses} />
+                  </div>
+                </div>
+
                 <div className="space-y-2">
                   <div className="flex justify-between items-center px-1">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scadenza Contratto</label>
@@ -155,6 +188,27 @@ const AddModal: React.FC<AddModalProps> = ({ isOpen, onClose, onAdd, defaultType
                 <div className="space-y-2">
                   <label className="text-[10px] font-black text-slate-400 uppercase ml-1">Scadenza Visita Medica</label>
                   <input required type="date" name="scadenzaVisitaMedica" onChange={handleInputChange} className={inputClasses} />
+                </div>
+
+                {/* Fototessera opzionale per tesserino */}
+                <div className="p-3 bg-slate-50 border-2 border-dashed border-slate-200 rounded-2xl flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    {formData.foto ? (
+                      <img src={formData.foto} alt="Foto dipendente" className="w-12 h-14 object-cover rounded-xl border border-slate-200 shadow-sm" />
+                    ) : (
+                      <div className="w-12 h-12 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center font-bold text-xs">
+                        📷
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs font-black text-slate-800">Fototessera per Tesserino</p>
+                      <p className="text-[10px] text-slate-400 font-bold">Opzionale (puoi caricarla anche dopo)</p>
+                    </div>
+                  </div>
+                  <label className="cursor-pointer px-3 py-2 bg-white border border-slate-200 hover:border-blue-400 text-blue-600 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all">
+                    Scegli foto
+                    <input type="file" accept="image/*" onChange={handlePhotoUpload} className="hidden" />
+                  </label>
                 </div>
               </>
             )}

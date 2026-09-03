@@ -270,6 +270,9 @@ CREATE TABLE IF NOT EXISTS public.personale (
     ruolo TEXT NOT NULL,
     categoria TEXT DEFAULT 'operaio',
     in_forza BOOLEAN DEFAULT true,
+    data_assunzione DATE,
+    foto TEXT,
+    luogo_nascita TEXT,
     scadenza_contratto DATE,
     scadenza_visita_medica DATE NOT NULL,
     codice_fiscale TEXT,
@@ -277,6 +280,11 @@ CREATE TABLE IF NOT EXISTS public.personale (
     corsi_formazione JSONB DEFAULT '[]'::jsonb,
     updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
 );
+
+-- Aggiorna colonne se tabella esistente
+ALTER TABLE public.personale ADD COLUMN IF NOT EXISTS data_assunzione DATE;
+ALTER TABLE public.personale ADD COLUMN IF NOT EXISTS foto TEXT;
+ALTER TABLE public.personale ADD COLUMN IF NOT EXISTS luogo_nascita TEXT;
 
 -- 4. Tabella Mezzi & Autocarri
 CREATE TABLE IF NOT EXISTS public.mezzi (
@@ -403,6 +411,9 @@ function mapRowToPersonale(row: any): Personale {
     ruolo: row.ruolo,
     categoria: row.categoria || 'operaio',
     inForza: row.in_forza !== undefined ? row.in_forza : true,
+    dataAssunzione: row.data_assunzione || undefined,
+    foto: row.foto || undefined,
+    luogoNascita: row.luogo_nascita || undefined,
     scadenzaContratto: row.scadenza_contratto,
     scadenzaVisitaMedica: row.scadenza_visita_medica,
     codiceFiscale: row.codice_fiscale,
@@ -419,6 +430,9 @@ function mapPersonaleToRow(p: Personale, now: string): any {
     ruolo: p.ruolo,
     categoria: p.categoria,
     in_forza: p.inForza,
+    data_assunzione: p.dataAssunzione || null,
+    foto: p.foto || null,
+    luogo_nascita: p.luogoNascita || null,
     scadenza_contratto: p.scadenzaContratto || null,
     scadenza_visita_medica: p.scadenzaVisitaMedica,
     codice_fiscale: p.codiceFiscale || null,

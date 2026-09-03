@@ -8,6 +8,7 @@ import EditCantiereModal from './components/EditCantiereModal';
 import EditPersonaleModal from './components/EditPersonaleModal';
 import EditMezzoModal from './components/EditMezzoModal';
 import EditDocumentoModal from './components/EditDocumentoModal';
+import { BadgeGeneratorModal } from './components/BadgeGeneratorModal';
 import GaraCalculator from './components/GaraCalculator';
 import Login from './components/Login';
 import { getInsights, getGeminiApiKey, saveGeminiApiKey, testGeminiApiKey } from './services/geminiService';
@@ -37,8 +38,8 @@ const INITIAL_DATA: AppData = {
     { id: '2', nome: 'Riqualificazione Centro', cliente: 'Comune Milano', scadenza: '2026-03-20', stato: 'in apertura', progresso: 10, importoTotale: 500000, indirizzo: 'Piazza Duomo, Milano', tecnici: [], checklistDocumenti: [], salList: [], subappalti: [] },
   ],
   personale: [
-    { id: 'p1', nome: 'Mario', cognome: 'Rossi', ruolo: 'Capocantiere', categoria: 'operaio', scadenzaContratto: '2026-06-30', scadenzaVisitaMedica: '2025-11-15', inForza: true, corsiFormazione: [] },
-    { id: 'p2', nome: 'Luigi', cognome: 'Verdi', ruolo: 'Operaio Specializzato', categoria: 'operaio', scadenzaContratto: '2025-12-31', scadenzaVisitaMedica: '2025-09-20', inForza: true, corsiFormazione: [] },
+    { id: 'p1', nome: 'Mario', cognome: 'Rossi', ruolo: 'Capocantiere', categoria: 'operaio', dataNascita: '1980-01-15', luogoNascita: 'Roma (RM)', dataAssunzione: '2023-03-01', codiceFiscale: 'RSSMRA80A01H501Z', scadenzaContratto: '2026-06-30', scadenzaVisitaMedica: '2025-11-15', inForza: true, corsiFormazione: [] },
+    { id: 'p2', nome: 'Luigi', cognome: 'Verdi', ruolo: 'Operaio Specializzato', categoria: 'operaio', dataNascita: '1985-06-20', luogoNascita: 'Milano (MI)', dataAssunzione: '2024-01-15', codiceFiscale: 'VRDLGU85B12F205W', scadenzaContratto: '2025-12-31', scadenzaVisitaMedica: '2025-09-20', inForza: true, corsiFormazione: [] },
   ],
   mezzi: [
     { id: 'm1', modello: 'Iveco Eurocargo', targa: 'EF123GH', scadenzaAssicurazione: '2025-12-01', prossimaRevisione: '2026-02-15', stato: 'disponibile', storicoManutenzioni: [] },
@@ -114,6 +115,8 @@ const App: React.FC = () => {
   const [selectedPersonale, setSelectedPersonale] = useState<Personale | null>(null);
   const [selectedMezzo, setSelectedMezzo] = useState<Mezzo | null>(null);
   const [selectedDocumento, setSelectedDocumento] = useState<Documento | null>(null);
+  const [isBadgeModalOpen, setIsBadgeModalOpen] = useState(false);
+  const [badgePersonaleId, setBadgePersonaleId] = useState<string | undefined>(undefined);
 
   // Gemini AI State
   const [geminiKeyInput, setGeminiKeyInput] = useState(() => getGeminiApiKey());
@@ -1437,6 +1440,20 @@ const App: React.FC = () => {
                  </button>
               </div>
 
+              {/* Tesserini Cantiere Quick Button for Personale */}
+              {type === 'personale' && (
+                <button
+                  onClick={() => {
+                    setBadgePersonaleId(undefined);
+                    setIsBadgeModalOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-md shadow-emerald-600/20"
+                  title="Genera tesserini di riconoscimento cantiere D.Lgs 81/08"
+                >
+                  <Icons.Badge /> Tesserini Cantiere
+                </button>
+              )}
+
               {/* Add Button */}
               <button 
                 onClick={() => setIsModalOpen(true)}
@@ -1471,6 +1488,7 @@ const App: React.FC = () => {
                         <th className="py-4 px-6">Dipendente</th>
                         <th className="py-4 px-4">Ruolo & Categoria</th>
                         <th className="py-4 px-4">Stato</th>
+                        <th className="py-4 px-4">Data Assunzione</th>
                         <th className="py-4 px-4">Scadenza Contratto</th>
                         <th className="py-4 px-4">Visita Medica</th>
                         <th className="py-4 px-4">Formazione</th>
@@ -1648,9 +1666,17 @@ const App: React.FC = () => {
                           <>
                             <td className="py-4 px-6">
                               <div className="flex items-center gap-3">
-                                <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xs shrink-0">
-                                  {item.nome?.[0]}{item.cognome?.[0]}
-                                </div>
+                                {item.foto ? (
+                                  <img 
+                                    src={item.foto} 
+                                    alt={`${item.nome} ${item.cognome}`} 
+                                    className="w-9 h-9 rounded-xl object-cover border border-slate-200 dark:border-slate-700 shrink-0 shadow-xs" 
+                                  />
+                                ) : (
+                                  <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black text-xs shrink-0">
+                                    {item.nome?.[0]}{item.cognome?.[0]}
+                                  </div>
+                                )}
                                 <div className="min-w-0">
                                   <p className="font-black text-slate-900 dark:text-white text-sm">{item.nome} {item.cognome}</p>
                                   <p className="text-xs font-bold text-slate-400 dark:text-slate-500">{item.ruolo}</p>
@@ -1670,6 +1696,15 @@ const App: React.FC = () => {
                               }`}>
                                 {item.inForza ? '● In Forza' : '○ Cessato'}
                               </span>
+                            </td>
+                            <td className="py-4 px-4 whitespace-nowrap">
+                              {item.dataAssunzione ? (
+                                <span className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                                  {new Date(item.dataAssunzione).toLocaleDateString('it-IT')}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] font-bold text-slate-400 italic">Non impostata</span>
+                              )}
                             </td>
                             <td className="py-4 px-4 whitespace-nowrap">
                               {item.scadenzaContratto ? (
@@ -1695,6 +1730,17 @@ const App: React.FC = () => {
                             </td>
                             <td className="py-4 px-6 text-right whitespace-nowrap">
                               <div className="flex items-center justify-end gap-1.5">
+                                <button 
+                                  onClick={(e) => { 
+                                    e.stopPropagation(); 
+                                    setBadgePersonaleId(item.id);
+                                    setIsBadgeModalOpen(true); 
+                                  }} 
+                                  title="Stampa Tesserino Dipendente" 
+                                  className="p-2 text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-slate-800 rounded-xl transition-all"
+                                >
+                                  <Icons.Badge />
+                                </button>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setSelectedPersonale(item); }} 
                                   title="Modifica / Scheda Personale" 
@@ -1843,16 +1889,25 @@ const App: React.FC = () => {
                 if (type==='documento') setSelectedDocumento(item);
               }} className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group">
                 <div className="flex justify-between items-start mb-6">
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
-                    {type === 'cantiere' && <Icons.Cantiere />}
-                    {type === 'personale' && <Icons.Personale />}
-                    {type === 'mezzo' && <Icons.Mezzi />}
-                    {type === 'documento' && <Icons.Documenti />}
-                  </div>
+                  {type === 'personale' && item.foto ? (
+                    <img src={item.foto} alt="Foto" className="w-14 h-16 rounded-2xl object-cover border-2 border-slate-200 dark:border-slate-700 shadow-sm" />
+                  ) : (
+                    <div className="p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl group-hover:bg-blue-50 dark:group-hover:bg-blue-900/30 transition-colors">
+                      {type === 'cantiere' && <Icons.Cantiere />}
+                      {type === 'personale' && <Icons.Personale />}
+                      {type === 'mezzo' && <Icons.Mezzi />}
+                      {type === 'documento' && <Icons.Documenti />}
+                    </div>
+                  )}
                   <div className="flex gap-1">
                     {type === 'cantiere' && (
                       <button onClick={(e) => { e.stopPropagation(); generateTemplatePdf('Dichiarazione Cantiere', item); }} title="Genera PDF" className="p-2 text-slate-300 dark:text-slate-600 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-all">
                         <Icons.Pdf />
+                      </button>
+                    )}
+                    {type === 'personale' && (
+                      <button onClick={(e) => { e.stopPropagation(); setBadgePersonaleId(item.id); setIsBadgeModalOpen(true); }} title="Genera Tesserino Cantiere" className="p-2 text-slate-300 dark:text-slate-600 hover:text-emerald-500 opacity-0 group-hover:opacity-100 transition-all">
+                        <Icons.Badge />
                       </button>
                     )}
                     <button onClick={(e) => { e.stopPropagation(); deleteEntity(type, item.id); }} title="Elimina" className="p-2 text-slate-300 dark:text-slate-600 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all">
@@ -1862,6 +1917,11 @@ const App: React.FC = () => {
                 </div>
                 <h4 className="text-lg font-black text-slate-900 dark:text-white truncate">{item.nome || item.modello || item.titolo} {item.cognome || ''}</h4>
                 <p className="text-xs font-bold text-slate-400 dark:text-slate-500 uppercase mt-1">{item.cliente || item.ruolo || item.targa || item.ente}</p>
+                {type === 'personale' && item.dataAssunzione && (
+                  <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 mt-1">
+                    Assunto il: {new Date(item.dataAssunzione).toLocaleDateString('it-IT')}
+                  </p>
+                )}
                 <div className="mt-6 pt-6 border-t border-slate-50 dark:border-slate-800 flex justify-between items-center">
                   <div className="flex flex-col">
                     <span className="text-[9px] font-black text-slate-300 dark:text-slate-600 uppercase">Scadenza</span>
@@ -2434,9 +2494,31 @@ const App: React.FC = () => {
         defaultType={activeTab !== 'dashboard' && activeTab !== 'impostazioni' ? activeTab as EntityType : 'cantiere'} 
       />
       <EditCantiereModal isOpen={!!selectedCantiere} cantiere={selectedCantiere} onClose={()=>setSelectedCantiere(null)} onSave={(u)=>updateEntity('cantiere', u)} />
-      <EditPersonaleModal isOpen={!!selectedPersonale} personale={selectedPersonale} onClose={()=>setSelectedPersonale(null)} onSave={(u)=>updateEntity('personale', u)} />
+      <EditPersonaleModal 
+        isOpen={!!selectedPersonale} 
+        personale={selectedPersonale} 
+        onClose={()=>setSelectedPersonale(null)} 
+        onSave={(u)=>updateEntity('personale', u)} 
+        onOpenBadge={(p) => {
+          setSelectedPersonale(null);
+          setBadgePersonaleId(p.id);
+          setIsBadgeModalOpen(true);
+        }}
+      />
       <EditMezzoModal isOpen={!!selectedMezzo} mezzo={selectedMezzo} onClose={()=>setSelectedMezzo(null)} onSave={(u)=>updateEntity('mezzo', u)} />
       <EditDocumentoModal isOpen={!!selectedDocumento} documento={selectedDocumento} onClose={()=>setSelectedDocumento(null)} onSave={(u)=>updateEntity('documento', u)} />
+      <BadgeGeneratorModal
+        isOpen={isBadgeModalOpen}
+        onClose={() => {
+          setIsBadgeModalOpen(false);
+          setBadgePersonaleId(undefined);
+        }}
+        personaleList={data.personale}
+        cantieriList={data.cantieri}
+        settings={data.settings}
+        initialPersonaleId={badgePersonaleId}
+        onUpdatePersonale={(u) => updateEntity('personale', u)}
+      />
     </div>
   );
 };

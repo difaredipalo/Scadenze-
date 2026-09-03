@@ -76,6 +76,10 @@ export interface Personale {
   ruolo: string;
   categoria: CategoriaPersonale;
   codiceFiscale?: string;
+  dataAssunzione?: string; // Data di assunzione (obbligatoria per tesserini ex D.Lgs 81/08)
+  foto?: string; // Fototessera base64 o URL per badge
+  luogoNascita?: string;
+  dataNascita?: string;
   scadenzaContratto?: string; // Se undefined o vuoto = Indeterminato
   scadenzaVisitaMedica: string;
   inForza: boolean;
