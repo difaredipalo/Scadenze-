@@ -8,6 +8,7 @@ import {
   DEFAULT_LETTERA_INCARICO,
 } from '../data/defaultTemplates';
 import { numeroInLettereItaliano } from '../utils/numberToItalianWords';
+import { formatDateItalian } from '../utils/dateUtils';
 import {
   exportContractToPdf,
   exportContractToWord,
@@ -16,6 +17,7 @@ import {
   downloadDnlJsonFile,
   exportDnlToExcel,
   exportDnlToPdf,
+  printDnlSheet,
 } from '../services/contrattiDnlExportService';
 
 interface ContrattiDnlSectionProps {
@@ -111,7 +113,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
 
     // SAL
     const salStr = selectedCantiere.salList && selectedCantiere.salList.length > 0
-      ? selectedCantiere.salList.map((s, i) => `SAL ${i + 1}: ${s.titolo} - € ${s.importo.toLocaleString('it-IT')} (del ${s.data})`).join('\n   ')
+      ? selectedCantiere.salList.map((s, i) => `SAL ${i + 1}: ${s.titolo} - € ${s.importo.toLocaleString('it-IT')} (del ${s.data ? formatDateItalian(s.data) : 'N.D.'})`).join('\n   ')
       : 'Liquidazione in acconti a SAL e saldo finale previa emissione fattura e verifica DURC.';
 
     // Subappalti
@@ -140,8 +142,8 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
       IMPORTO_TOTALE: importoFormatted,
       IMPORTO_LETTERE: importoLettere,
       ONERI_SICUREZZA: (dnlFormData.oneriSicurezza || Math.round(importoNum * 0.03)).toLocaleString('it-IT', { minimumFractionDigits: 2 }),
-      DATA_INIZIO: selectedCantiere.dataInizio || 'Da stabilire',
-      DATA_CONSEGNA: selectedCantiere.dataConsegna || selectedCantiere.scadenza || 'Da stabilire',
+      DATA_INIZIO: selectedCantiere.dataInizio ? formatDateItalian(selectedCantiere.dataInizio) : 'Da stabilire',
+      DATA_CONSEGNA: (selectedCantiere.dataConsegna || selectedCantiere.scadenza) ? formatDateItalian(selectedCantiere.dataConsegna || selectedCantiere.scadenza) : 'Da stabilire',
       DURATA_GIORNI: durataGiorni,
       DIRETTORE_LAVORI: selectedCantiere.direttoreLavori || 'Da designare a cura del Committente',
       COORDINATORE_SICUREZZA: cse,
@@ -156,7 +158,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
       ALLEGATI: allegatiDefault,
       FORO_COMPETENTE: settings.indirizzoSede ? settings.indirizzoSede.split(',').pop()?.trim() || 'Foro competente' : 'Foro competente',
       CIG_CUP: dnlFormData.cig ? `CIG: ${dnlFormData.cig}${dnlFormData.cup ? ` - CUP: ${dnlFormData.cup}` : ''}` : 'Non applicabile (Opera privata)',
-      DATA_OGGI: new Date().toLocaleDateString('it-IT'),
+      DATA_OGGI: formatDateItalian(new Date()),
       NOTE_CANTIERE: selectedCantiere.note || 'Nessuna condizione particolare registrata.',
     };
   }, [selectedCantiere, settings, dnlFormData]);
@@ -1067,6 +1069,14 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
                 title="Scarica scheda ufficiale DNL in PDF"
               >
                 <Icons.Pdf /> Scheda PDF DNL
+              </button>
+
+              <button
+                onClick={() => printDnlSheet(selectedCantiere, settings, dnlFormData)}
+                className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5"
+                title="Stampa immediata scheda DNL su carta o PDF di sistema"
+              >
+                <Icons.Printer /> Stampa Scheda DNL
               </button>
             </div>
           </div>

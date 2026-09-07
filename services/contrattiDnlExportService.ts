@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { Cantiere, AppSettings, Personale, DnlData } from '../types';
+import { formatDateItalian } from '../utils/dateUtils';
 
 /**
  * Esporta il contratto in formato Word (.doc)
@@ -47,7 +48,7 @@ export function exportContractToWord(contractText: string, cantiereName: string,
   const a = document.createElement('a');
   a.href = url;
   const safeName = cantiereName.replace(/[^a-zA-Z0-9_-]/g, '_');
-  a.download = `Contratto_${safeName}_${new Date().toISOString().split('T')[0]}.doc`;
+  a.download = `Contratto_${safeName}_${formatDateItalian(new Date()).replace(/\//g, '-')}.doc`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -203,109 +204,132 @@ export function exportContractToPdf(
   }
 
   const safeName = cantiere.nome.replace(/[^a-zA-Z0-9_-]/g, '_');
-  doc.save(`Contratto_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`Contratto_${safeName}_${formatDateItalian(new Date()).replace(/\//g, '-')}.pdf`);
+}
+
+/**
+ * Helper: verifica se un valore è presente e significativo (non vuoto, non trattino, non N.D.)
+ */
+function isFieldFilled(val: any): boolean {
+  if (val === undefined || val === null) return false;
+  const s = String(val).trim();
+  return (
+    s !== '' &&
+    s !== '-' &&
+    s !== 'N.D.' &&
+    s !== 'Da compilare' &&
+    s !== 'Non presente' &&
+    s !== 'Non specificato' &&
+    s !== 'Non necessaria / Non presente' &&
+    s !== 'Esente / Non presente'
+  );
 }
 
 /**
  * Esporta il file DNL in formato testo strutturato (.TXT)
- * Contiene tutti i campi necessari per aprire la DNL su Cassa Edile / INAIL
+ * Semplificato: omette i campi lasciati vuoti, esclude lavoratori, manodopera e direttore lavori,
+ * e nel riquadro economico inserisce solo Importo Complessivo, Opere Edili e Subappalti Totale.
  */
 export function exportDnlToTxt(
   cantiere: Cantiere,
   settings: AppSettings,
   dnlData: DnlData,
-  personaleAssegnato: Personale[]
+  _personaleAssegnato?: Personale[]
 ): string {
-  const oggi = new Date().toLocaleDateString('it-IT');
+  const oggi = formatDateItalian(new Date());
   const sep = '='.repeat(70);
   const subSep = '-'.repeat(70);
 
   let out = '';
   out += `${sep}\n`;
   out += `FASCICOLO TELEMATICO DNL - DENUNCIA DI NUOVO LAVORO (EDILIZIA)\n`;
-  out += `Adempimento obbligatorio Cassa Edile / Edilcassa (CNCE) e INAIL\n`;
-  out += `Generato il: ${oggi} da ${settings.nomeAzienda}\n`;
+  out += `Adempimento Cassa Edile / Edilcassa (CNCE) e INAIL\n`;
+  out += `Data: ${oggi} • Impresa: ${settings.nomeAzienda}\n`;
   out += `${sep}\n\n`;
 
-  out += `[1] DATI DELL'IMPRESA ESECUTRICE\n${subSep}\n`;
-  out += `Ragione Sociale:           ${settings.nomeAzienda}\n`;
-  out += `Codice Fiscale / P.IVA:     ${settings.partitaIva || settings.codiceFiscaleAzienda || 'N.D.'}\n`;
-  out += `Sede Legale:               ${settings.indirizzoSede || 'N.D.'}\n`;
-  out += `PEC Impresa:               ${settings.pec || 'N.D.'}\n`;
-  out += `Recapito Telefonico:       ${settings.telefonoAzienda || 'N.D.'}\n`;
-  out += `Rappresentante Legale:     ${settings.rappresentanteLegale || 'N.D.'}\n`;
-  out += `Codice Cassa Edile:        ${dnlData.codiceCassaEdile || settings.codiceCassaEdile || 'N.D.'}\n`;
-  out += `Codice Ditta & PAT INAIL:  ${dnlData.patInail || settings.patInail || 'N.D.'}\n`;
-  out += `Matricola Aziendale INPS:  ${dnlData.matricolaInps || settings.matricolaInps || 'N.D.'}\n`;
-  out += `CCNL Applicato:            ${dnlData.ccnl || settings.ccnlApplicato || 'Edilizia Industria / Artigianato'}\n\n`;
+  // [1] DATI IMPRESA (solo se compilati)
+  const impresaLines: string[] = [];
+  if (isFieldFilled(settings.nomeAzienda)) impresaLines.push(`Ragione Sociale:           ${settings.nomeAzienda}`);
+  if (isFieldFilled(settings.partitaIva || settings.codiceFiscaleAzienda)) impresaLines.push(`Codice Fiscale / P.IVA:    ${settings.partitaIva || settings.codiceFiscaleAzienda}`);
+  if (isFieldFilled(settings.indirizzoSede)) impresaLines.push(`Sede Legale:               ${settings.indirizzoSede}`);
+  if (isFieldFilled(settings.pec)) impresaLines.push(`PEC Impresa:               ${settings.pec}`);
+  if (isFieldFilled(settings.telefonoAzienda)) impresaLines.push(`Recapito Telefonico:       ${settings.telefonoAzienda}`);
+  if (isFieldFilled(settings.rappresentanteLegale)) impresaLines.push(`Rappresentante Legale:     ${settings.rappresentanteLegale}`);
+  if (isFieldFilled(dnlData.codiceCassaEdile || settings.codiceCassaEdile)) impresaLines.push(`Codice Cassa Edile:        ${dnlData.codiceCassaEdile || settings.codiceCassaEdile}`);
+  if (isFieldFilled(dnlData.patInail || settings.patInail)) impresaLines.push(`Codice Ditta & PAT INAIL:  ${dnlData.patInail || settings.patInail}`);
+  if (isFieldFilled(dnlData.matricolaInps || settings.matricolaInps)) impresaLines.push(`Matricola Aziendale INPS:  ${dnlData.matricolaInps || settings.matricolaInps}`);
+  if (isFieldFilled(dnlData.ccnl || settings.ccnlApplicato)) impresaLines.push(`CCNL Applicato:            ${dnlData.ccnl || settings.ccnlApplicato}`);
 
-  out += `[2] DATI DEL CANTIERE E UBICAZIONE OPERE\n${subSep}\n`;
-  out += `Denominazione Cantiere:    ${cantiere.nome}\n`;
-  out += `Indirizzo e N. Civico:     ${cantiere.indirizzo || 'N.D.'}\n`;
-  out += `Tipologia Intervento:      ${dnlData.tipoLavoro || 'Ristrutturazione / Manutenzione Straordinaria'}\n`;
-  out += `Natura Giuridica:          ${(dnlData.naturaAppalto || 'privato').toUpperCase()}\n`;
-  if (dnlData.cig) out += `Codice CIG:                ${dnlData.cig}\n`;
-  if (dnlData.cup) out += `Codice CUP:                ${dnlData.cup}\n`;
-  out += `Stato Cantiere:            ${cantiere.stato.toUpperCase()}\n\n`;
-
-  out += `[3] TITOLO ABILITATIVO E PRATICA EDILIZIA\n${subSep}\n`;
-  out += `Titolo Abilitativo:        ${dnlData.titoloAbilitativoTipo || 'CILA / SCIA / Permesso Costruire'}\n`;
-  out += `Numero Pratica / Prot.:    ${dnlData.titoloAbilitativoNumero || 'N.D.'}\n`;
-  out += `Data Rilascio / Deposito:  ${dnlData.titoloAbilitativoData || 'N.D.'}\n`;
-  out += `Comune di Riferimento:     ${dnlData.titoloAbilitativoComune || 'N.D.'}\n`;
-  out += `Notifica Preliminare ASL:  ${dnlData.protocolloNotificaPreliminare ? `Prot. ${dnlData.protocolloNotificaPreliminare} del ${dnlData.dataNotificaPreliminare || '-'}` : 'Non necessaria / Esente'}\n\n`;
-
-  out += `[4] DATI DEL COMMITTENTE\n${subSep}\n`;
-  out += `Nominativo / Rag. Sociale: ${cantiere.cliente}\n`;
-  out += `Codice Fiscale / P.IVA:     ${dnlData.committenteCodiceFiscale || 'N.D.'}\n`;
-  out += `Indirizzo Residenza / Sede:${dnlData.committenteIndirizzo || 'N.D.'}\n`;
-  out += `Contatti (PEC / Tel):      ${dnlData.committentePecTelefono || 'N.D.'}\n\n`;
-
-  out += `[5] FIGURE TECNICHE E RESPONSABILI DELLA SICUREZZA\n${subSep}\n`;
-  out += `Direttore dei Lavori (DL): ${cantiere.direttoreLavori || 'N.D.'}\n`;
-  out += `Coord. Sicurezza Esecuz.:  ${dnlData.coordinatoreSicurezza || cantiere.tecnici.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || 'N.D.'}\n`;
-  out += `Responsabile dei Lavori:   ${dnlData.responsabileLavori || 'N.D.'}\n`;
-  out += `Capocantiere / Preposto:   ${dnlData.capocantiere || cantiere.tecnici.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || 'N.D.'}\n\n`;
-
-  out += `[6] VALORI ECONOMICI E CONGRUITÀ MANODOPERA (D.M. 143/2021)\n${subSep}\n`;
-  out += `Valore Complessivo Opera:  € ${(cantiere.importoTotale || 0).toLocaleString('it-IT')}\n`;
-  out += `Importo Lavori Edili:      € ${(dnlData.importoEdile !== undefined ? dnlData.importoEdile : cantiere.importoTotale).toLocaleString('it-IT')}\n`;
-  out += `Oneri Sicurezza (no rib.): € ${(dnlData.oneriSicurezza || 0).toLocaleString('it-IT')}\n`;
-  out += `Incidenza Minima Manodop.: ${dnlData.incidenzaManodoperaPerc || 14.28}%\n`;
-  out += `Ore Lavorative Stimate:    ${dnlData.oreLavorativeStimate || 0} ore\n\n`;
-
-  out += `[7] DATE, DURATA E SCADENZE CANTIERE\n${subSep}\n`;
-  out += `Data Inizio Lavori:        ${cantiere.dataInizio || 'N.D.'}\n`;
-  out += `Data Presunta Consegna:    ${cantiere.dataConsegna || cantiere.scadenza || 'N.D.'}\n`;
-  out += `Termine Invio DNL:         ${cantiere.scadenzaDNL || 'Prima dell\'avvio lavori'}\n`;
-  out += `Numero Operai Previsti:    ${dnlData.numeroOperaiStimati || personaleAssegnato.length || 0}\n\n`;
-
-  out += `[8] OPERAI E MAESTRANZE ASSEGNATE AL CANTIERE (${personaleAssegnato.length})\n${subSep}\n`;
-  if (personaleAssegnato.length === 0) {
-    out += `Nessun lavoratore specificatamente associato (selezionare dal gestionale).\n`;
-  } else {
-    personaleAssegnato.forEach((p, idx) => {
-      out += `${idx + 1}. ${p.cognome.toUpperCase()} ${p.nome} - Ruolo: ${p.ruolo} (${p.categoria})\n`;
-      out += `   C.F.: ${p.codiceFiscale || 'N.D.'} | Assunzione: ${p.dataAssunzione || 'N.D.'} | Visita Medica: ${p.scadenzaVisitaMedica || 'N.D.'}\n`;
-    });
+  if (impresaLines.length > 0) {
+    out += `[1] DATI DELL'IMPRESA ESECUTRICE\n${subSep}\n${impresaLines.join('\n')}\n\n`;
   }
-  out += `\n`;
 
-  out += `[9] DITTE IN SUBAPPALTO E LAVORATORI AUTONOMI (${cantiere.subappalti.length})\n${subSep}\n`;
-  if (cantiere.subappalti.length === 0) {
-    out += `Nessuna ditta in subappalto dichiarata.\n`;
-  } else {
+  // [2] DATI CANTIERE & PRATICA EDILIZIA (solo campi compilati)
+  const cantiereLines: string[] = [];
+  if (isFieldFilled(cantiere.nome)) cantiereLines.push(`Denominazione Cantiere:    ${cantiere.nome}`);
+  if (isFieldFilled(cantiere.indirizzo)) cantiereLines.push(`Ubicazione / Indirizzo:    ${cantiere.indirizzo}`);
+  if (isFieldFilled(cantiere.cliente)) {
+    const cfText = isFieldFilled(dnlData.committenteCodiceFiscale) ? ` (C.F.: ${dnlData.committenteCodiceFiscale})` : '';
+    cantiereLines.push(`Committente:               ${cantiere.cliente}${cfText}`);
+  }
+  if (isFieldFilled(dnlData.committenteIndirizzo)) cantiereLines.push(`Indirizzo Committente:     ${dnlData.committenteIndirizzo}`);
+  if (isFieldFilled(dnlData.committentePecTelefono)) cantiereLines.push(`Contatti Committente:      ${dnlData.committentePecTelefono}`);
+  if (isFieldFilled(dnlData.tipoLavoro)) cantiereLines.push(`Tipologia Intervento:      ${dnlData.tipoLavoro}`);
+  if (isFieldFilled(dnlData.naturaAppalto)) cantiereLines.push(`Natura Giuridica:          ${dnlData.naturaAppalto.toUpperCase()}`);
+  if (isFieldFilled(dnlData.titoloAbilitativoTipo)) cantiereLines.push(`Titolo Abilitativo:        ${dnlData.titoloAbilitativoTipo}`);
+  if (isFieldFilled(dnlData.titoloAbilitativoNumero)) cantiereLines.push(`Numero Pratica / Prot.:    ${dnlData.titoloAbilitativoNumero}`);
+  if (isFieldFilled(dnlData.titoloAbilitativoData)) cantiereLines.push(`Data Deposito Pratica:     ${formatDateItalian(dnlData.titoloAbilitativoData)}`);
+  if (isFieldFilled(dnlData.titoloAbilitativoComune)) cantiereLines.push(`Comune di Riferimento:     ${dnlData.titoloAbilitativoComune}`);
+  if (isFieldFilled(dnlData.protocolloNotificaPreliminare)) {
+    const dataNotifica = isFieldFilled(dnlData.dataNotificaPreliminare) ? ` del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : '';
+    cantiereLines.push(`Notifica Preliminare ASL:  Prot. ${dnlData.protocolloNotificaPreliminare}${dataNotifica}`);
+  }
+  if (isFieldFilled(dnlData.cig)) cantiereLines.push(`Codice CIG:                ${dnlData.cig}`);
+  if (isFieldFilled(dnlData.cup)) cantiereLines.push(`Codice CUP:                ${dnlData.cup}`);
+  if (isFieldFilled(cantiere.dataInizio)) cantiereLines.push(`Data Inizio Lavori:        ${formatDateItalian(cantiere.dataInizio)}`);
+  if (isFieldFilled(cantiere.dataConsegna || cantiere.scadenza)) cantiereLines.push(`Data Consegna Lavori:      ${formatDateItalian(cantiere.dataConsegna || cantiere.scadenza)}`);
+  if (isFieldFilled(cantiere.scadenzaDNL)) cantiereLines.push(`Termine Scadenza Invio:    ${formatDateItalian(cantiere.scadenzaDNL)}`);
+
+  if (cantiereLines.length > 0) {
+    out += `[2] CANTIERE E TITOLO ABILITATIVO\n${subSep}\n${cantiereLines.join('\n')}\n\n`;
+  }
+
+  // [3] FIGURE DI SICUREZZA (NO DIRETTORE LAVORI!)
+  const sicurezzaLines: string[] = [];
+  const coordSicurezza = dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome;
+  if (isFieldFilled(coordSicurezza)) sicurezzaLines.push(`Coord. Sicurezza (CSE):    ${coordSicurezza}`);
+  const capocantiere = dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome;
+  if (isFieldFilled(capocantiere)) sicurezzaLines.push(`Capocantiere / Preposto:   ${capocantiere}`);
+  if (isFieldFilled(dnlData.responsabileLavori)) sicurezzaLines.push(`Responsabile dei Lavori:   ${dnlData.responsabileLavori}`);
+
+  if (sicurezzaLines.length > 0) {
+    out += `[3] RESPONSABILI DELLA SICUREZZA\n${subSep}\n${sicurezzaLines.join('\n')}\n\n`;
+  }
+
+  // [4] RIQUADRO ECONOMICO: solo Importo Complessivo, Opere Edili, Subappalti Totale
+  const subappaltiTotale = (cantiere.subappalti || []).reduce((acc, s) => acc + (s.prezzoOriginale || 0), 0);
+  const impEdile = dnlData.importoEdile !== undefined ? dnlData.importoEdile : (cantiere.importoTotale || 0);
+
+  out += `[4] RIQUADRO ECONOMICO\n${subSep}\n`;
+  out += `Importo Complessivo Opera: € ${(cantiere.importoTotale || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n`;
+  out += `Opere Edili (Cassa Edile): € ${impEdile.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n`;
+  out += `Subappalti Totale:         € ${subappaltiTotale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n\n`;
+
+  // [5] DETTAGLIO SUBAPPALTI (se presenti)
+  if (cantiere.subappalti && cantiere.subappalti.length > 0) {
+    out += `[5] DITTE IN SUBAPPALTO (${cantiere.subappalti.length})\n${subSep}\n`;
     cantiere.subappalti.forEach((s, idx) => {
-      out += `${idx + 1}. Ditta: ${s.azienda} | Lavorazione: ${s.lavoro} | Importo: € ${s.prezzoOriginale.toLocaleString('it-IT')}\n`;
+      out += `${idx + 1}. ${s.azienda} | Lavorazione: ${s.lavoro} | Importo: € ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n`;
     });
-  }
-  out += `\n`;
-
-  if (dnlData.noteDNL) {
-    out += `[10] NOTE INTEGRATIVE DNL\n${subSep}\n${dnlData.noteDNL}\n\n`;
+    out += `\n`;
   }
 
-  out += `${sep}\nFINE FASCICOLO DATI DNL\n${sep}\n`;
+  // NOTE (se presenti)
+  if (isFieldFilled(dnlData.noteDNL)) {
+    out += `NOTE INTEGRATIVE\n${subSep}\n${dnlData.noteDNL}\n\n`;
+  }
+
+  out += `${sep}\nFINE SCHEDA DNL\n${sep}\n`;
   return out;
 }
 
@@ -316,7 +340,7 @@ export function downloadDnlTxtFile(
   cantiere: Cantiere,
   settings: AppSettings,
   dnlData: DnlData,
-  personaleAssegnato: Personale[]
+  personaleAssegnato?: Personale[]
 ) {
   const content = exportDnlToTxt(cantiere, settings, dnlData, personaleAssegnato);
   const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
@@ -324,92 +348,76 @@ export function downloadDnlTxtFile(
   const a = document.createElement('a');
   a.href = url;
   const safeName = cantiere.nome.replace(/[^a-zA-Z0-9_-]/g, '_');
-  a.download = `FILE_DATI_DNL_${safeName}_${new Date().toISOString().split('T')[0]}.txt`;
+  a.download = `FILE_DATI_DNL_${safeName}_${formatDateItalian(new Date()).replace(/\//g, '-')}.txt`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 /**
- * Esporta il file DNL in JSON scaricabile
+ * Esporta il file DNL in JSON scaricabile (semplificato)
  */
 export function downloadDnlJsonFile(
   cantiere: Cantiere,
   settings: AppSettings,
   dnlData: DnlData,
-  personaleAssegnato: Personale[]
+  _personaleAssegnato?: Personale[]
 ) {
+  const subappaltiTotale = (cantiere.subappalti || []).reduce((acc, s) => acc + (s.prezzoOriginale || 0), 0);
+  const impEdile = dnlData.importoEdile !== undefined ? dnlData.importoEdile : (cantiere.importoTotale || 0);
+
   const fullDnlObject = {
-    tipoDocumento: "DNL - Denuncia di Nuovo Lavoro",
-    dataGenerazione: new Date().toISOString(),
+    tipoDocumento: "DNL - Denuncia di Nuovo Lavoro (Semplificato)",
+    dataGenerazione: formatDateItalian(new Date()),
     impresa: {
       ragioneSociale: settings.nomeAzienda,
-      partitaIva: settings.partitaIva || settings.codiceFiscaleAzienda,
-      sedeLegale: settings.indirizzoSede,
-      pec: settings.pec,
-      telefono: settings.telefonoAzienda,
-      legaleRappresentante: settings.rappresentanteLegale,
-      codiceCassaEdile: dnlData.codiceCassaEdile || settings.codiceCassaEdile,
-      matricolaInps: dnlData.matricolaInps || settings.matricolaInps,
-      patInail: dnlData.patInail || settings.patInail,
-      ccnl: dnlData.ccnl || settings.ccnlApplicato,
+      partitaIva: settings.partitaIva || settings.codiceFiscaleAzienda || null,
+      sedeLegale: settings.indirizzoSede || null,
+      pec: settings.pec || null,
+      telefono: settings.telefonoAzienda || null,
+      legaleRappresentante: settings.rappresentanteLegale || null,
+      codiceCassaEdile: dnlData.codiceCassaEdile || settings.codiceCassaEdile || null,
+      matricolaInps: dnlData.matricolaInps || settings.matricolaInps || null,
+      patInail: dnlData.patInail || settings.patInail || null,
+      ccnl: dnlData.ccnl || settings.ccnlApplicato || null,
     },
     cantiere: {
       id: cantiere.id,
       nome: cantiere.nome,
-      indirizzo: cantiere.indirizzo,
+      indirizzo: cantiere.indirizzo || null,
       cliente: cantiere.cliente,
-      stato: cantiere.stato,
-      dataInizio: cantiere.dataInizio,
-      dataConsegna: cantiere.dataConsegna || cantiere.scadenza,
-      scadenzaDNL: cantiere.scadenzaDNL,
-      importoTotale: cantiere.importoTotale,
+      committenteCodiceFiscale: dnlData.committenteCodiceFiscale || null,
+      dataInizio: formatDateItalian(cantiere.dataInizio),
+      dataConsegna: formatDateItalian(cantiere.dataConsegna || cantiere.scadenza),
+      scadenzaDNL: formatDateItalian(cantiere.scadenzaDNL),
     },
     praticaEdilizia: {
-      tipoLavoro: dnlData.tipoLavoro,
-      naturaAppalto: dnlData.naturaAppalto,
-      cig: dnlData.cig,
-      cup: dnlData.cup,
-      titoloAbilitativoTipo: dnlData.titoloAbilitativoTipo,
-      titoloAbilitativoNumero: dnlData.titoloAbilitativoNumero,
-      titoloAbilitativoData: dnlData.titoloAbilitativoData,
-      titoloAbilitativoComune: dnlData.titoloAbilitativoComune,
-      notificaPreliminareProtocollo: dnlData.protocolloNotificaPreliminare,
-      notificaPreliminareData: dnlData.dataNotificaPreliminare,
+      tipoLavoro: dnlData.tipoLavoro || null,
+      naturaAppalto: dnlData.naturaAppalto || null,
+      titoloAbilitativoTipo: dnlData.titoloAbilitativoTipo || null,
+      titoloAbilitativoNumero: dnlData.titoloAbilitativoNumero || null,
+      titoloAbilitativoData: formatDateItalian(dnlData.titoloAbilitativoData),
+      titoloAbilitativoComune: dnlData.titoloAbilitativoComune || null,
+      notificaPreliminareProtocollo: dnlData.protocolloNotificaPreliminare || null,
+      notificaPreliminareData: formatDateItalian(dnlData.dataNotificaPreliminare),
+      cig: dnlData.cig || null,
+      cup: dnlData.cup || null,
     },
-    committente: {
-      nominativo: cantiere.cliente,
-      codiceFiscale: dnlData.committenteCodiceFiscale,
-      indirizzo: dnlData.committenteIndirizzo,
-      contatti: dnlData.committentePecTelefono,
+    sicurezza: {
+      coordinatoreSicurezza: dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || null,
+      capocantiere: dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || null,
+      responsabileLavori: dnlData.responsabileLavori || null,
     },
-    sicurezzaETecnici: {
-      direttoreLavori: cantiere.direttoreLavori,
-      coordinatoreSicurezza: dnlData.coordinatoreSicurezza,
-      responsabileLavori: dnlData.responsabileLavori,
-      capocantiere: dnlData.capocantiere,
+    riquadroEconomico: {
+      importoComplessivo: cantiere.importoTotale || 0,
+      opereEdili: impEdile,
+      subappaltiTotale: subappaltiTotale,
     },
-    valoriEconomici: {
-      importoTotale: cantiere.importoTotale,
-      importoEdile: dnlData.importoEdile !== undefined ? dnlData.importoEdile : cantiere.importoTotale,
-      oneriSicurezza: dnlData.oneriSicurezza || 0,
-      incidenzaManodoperaPerc: dnlData.incidenzaManodoperaPerc || 14.28,
-      oreLavorativeStimate: dnlData.oreLavorativeStimate || 0,
-    },
-    operaiAssegnati: personaleAssegnato.map(p => ({
-      id: p.id,
-      nominativo: `${p.cognome} ${p.nome}`,
-      ruolo: p.ruolo,
-      categoria: p.categoria,
-      codiceFiscale: p.codiceFiscale,
-      dataAssunzione: p.dataAssunzione,
-      scadenzaVisitaMedica: p.scadenzaVisitaMedica
-    })),
-    subappalti: cantiere.subappalti.map(s => ({
+    subappalti: (cantiere.subappalti || []).map(s => ({
       azienda: s.azienda,
       lavoro: s.lavoro,
       importo: s.prezzoOriginale
     })),
-    note: dnlData.noteDNL
+    note: dnlData.noteDNL || null
   };
 
   const blob = new Blob([JSON.stringify(fullDnlObject, null, 2)], { type: 'application/json' });
@@ -417,28 +425,30 @@ export function downloadDnlJsonFile(
   const a = document.createElement('a');
   a.href = url;
   const safeName = cantiere.nome.replace(/[^a-zA-Z0-9_-]/g, '_');
-  a.download = `DNL_DATI_${safeName}_${new Date().toISOString().split('T')[0]}.json`;
+  a.download = `DNL_DATI_${safeName}_${formatDateItalian(new Date()).replace(/\//g, '-')}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
 /**
- * Esporta il fascicolo DNL in foglio Excel (.xlsx) con schede dettagliate
+ * Esporta il fascicolo DNL in foglio Excel (.xlsx) semplificato
+ * Non include voci vuote, non include lavoratori, non include manodopera o direttore lavori
  */
 export function exportDnlToExcel(
   cantiere: Cantiere,
   settings: AppSettings,
   dnlData: DnlData,
-  personaleAssegnato: Personale[]
+  _personaleAssegnato?: Personale[]
 ) {
   const wb = XLSX.utils.book_new();
 
-  // Foglio 1: Dati Generali DNL
-  const generalData = [
+  const subappaltiTotale = (cantiere.subappalti || []).reduce((acc, s) => acc + (s.prezzoOriginale || 0), 0);
+  const impEdile = dnlData.importoEdile !== undefined ? dnlData.importoEdile : (cantiere.importoTotale || 0);
+
+  // Foglio 1: Dati DNL Semplificati (solo non vuoti)
+  const rawData: { Campo: string; Valore: any }[] = [
     { Campo: "Denominazione Cantiere", Valore: cantiere.nome },
     { Campo: "Indirizzo Cantiere", Valore: cantiere.indirizzo || '' },
-    { Campo: "Tipologia Lavori", Valore: dnlData.tipoLavoro || 'Ristrutturazione' },
-    { Campo: "Natura Appalto", Valore: dnlData.naturaAppalto || 'privato' },
     { Campo: "Committente", Valore: cantiere.cliente },
     { Campo: "Codice Fiscale Committente", Valore: dnlData.committenteCodiceFiscale || '' },
     { Campo: "Impresa Esecutrice", Valore: settings.nomeAzienda },
@@ -446,60 +456,57 @@ export function exportDnlToExcel(
     { Campo: "Codice Cassa Edile", Valore: dnlData.codiceCassaEdile || settings.codiceCassaEdile || '' },
     { Campo: "PAT INAIL", Valore: dnlData.patInail || settings.patInail || '' },
     { Campo: "Matricola INPS", Valore: dnlData.matricolaInps || settings.matricolaInps || '' },
-    { Campo: "CCNL", Valore: dnlData.ccnl || settings.ccnlApplicato || 'Edilizia' },
-    { Campo: "Titolo Abilitativo", Valore: `${dnlData.titoloAbilitativoTipo || 'CILA'} N. ${dnlData.titoloAbilitativoNumero || '-'} del ${dnlData.titoloAbilitativoData || '-'}` },
-    { Campo: "Notifica Preliminare", Valore: dnlData.protocolloNotificaPreliminare || 'Esente / Non presente' },
-    { Campo: "Direttore Lavori", Valore: cantiere.direttoreLavori || '' },
-    { Campo: "Coordinatore Sicurezza (CSE)", Valore: dnlData.coordinatoreSicurezza || '' },
+    { Campo: "CCNL Applicato", Valore: dnlData.ccnl || settings.ccnlApplicato || '' },
+    { Campo: "Tipologia Lavori", Valore: dnlData.tipoLavoro || '' },
+    { Campo: "Natura Appalto", Valore: dnlData.naturaAppalto || '' },
+    { Campo: "Titolo Abilitativo", Valore: [dnlData.titoloAbilitativoTipo, dnlData.titoloAbilitativoNumero ? `N. ${dnlData.titoloAbilitativoNumero}` : '', dnlData.titoloAbilitativoData ? `del ${formatDateItalian(dnlData.titoloAbilitativoData)}` : ''].filter(Boolean).join(' ') },
+    { Campo: "Notifica Preliminare", Valore: dnlData.protocolloNotificaPreliminare ? `Prot. ${dnlData.protocolloNotificaPreliminare} del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : '' },
+    { Campo: "Coordinatore Sicurezza (CSE)", Valore: dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || '' },
+    { Campo: "Capocantiere / Preposto", Valore: dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || '' },
+    { Campo: "Data Inizio Lavori", Valore: formatDateItalian(cantiere.dataInizio) },
+    { Campo: "Data Consegna Lavori", Valore: formatDateItalian(cantiere.dataConsegna || cantiere.scadenza) },
+    { Campo: "Scadenza Denuncia DNL", Valore: formatDateItalian(cantiere.scadenzaDNL) },
+    { Campo: "Codice CIG", Valore: dnlData.cig || '' },
+    { Campo: "Codice CUP", Valore: dnlData.cup || '' },
+    // Riquadro Economico
     { Campo: "Importo Complessivo Opera (€)", Valore: cantiere.importoTotale || 0 },
-    { Campo: "Importo Lavori Edili Cassa Edile (€)", Valore: dnlData.importoEdile !== undefined ? dnlData.importoEdile : cantiere.importoTotale },
-    { Campo: "Oneri Sicurezza (€)", Valore: dnlData.oneriSicurezza || 0 },
-    { Campo: "Incidenza Manodopera (%)", Valore: dnlData.incidenzaManodoperaPerc || 14.28 },
-    { Campo: "Data Inizio Lavori", Valore: cantiere.dataInizio || '' },
-    { Campo: "Data Fine / Consegna Lavori", Valore: cantiere.dataConsegna || cantiere.scadenza || '' },
-    { Campo: "Scadenza Denuncia DNL", Valore: cantiere.scadenzaDNL || '' },
-    { Campo: "Codice CIG (se pubblico)", Valore: dnlData.cig || '' },
-    { Campo: "Codice CUP (se pubblico)", Valore: dnlData.cup || '' },
+    { Campo: "Opere Edili (Cassa Edile) (€)", Valore: impEdile },
+    { Campo: "Subappalti Totale (€)", Valore: subappaltiTotale },
   ];
+
+  const generalData = rawData.filter(item => isFieldFilled(item.Valore));
   const wsGeneral = XLSX.utils.json_to_sheet(generalData);
   XLSX.utils.book_append_sheet(wb, wsGeneral, "SCHEDA_DNL");
 
-  // Foglio 2: Personale Assegnato
-  const workersData = personaleAssegnato.map(p => ({
-    Cognome: p.cognome,
-    Nome: p.nome,
-    Ruolo: p.ruolo,
-    Categoria: p.categoria,
-    Codice_Fiscale: p.codiceFiscale || '',
-    Data_Assunzione: p.dataAssunzione || '',
-    Visita_Medica: p.scadenzaVisitaMedica || '',
-    Stato: p.inForza ? 'In Forza' : 'Cessato'
-  }));
-  const wsWorkers = XLSX.utils.json_to_sheet(workersData);
-  XLSX.utils.book_append_sheet(wb, wsWorkers, "PERSONALE_DNL");
-
-  // Foglio 3: Subappalti
-  const subData = cantiere.subappalti.map(s => ({
-    Azienda: s.azienda,
-    Lavoro: s.lavoro,
-    Importo_Lavori: s.prezzoOriginale,
-    Maggiorazione_Perc: s.maggiorazione
-  }));
-  const wsSub = XLSX.utils.json_to_sheet(subData);
-  XLSX.utils.book_append_sheet(wb, wsSub, "SUBAPPALTI");
+  // Foglio 2: Subappalti (solo se presenti)
+  if (cantiere.subappalti && cantiere.subappalti.length > 0) {
+    const subData = cantiere.subappalti.map(s => ({
+      Azienda: s.azienda,
+      Lavorazione: s.lavoro,
+      Importo_Subappalto: s.prezzoOriginale
+    }));
+    const wsSub = XLSX.utils.json_to_sheet(subData);
+    XLSX.utils.book_append_sheet(wb, wsSub, "SUBAPPALTI");
+  }
 
   const safeName = cantiere.nome.replace(/[^a-zA-Z0-9_-]/g, '_');
-  XLSX.writeFile(wb, `Fascicolo_DNL_${safeName}_${new Date().toISOString().split('T')[0]}.xlsx`);
+  XLSX.writeFile(wb, `Fascicolo_DNL_${safeName}_${formatDateItalian(new Date()).replace(/\//g, '-')}.xlsx`);
 }
 
 /**
- * Esporta il fascicolo ufficiale DNL in PDF ad alta risoluzione
+ * Esporta il fascicolo ufficiale DNL in PDF semplificato ad alta leggibilità:
+ * - Omette tutte le voci lasciate vuote
+ * - Esclude completamente i lavoratori
+ * - Esclude la manodopera (ore stimate, percentuale, n. operai)
+ * - Esclude il direttore dei lavori
+ * - Nel riquadro economico inserisce solo: Importo Complessivo, Opere Edili, Subappalti Totale
+ * - Tutte le date sono formattate rigorosamente in gg/mm/yyyy
  */
 export function exportDnlToPdf(
   cantiere: Cantiere,
   settings: AppSettings,
   dnlData: DnlData,
-  personaleAssegnato: Personale[]
+  _personaleAssegnato?: Personale[]
 ) {
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -509,8 +516,10 @@ export function exportDnlToPdf(
 
   const pageWidth = 210;
   const marginX = 15;
+  const subappaltiTotale = (cantiere.subappalti || []).reduce((acc, s) => acc + (s.prezzoOriginale || 0), 0);
+  const impEdile = dnlData.importoEdile !== undefined ? dnlData.importoEdile : (cantiere.importoTotale || 0);
 
-  // Header
+  // Header Banner
   doc.setFillColor(15, 23, 42); // slate-900
   doc.rect(0, 0, pageWidth, 24, 'F');
 
@@ -525,114 +534,124 @@ export function exportDnlToPdf(
   doc.text(`CASSA EDILE / EDILCASSA (CNCE) & INAIL • Cantiere: ${cantiere.nome.toUpperCase()}`, marginX, 17);
 
   doc.setTextColor(255, 255, 255);
-  doc.text(`Data: ${new Date().toLocaleDateString('it-IT')}`, pageWidth - marginX, 17, { align: 'right' });
+  doc.text(`Data: ${formatDateItalian(new Date())}`, pageWidth - marginX, 17, { align: 'right' });
 
   let y = 30;
 
-  // Riquadro 1: Impresa
+  // RIQUADRO 1: Dati Impresa (filtra le voci vuote)
+  const bodyImpresa = [
+    ["Ragione Sociale Impresa", settings.nomeAzienda],
+    ["Partita IVA / Codice Fiscale", settings.partitaIva || settings.codiceFiscaleAzienda || ""],
+    ["Sede Legale / Indirizzo", settings.indirizzoSede || ""],
+    ["PEC", settings.pec || ""],
+    ["Telefono", settings.telefonoAzienda || ""],
+    ["Rappresentante Legale", settings.rappresentanteLegale || ""],
+    ["Codice Cassa Edile Impresa", dnlData.codiceCassaEdile || settings.codiceCassaEdile || ""],
+    ["Codice Ditta & PAT INAIL", dnlData.patInail || settings.patInail || ""],
+    ["Matricola Aziendale INPS", dnlData.matricolaInps || settings.matricolaInps || ""],
+    ["CCNL Applicato", dnlData.ccnl || settings.ccnlApplicato || ""],
+  ].filter(([_, val]) => isFieldFilled(val));
+
+  if (bodyImpresa.length > 0) {
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [["RIQUADRO 1: DATI DELL'IMPRESA ESECUTRICE", "VALORE"]],
+      body: bodyImpresa,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 1.6 },
+      columnStyles: { 0: { cellWidth: 62, fontStyle: 'bold' } }
+    });
+    y = (doc as any).lastAutoTable.finalY + 5;
+  }
+
+  // RIQUADRO 2: Cantiere & Titolo Abilitativo (filtra le voci vuote)
+  const praticaParts = [
+    dnlData.titoloAbilitativoTipo,
+    dnlData.titoloAbilitativoNumero ? `N. ${dnlData.titoloAbilitativoNumero}` : '',
+    dnlData.titoloAbilitativoData ? `del ${formatDateItalian(dnlData.titoloAbilitativoData)}` : '',
+    dnlData.titoloAbilitativoComune ? `(${dnlData.titoloAbilitativoComune})` : ''
+  ].filter(Boolean).join(' ');
+
+  const notificaParts = dnlData.protocolloNotificaPreliminare
+    ? `Prot. ${dnlData.protocolloNotificaPreliminare}${dnlData.dataNotificaPreliminare ? ` del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : ''}`
+    : '';
+
+  const bodyCantiere = [
+    ["Denominazione Cantiere", cantiere.nome],
+    ["Ubicazione / Indirizzo", cantiere.indirizzo || ""],
+    ["Committente", `${cantiere.cliente}${isFieldFilled(dnlData.committenteCodiceFiscale) ? ` (C.F.: ${dnlData.committenteCodiceFiscale})` : ''}`],
+    ["Tipologia Intervento", `${dnlData.tipoLavoro || ''}${isFieldFilled(dnlData.naturaAppalto) ? ` • Appalto: ${dnlData.naturaAppalto.toUpperCase()}` : ''}`.trim()],
+    ["Titolo Abilitativo (Pratica)", praticaParts],
+    ["Notifica Preliminare ASL/ITL", notificaParts],
+    ["Codice CIG", dnlData.cig || ''],
+    ["Codice CUP", dnlData.cup || ''],
+    ["Data Inizio Lavori", formatDateItalian(cantiere.dataInizio)],
+    ["Data Consegna Lavori", formatDateItalian(cantiere.dataConsegna || cantiere.scadenza)],
+    ["Scadenza Denuncia DNL", formatDateItalian(cantiere.scadenzaDNL)],
+  ].filter(([_, val]) => isFieldFilled(val));
+
+  if (bodyCantiere.length > 0) {
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [["RIQUADRO 2: CANTIERE & TITOLO ABILITATIVO", "DETTAGLI"]],
+      body: bodyCantiere,
+      theme: 'grid',
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 1.6 },
+      columnStyles: { 0: { cellWidth: 62, fontStyle: 'bold' } }
+    });
+    y = (doc as any).lastAutoTable.finalY + 5;
+  }
+
+  // RIQUADRO 3: Figure di Sicurezza (NO DIRETTORE LAVORI!)
+  const coordSicurezza = dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || '';
+  const capocantiere = dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || '';
+  const respLavori = dnlData.responsabileLavori || '';
+
+  const bodySicurezza = [
+    ["Coordinatore Sicurezza (CSE)", coordSicurezza],
+    ["Capocantiere / Preposto", capocantiere],
+    ["Responsabile dei Lavori", respLavori],
+  ].filter(([_, val]) => isFieldFilled(val));
+
+  if (bodySicurezza.length > 0) {
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [["RIQUADRO 3: RESPONSABILI DELLA SICUREZZA", "NOMINATIVI"]],
+      body: bodySicurezza,
+      theme: 'grid',
+      headStyles: { fillColor: [100, 116, 139], textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 1.6 },
+      columnStyles: { 0: { cellWidth: 62, fontStyle: 'bold' } }
+    });
+    y = (doc as any).lastAutoTable.finalY + 5;
+  }
+
+  // RIQUADRO 4: Valori Economici (SOLO: Importo Complessivo, Opere Edili, Subappalti Totale)
+  const bodyEconomico = [
+    ["Importo Complessivo Opera", `€ ${(cantiere.importoTotale || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}`],
+    ["Opere Edili (Cassa Edile)", `€ ${impEdile.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`],
+    ["Subappalti Totale", `€ ${subappaltiTotale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`],
+  ];
+
   (doc as any).autoTable({
     startY: y,
     margin: { left: marginX, right: marginX },
-    head: [["RIQUADRO 1: DATI DELL'IMPRESA ESECUTRICE", "VALORE"]],
-    body: [
-      ["Ragione Sociale Impresa", settings.nomeAzienda],
-      ["Partita IVA / Codice Fiscale", settings.partitaIva || settings.codiceFiscaleAzienda || "Da compilare"],
-      ["Sede Legale / Indirizzo", settings.indirizzoSede || "Da compilare"],
-      ["PEC & Telefono", `${settings.pec || '-'} • ${settings.telefonoAzienda || '-'}`],
-      ["Codice Cassa Edile Impresa", dnlData.codiceCassaEdile || settings.codiceCassaEdile || "N.D."],
-      ["Codice Ditta & PAT INAIL", dnlData.patInail || settings.patInail || "N.D."],
-      ["Matricola Aziendale INPS", dnlData.matricolaInps || settings.matricolaInps || "N.D."],
-      ["CCNL Applicato", dnlData.ccnl || settings.ccnlApplicato || "Edilizia Industria / PMI Artigianato"],
-    ],
-    theme: 'grid',
-    headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-    styles: { fontSize: 7.5, cellPadding: 1.6 },
-    columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' } }
-  });
-
-  y = (doc as any).lastAutoTable.finalY + 4;
-
-  // Riquadro 2: Cantiere & Titolo Abilitativo
-  (doc as any).autoTable({
-    startY: y,
-    margin: { left: marginX, right: marginX },
-    head: [["RIQUADRO 2: CANTIERE, COMMITTENTE E PRATICA EDILIZIA", "DETTAGLI"]],
-    body: [
-      ["Denominazione Cantiere", cantiere.nome],
-      ["Ubicazione / Indirizzo", cantiere.indirizzo || "-"],
-      ["Committente (Nome/Società)", `${cantiere.cliente} (CF/PIVA: ${dnlData.committenteCodiceFiscale || '-'})`],
-      ["Tipologia Intervento & Appalto", `${dnlData.tipoLavoro || 'Ristrutturazione'} • Appalto: ${(dnlData.naturaAppalto || 'privato').toUpperCase()}`],
-      ["Titolo Abilitativo (Pratica)", `${dnlData.titoloAbilitativoTipo || 'CILA/SCIA'} N. ${dnlData.titoloAbilitativoNumero || '-'} del ${dnlData.titoloAbilitativoData || '-'} (${dnlData.titoloAbilitativoComune || '-'})`],
-      ["Notifica Preliminare ASL/ITL", dnlData.protocolloNotificaPreliminare ? `Prot. ${dnlData.protocolloNotificaPreliminare} del ${dnlData.dataNotificaPreliminare || '-'}` : "Non necessaria / Non presente"],
-      ["Codici Gara (CIG / CUP)", `CIG: ${dnlData.cig || '-'} • CUP: ${dnlData.cup || '-'}`]
-    ],
-    theme: 'grid',
-    headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-    styles: { fontSize: 7.5, cellPadding: 1.6 },
-    columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' } }
-  });
-
-  y = (doc as any).lastAutoTable.finalY + 4;
-
-  // Riquadro 3: Valori Economici, Figure Tecniche & Date
-  const impEdile = dnlData.importoEdile !== undefined ? dnlData.importoEdile : cantiere.importoTotale;
-  (doc as any).autoTable({
-    startY: y,
-    margin: { left: marginX, right: marginX },
-    head: [["RIQUADRO 3: VALORI ECONOMICI, FIGURE TECNICHE & TEMPI", "VALORI"]],
-    body: [
-      ["Importo Complessivo Lavori", `€ ${(cantiere.importoTotale || 0).toLocaleString('it-IT')}`],
-      ["Importo Opere Edili (Cassa Edile)", `€ ${impEdile.toLocaleString('it-IT')}`],
-      ["Oneri Sicurezza (D.Lgs. 81/08)", `€ ${(dnlData.oneriSicurezza || 0).toLocaleString('it-IT')}`],
-      ["Incidenza Manodopera Stimata", `${dnlData.incidenzaManodoperaPerc || 14.28}% (stimati ${dnlData.oreLavorativeStimate || 0} ore/lavoro)`],
-      ["Data Inizio - Consegna", `Dal ${cantiere.dataInizio || '-'} al ${cantiere.dataConsegna || cantiere.scadenza || '-'}`],
-      ["Scadenza Denuncia DNL", cantiere.scadenzaDNL || "Prima dell'ingresso in cantiere"],
-      ["Direttore Lavori & Coordinatore Sicurezza", `D.L.: ${cantiere.direttoreLavori || '-'} • CSE: ${dnlData.coordinatoreSicurezza || '-'}`],
-    ],
+    head: [["RIQUADRO 4: VALORI ECONOMICI", "IMPORTO"]],
+    body: bodyEconomico,
     theme: 'grid',
     headStyles: { fillColor: [5, 150, 105], textColor: 255, fontStyle: 'bold', fontSize: 8 },
-    styles: { fontSize: 7.5, cellPadding: 1.6 },
-    columnStyles: { 0: { cellWidth: 60, fontStyle: 'bold' } }
+    styles: { fontSize: 7.5, cellPadding: 1.8 },
+    columnStyles: { 0: { cellWidth: 62, fontStyle: 'bold' } }
   });
+  y = (doc as any).lastAutoTable.finalY + 5;
 
-  y = (doc as any).lastAutoTable.finalY + 4;
-
-  // Riquadro 4: Maestranze / Personale Assegnato
-  const bodyWorkers = personaleAssegnato.length > 0
-    ? personaleAssegnato.map((p, i) => [
-        (i + 1).toString(),
-        `${p.cognome} ${p.nome}`,
-        p.codiceFiscale || "-",
-        p.ruolo,
-        p.categoria,
-        p.dataAssunzione || "-",
-        p.scadenzaVisitaMedica || "-"
-      ])
-    : [["-", "Nessun operaio assegnato specificatamente", "-", "-", "-", "-", "-"]];
-
-  (doc as any).autoTable({
-    startY: y,
-    margin: { left: marginX, right: marginX },
-    head: [["#", "Nominativo Lavoratore", "Codice Fiscale", "Ruolo / Mansione", "Cat.", "Assunzione", "Visita Med."]],
-    body: bodyWorkers,
-    theme: 'striped',
-    headStyles: { fillColor: [30, 41, 59], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
-    styles: { fontSize: 7, cellPadding: 1.5 },
-    columnStyles: {
-      0: { cellWidth: 8 },
-      1: { cellWidth: 42, fontStyle: 'bold' },
-      2: { cellWidth: 38 },
-      3: { cellWidth: 34 },
-      4: { cellWidth: 18 },
-      5: { cellWidth: 20 },
-      6: { cellWidth: 20 },
-    }
-  });
-
-  y = (doc as any).lastAutoTable.finalY + 4;
-
-  // Riquadro 5: Subappalti se presenti
-  if (cantiere.subappalti.length > 0) {
+  // RIQUADRO 5: Subappalti se presenti
+  if (cantiere.subappalti && cantiere.subappalti.length > 0) {
     (doc as any).autoTable({
       startY: y,
       margin: { left: marginX, right: marginX },
@@ -641,14 +660,28 @@ export function exportDnlToPdf(
         (i + 1).toString(),
         s.azienda,
         s.lavoro,
-        `€ ${s.prezzoOriginale.toLocaleString('it-IT')}`
+        `€ ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
       ]),
       theme: 'grid',
       headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
-      styles: { fontSize: 7, cellPadding: 1.5 },
+      styles: { fontSize: 7, cellPadding: 1.6 },
       columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 60, fontStyle: 'bold' } }
     });
-    y = (doc as any).lastAutoTable.finalY + 6;
+    y = (doc as any).lastAutoTable.finalY + 5;
+  }
+
+  // Note integrative DNL (se presenti)
+  if (isFieldFilled(dnlData.noteDNL)) {
+    (doc as any).autoTable({
+      startY: y,
+      margin: { left: marginX, right: marginX },
+      head: [["NOTE INTEGRATIVE DNL"]],
+      body: [[dnlData.noteDNL]],
+      theme: 'grid',
+      headStyles: { fillColor: [71, 85, 105], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
+      styles: { fontSize: 7, cellPadding: 2 }
+    });
+    y = (doc as any).lastAutoTable.finalY + 5;
   }
 
   // Sezione Firme
@@ -668,5 +701,198 @@ export function exportDnlToPdf(
   doc.line(marginX, y + 25, marginX + 80, y + 25);
 
   const safeName = cantiere.nome.replace(/[^a-zA-Z0-9_-]/g, '_');
-  doc.save(`FASCICOLO_DNL_${safeName}_${new Date().toISOString().split('T')[0]}.pdf`);
+  doc.save(`FASCICOLO_DNL_${safeName}_${formatDateItalian(new Date()).replace(/\//g, '-')}.pdf`);
 }
+
+/**
+ * Stampa diretta della Scheda DNL (dialogo di stampa del browser)
+ * Semplificata: omette le voci vuote, esclude lavoratori, esclude manodopera,
+ * esclude direttore dei lavori, nel riquadro economico inserisce solo Importo Complessivo, Opere Edili e Subappalti Totale.
+ */
+export function printDnlSheet(
+  cantiere: Cantiere,
+  settings: AppSettings,
+  dnlData: DnlData
+) {
+  const oggi = formatDateItalian(new Date());
+  const subappaltiTotale = (cantiere.subappalti || []).reduce((acc, s) => acc + (s.prezzoOriginale || 0), 0);
+  const impEdile = dnlData.importoEdile !== undefined ? dnlData.importoEdile : (cantiere.importoTotale || 0);
+
+  // Riquadro 1: Dati Impresa
+  const impresaRows = [
+    { label: "Ragione Sociale", value: settings.nomeAzienda },
+    { label: "Partita IVA / C.F.", value: settings.partitaIva || settings.codiceFiscaleAzienda },
+    { label: "Sede Legale", value: settings.indirizzoSede },
+    { label: "PEC", value: settings.pec },
+    { label: "Telefono", value: settings.telefonoAzienda },
+    { label: "Rappresentante Legale", value: settings.rappresentanteLegale },
+    { label: "Codice Cassa Edile", value: dnlData.codiceCassaEdile || settings.codiceCassaEdile },
+    { label: "Codice Ditta & PAT INAIL", value: dnlData.patInail || settings.patInail },
+    { label: "Matricola Aziendale INPS", value: dnlData.matricolaInps || settings.matricolaInps },
+    { label: "CCNL Applicato", value: dnlData.ccnl || settings.ccnlApplicato },
+  ].filter(r => isFieldFilled(r.value));
+
+  // Riquadro 2: Dati Cantiere
+  const praticaParts = [
+    dnlData.titoloAbilitativoTipo,
+    dnlData.titoloAbilitativoNumero ? `N. ${dnlData.titoloAbilitativoNumero}` : '',
+    dnlData.titoloAbilitativoData ? `del ${formatDateItalian(dnlData.titoloAbilitativoData)}` : '',
+    dnlData.titoloAbilitativoComune ? `(${dnlData.titoloAbilitativoComune})` : ''
+  ].filter(Boolean).join(' ');
+
+  const notificaParts = dnlData.protocolloNotificaPreliminare
+    ? `Prot. ${dnlData.protocolloNotificaPreliminare}${dnlData.dataNotificaPreliminare ? ` del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : ''}`
+    : '';
+
+  const cantiereRows = [
+    { label: "Denominazione Cantiere", value: cantiere.nome },
+    { label: "Ubicazione / Indirizzo", value: cantiere.indirizzo },
+    { label: "Committente", value: `${cantiere.cliente}${isFieldFilled(dnlData.committenteCodiceFiscale) ? ` (C.F.: ${dnlData.committenteCodiceFiscale})` : ''}` },
+    { label: "Tipologia Intervento", value: `${dnlData.tipoLavoro || ''}${isFieldFilled(dnlData.naturaAppalto) ? ` • Appalto: ${dnlData.naturaAppalto.toUpperCase()}` : ''}`.trim() },
+    { label: "Titolo Abilitativo (Pratica)", value: praticaParts },
+    { label: "Notifica Preliminare ASL/ITL", value: notificaParts },
+    { label: "Codice CIG", value: dnlData.cig },
+    { label: "Codice CUP", value: dnlData.cup },
+    { label: "Data Inizio Lavori", value: formatDateItalian(cantiere.dataInizio) },
+    { label: "Data Consegna Lavori", value: formatDateItalian(cantiere.dataConsegna || cantiere.scadenza) },
+    { label: "Scadenza Denuncia DNL", value: formatDateItalian(cantiere.scadenzaDNL) },
+  ].filter(r => isFieldFilled(r.value));
+
+  // Riquadro 3: Figure di Sicurezza (NO DIRETTORE LAVORI!)
+  const coordSicurezza = dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || '';
+  const capocantiere = dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || '';
+  const respLavori = dnlData.responsabileLavori || '';
+
+  const sicurezzaRows = [
+    { label: "Coordinatore Sicurezza (CSE)", value: coordSicurezza },
+    { label: "Capocantiere / Preposto", value: capocantiere },
+    { label: "Responsabile dei Lavori", value: respLavori },
+  ].filter(r => isFieldFilled(r.value));
+
+  // Render HTML per la finestra di stampa
+  const renderTableRows = (rows: { label: string; value: any }[]) => {
+    return rows.map(r => `
+      <tr>
+        <td style="padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: bold; width: 35%; background: #f8fafc;">${r.label}</td>
+        <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">${r.value}</td>
+      </tr>
+    `).join('');
+  };
+
+  const printHtml = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>DNL - ${cantiere.nome}</title>
+      <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; font-size: 9pt; color: #0f172a; margin: 20px; line-height: 1.35; }
+        .header { background: #0f172a; color: white; padding: 14px 18px; border-radius: 6px; margin-bottom: 14px; }
+        .header h1 { margin: 0 0 4px 0; font-size: 14pt; text-transform: uppercase; letter-spacing: 0.5px; }
+        .header p { margin: 0; font-size: 8pt; color: #93c5fd; }
+        .section-title { background: #334155; color: white; padding: 5px 8px; font-weight: bold; font-size: 8.5pt; text-transform: uppercase; margin-top: 14px; border-radius: 4px 4px 0 0; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 8.5pt; }
+        .economic-header { background: #059669 !important; }
+        .sub-header { background: #d97706 !important; }
+        .signatures { margin-top: 25px; page-break-inside: avoid; }
+        @media print {
+          body { margin: 0; }
+          .no-print { display: none; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>Scheda di Denuncia di Nuovo Lavoro (D.N.L.)</h1>
+        <p>CASSA EDILE / EDILCASSA (CNCE) & INAIL • Cantiere: <strong>${cantiere.nome.toUpperCase()}</strong> • Data: <strong>${oggi}</strong></p>
+      </div>
+
+      ${impresaRows.length > 0 ? `
+        <div class="section-title">Riquadro 1: Dati Impresa Esecutrice</div>
+        <table>${renderTableRows(impresaRows)}</table>
+      ` : ''}
+
+      ${cantiereRows.length > 0 ? `
+        <div class="section-title" style="background: #2563eb;">Riquadro 2: Cantiere & Titolo Abilitativo</div>
+        <table>${renderTableRows(cantiereRows)}</table>
+      ` : ''}
+
+      ${sicurezzaRows.length > 0 ? `
+        <div class="section-title" style="background: #475569;">Riquadro 3: Responsabili della Sicurezza</div>
+        <table>${renderTableRows(sicurezzaRows)}</table>
+      ` : ''}
+
+      <div class="section-title economic-header">Riquadro 4: Valori Economici</div>
+      <table>
+        <tr>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: bold; width: 35%; background: #f8fafc;">Importo Complessivo Opera</td>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: bold;">€ ${(cantiere.importoTotale || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: bold; background: #f8fafc;">Opere Edili (Cassa Edile)</td>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: bold;">€ ${impEdile.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: bold; background: #f8fafc;">Subappalti Totale</td>
+          <td style="padding: 6px 8px; border: 1px solid #cbd5e1; font-weight: bold;">€ ${subappaltiTotale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
+        </tr>
+      </table>
+
+      ${cantiere.subappalti && cantiere.subappalti.length > 0 ? `
+        <div class="section-title sub-header">Ditte in Subappalto (${cantiere.subappalti.length})</div>
+        <table>
+          <thead>
+            <tr style="background: #f1f5f9;">
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; width: 6%;">#</th>
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left;">Impresa Subappaltatrice</th>
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left;">Lavorazione</th>
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right; width: 22%;">Importo (€)</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cantiere.subappalti.map((s, i) => `
+              <tr>
+                <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center;">${i + 1}</td>
+                <td style="padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: bold;">${s.azienda}</td>
+                <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">${s.lavoro}</td>
+                <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">€ ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      ` : ''}
+
+      ${isFieldFilled(dnlData.noteDNL) ? `
+        <div class="section-title" style="background: #475569;">Note Integrative</div>
+        <div style="padding: 8px; border: 1px solid #cbd5e1; background: #f8fafc; font-size: 8pt; margin-bottom: 14px;">
+          ${dnlData.noteDNL}
+        </div>
+      ` : ''}
+
+      <div class="signatures">
+        <p style="font-size: 7.5pt; color: #64748b; margin-bottom: 12px;">
+          Dichiarazione resa ai sensi del D.P.R. 445/2000 per l'inoltro agli enti previdenziali e Cassa Edile.
+        </p>
+        <div style="margin-top: 18px;">
+          <strong style="font-size: 8.5pt;">TIMBRO E FIRMA DEL LEGALE RAPPRESENTANTE DELL'IMPRESA:</strong>
+          <div style="border-bottom: 1.5px solid #94a3b8; width: 240px; margin-top: 30px;"></div>
+        </div>
+      </div>
+
+      <script>
+        window.onload = function() {
+          window.print();
+        };
+      </script>
+    </body>
+    </html>
+  `;
+
+  const printWindow = window.open('', '_blank');
+  if (printWindow) {
+    printWindow.document.open();
+    printWindow.document.write(printHtml);
+    printWindow.document.close();
+  }
+}
+
