@@ -9,7 +9,7 @@ interface EditCantiereModalProps {
   onSave: (updated: Cantiere) => void;
 }
 
-type TabType = 'generale' | 'extra' | 'sal' | 'subappalti' | 'tecnici' | 'documenti';
+type TabType = 'generale' | 'extra' | 'sal' | 'subappalti' | 'tecnici' | 'documenti' | 'dnl';
 
 const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere, onClose, onSave }) => {
   const [formData, setFormData] = useState<Partial<Cantiere>>({});
@@ -25,6 +25,7 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
         extraList: cantiere.extraList || [],
         subappalti: cantiere.subappalti || [],
         importoTotale: cantiere.importoTotale || 0,
+        dnlData: cantiere.dnlData || {},
       });
     }
   }, [cantiere]);
@@ -123,8 +124,13 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
           </button>
           <button onClick={() => setActiveTab('sal')} className={tabClasses('sal')}>SAL (Avanzamento)</button>
           <button onClick={() => setActiveTab('subappalti')} className={tabClasses('subappalti')}>Subappalti</button>
-          <button onClick={() => setActiveTab('tecnici')} className={tabClasses('tecnici')}>Tecnici</button>
-          <button onClick={() => setActiveTab('documenti')} className={tabClasses('documenti')}>Documentazione</button>
+          <button type="button" onClick={() => setActiveTab('tecnici')} className={tabClasses('tecnici')}>Tecnici</button>
+          <button type="button" onClick={() => setActiveTab('documenti')} className={tabClasses('documenti')}>Documentazione</button>
+          <button type="button" onClick={() => setActiveTab('dnl')} className={tabClasses('dnl')}>
+            <span className="flex items-center gap-1.5">
+              <span>📋 DNL & Cassa Edile</span>
+            </span>
+          </button>
         </div>
 
         {/* Content */}
@@ -486,6 +492,136 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
                       </div>
                     );
                   })}
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'dnl' && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="flex items-center justify-between p-4 bg-blue-50/70 rounded-2xl border border-blue-100">
+                  <div>
+                    <h3 className="text-base font-black text-blue-900 uppercase tracking-tight">Parametri DNL Cassa Edile / CNCE EdilConnect</h3>
+                    <p className="text-xs text-blue-600 font-medium">I dati inseriti qui alimentano in automatico i contratti e i file di esportazione DNL.</p>
+                  </div>
+                  <span className="text-2xl">🏛️</span>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-white p-6 rounded-3xl border-2 border-slate-100 shadow-sm">
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Codice Univoco Cantiere (CNCE EdilConnect)</label>
+                    <input 
+                      placeholder="Es. CE-2025-08412" 
+                      value={formData.dnlData?.codiceUnivocoCantiere || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), codiceUnivocoCantiere: e.target.value }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Titolo Abilitativo / Pratica Edilizia</label>
+                    <input 
+                      placeholder="CILA / SCIA / Permesso di Costruire n..." 
+                      value={formData.dnlData?.titoloAbilitativo || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), titoloAbilitativo: e.target.value }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Codice CIG (se pubblico)</label>
+                    <input 
+                      placeholder="Codice CIG appalto" 
+                      value={formData.dnlData?.cig || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), cig: e.target.value }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Codice CUP (se pubblico / PNRR)</label>
+                    <input 
+                      placeholder="Codice CUP" 
+                      value={formData.dnlData?.cup || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), cup: e.target.value }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Protocollo Notifica Preliminare ASL</label>
+                    <input 
+                      placeholder="Es. Prot. ASL-2025/1104" 
+                      value={formData.dnlData?.protocolloNotificaPreliminare || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), protocolloNotificaPreliminare: e.target.value }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Incidenza Manodopera Stimata (%)</label>
+                    <input 
+                      type="number"
+                      step="0.1"
+                      placeholder="Es. 22" 
+                      value={formData.dnlData?.incidenzaManodoperaPercentuale || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), incidenzaManodoperaPercentuale: parseFloat(e.target.value) || 0 }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Importo Solo Opere Edili (€)</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      placeholder="Es. 150000" 
+                      value={formData.dnlData?.importoOpereEdili || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), importoOpereEdili: parseFloat(e.target.value) || 0 }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Oneri della Sicurezza non soggetti a ribasso (€)</label>
+                    <input 
+                      type="number"
+                      step="0.01"
+                      placeholder="Es. 5000" 
+                      value={formData.dnlData?.oneriSicurezza || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), oneriSicurezza: parseFloat(e.target.value) || 0 }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Note Operative Denuncia DNL</label>
+                    <textarea 
+                      rows={2}
+                      placeholder="Eventuali annotazioni per Cassa Edile o subappalti collegati..." 
+                      value={formData.dnlData?.noteDnl || ''} 
+                      onChange={e => setFormData({
+                        ...formData,
+                        dnlData: { ...(formData.dnlData || {}), noteDnl: e.target.value }
+                      })} 
+                      className={inputBaseClasses} 
+                    />
+                  </div>
                 </div>
               </div>
             )}

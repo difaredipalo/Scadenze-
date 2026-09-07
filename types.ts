@@ -39,6 +39,36 @@ export interface Subappalto {
   maggiorazione: number;
 }
 
+export interface DnlData {
+  codiceCassaEdile?: string;
+  matricolaInps?: string;
+  patInail?: string;
+  ccnl?: string;
+  tipoLavoro?: string;
+  naturaAppalto?: 'privato' | 'pubblico';
+  cig?: string;
+  cup?: string;
+  titoloAbilitativoTipo?: string;
+  titoloAbilitativoNumero?: string;
+  titoloAbilitativoData?: string;
+  titoloAbilitativoComune?: string;
+  protocolloNotificaPreliminare?: string;
+  dataNotificaPreliminare?: string;
+  committenteCodiceFiscale?: string;
+  committenteIndirizzo?: string;
+  committentePecTelefono?: string;
+  coordinatoreSicurezza?: string;
+  responsabileLavori?: string;
+  capocantiere?: string;
+  importoEdile?: number;
+  oneriSicurezza?: number;
+  numeroOperaiStimati?: number;
+  oreLavorativeStimate?: number;
+  incidenzaManodoperaPerc?: number;
+  lavoratoriAssegnatiIds?: string[];
+  noteDNL?: string;
+}
+
 export interface Cantiere {
   id: string;
   nome: string;
@@ -59,6 +89,7 @@ export interface Cantiere {
   salList: SAL[];
   extraList?: ExtraCantiere[];
   subappalti: Subappalto[];
+  dnlData?: DnlData;
 }
 
 export interface Formazione {
@@ -124,6 +155,17 @@ export interface AppSettings {
   username?: string;
   password?: string;
   logoAzienda?: string;
+  partitaIva?: string;
+  codiceFiscaleAzienda?: string;
+  indirizzoSede?: string;
+  pec?: string;
+  telefonoAzienda?: string;
+  rappresentanteLegale?: string;
+  codiceCassaEdile?: string;
+  matricolaInps?: string;
+  patInail?: string;
+  ccnlApplicato?: string;
+  contrattoBaseCustom?: string;
 }
 
 export type AppData = {

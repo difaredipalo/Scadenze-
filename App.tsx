@@ -10,6 +10,7 @@ import EditMezzoModal from './components/EditMezzoModal';
 import EditDocumentoModal from './components/EditDocumentoModal';
 import { BadgeGeneratorModal } from './components/BadgeGeneratorModal';
 import GaraCalculator from './components/GaraCalculator';
+import ContrattiDnlSection from './components/ContrattiDnlSection';
 import Login from './components/Login';
 import { getInsights, getGeminiApiKey, saveGeminiApiKey, testGeminiApiKey } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -103,7 +104,7 @@ const App: React.FC = () => {
       return false;
     }
   });
-  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'impostazioni'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'contratti_dnl' | 'impostazioni'>('dashboard');
   const [showOnlyActivePersonale, setShowOnlyActivePersonale] = useState(true);
   const [hideClosedCantieri, setHideClosedCantieri] = useState(false);
   const [hideNotInUseMezzi, setHideNotInUseMezzi] = useState(false);
@@ -1960,6 +1961,98 @@ const App: React.FC = () => {
             <input type="text" value={data.settings.nomeAzienda} onChange={(e)=>setData({...data, settings: {...data.settings, nomeAzienda: e.target.value}})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" />
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Partita IVA / Codice Fiscale</label>
+              <input 
+                type="text" 
+                placeholder="Es. 01234567890" 
+                value={data.settings.partitaIva || ''} 
+                onChange={(e) => setData({ ...data, settings: { ...data.settings, partitaIva: e.target.value } })} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legale Rappresentante</label>
+              <input 
+                type="text" 
+                placeholder="Nome e Cognome Titolare/Amministratore" 
+                value={data.settings.rappresentanteLegale || ''} 
+                onChange={(e) => setData({ ...data, settings: { ...data.settings, rappresentanteLegale: e.target.value } })} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Sede Legale</label>
+              <input 
+                type="text" 
+                placeholder="Via, Civico, CAP, Città (Prov)" 
+                value={data.settings.indirizzoSede || ''} 
+                onChange={(e) => setData({ ...data, settings: { ...data.settings, indirizzoSede: e.target.value } })} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Indirizzo PEC</label>
+              <input 
+                type="text" 
+                placeholder="azienda@pec.it" 
+                value={data.settings.pec || ''} 
+                onChange={(e) => setData({ ...data, settings: { ...data.settings, pec: e.target.value } })} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              />
+            </div>
+          </div>
+
+          {/* Dati Cassa Edile / INAIL Predefiniti */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
+            <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+              Dati Previdenziali & Cassa Edile (per Contratti & DNL)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Codice Impresa Cassa Edile</label>
+                <input 
+                  type="text" 
+                  placeholder="Es. CE-12345" 
+                  value={data.settings.codiceCassaEdile || ''} 
+                  onChange={(e) => setData({ ...data, settings: { ...data.settings, codiceCassaEdile: e.target.value } })} 
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Codice Ditta & PAT INAIL</label>
+                <input 
+                  type="text" 
+                  placeholder="Es. 98765432/01" 
+                  value={data.settings.patInail || ''} 
+                  onChange={(e) => setData({ ...data, settings: { ...data.settings, patInail: e.target.value } })} 
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Matricola Aziendale INPS</label>
+                <input 
+                  type="text" 
+                  placeholder="Es. 1234567890" 
+                  value={data.settings.matricolaInps || ''} 
+                  onChange={(e) => setData({ ...data, settings: { ...data.settings, matricolaInps: e.target.value } })} 
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CCNL Applicato</label>
+                <input 
+                  type="text" 
+                  placeholder="Edilizia Industria / Artigianato" 
+                  value={data.settings.ccnlApplicato || ''} 
+                  onChange={(e) => setData({ ...data, settings: { ...data.settings, ccnlApplicato: e.target.value } })} 
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logo Impresa (Utilizzato nei Tesserini)</label>
             <div className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl border-2 border-slate-100 dark:border-slate-700">
@@ -2272,6 +2365,7 @@ const App: React.FC = () => {
           {[
             { id: 'dashboard', label: 'Dashboard', icon: <Icons.Dashboard /> },
             { id: 'cantiere', label: 'Cantieri', icon: <Icons.Cantiere /> },
+            { id: 'contratti_dnl', label: 'Contratti & DNL', icon: <Icons.Contract /> },
             { id: 'personale', label: 'Personale', icon: <Icons.Personale /> },
             { id: 'mezzo', label: 'Mezzi', icon: <Icons.Mezzi /> },
             { id: 'documento', label: 'Archivio', icon: <Icons.Documenti /> },
@@ -2533,10 +2627,20 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-10">
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-6 md:p-10">
           {activeTab === 'dashboard' ? renderDashboard() : 
            activeTab === 'impostazioni' ? renderSettings() : 
            activeTab === 'calcolatore' ? <GaraCalculator /> :
+           activeTab === 'contratti_dnl' ? (
+             <ContrattiDnlSection
+               cantieri={data.cantieri}
+               settings={data.settings}
+               personaleList={data.personale}
+               onUpdateCantiere={(u) => updateEntity('cantiere', u)}
+               onUpdateSettings={(s) => setData(prev => ({ ...prev, settings: s }))}
+               onShowToast={(type, msg) => showCloudToast(type, msg)}
+             />
+           ) :
            renderList(activeTab)}
         </div>
       </main>

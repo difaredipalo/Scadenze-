@@ -259,8 +259,12 @@ CREATE TABLE IF NOT EXISTS public.cantieri (
     sal_list JSONB DEFAULT '[]'::jsonb,
     extra_list JSONB DEFAULT '[]'::jsonb,
     subappalti JSONB DEFAULT '[]'::jsonb,
+    dnl_data JSONB DEFAULT '{}'::jsonb,
     updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
 );
+
+-- Aggiorna colonna dnl_data se tabella cantieri già esistente
+ALTER TABLE public.cantieri ADD COLUMN IF NOT EXISTS dnl_data JSONB DEFAULT '{}'::jsonb;
 
 -- 3. Tabella Personale
 CREATE TABLE IF NOT EXISTS public.personale (
@@ -375,6 +379,7 @@ function mapRowToCantiere(row: any): Cantiere {
     salList: row.sal_list || [],
     extraList: row.extra_list || [],
     subappalti: row.subappalti || [],
+    dnlData: row.dnl_data || {},
   };
 }
 
@@ -399,6 +404,7 @@ function mapCantiereToRow(c: Cantiere, now: string): any {
     sal_list: c.salList || [],
     extra_list: c.extraList || [],
     subappalti: c.subappalti || [],
+    dnl_data: c.dnlData || {},
     updated_at: now,
   };
 }
