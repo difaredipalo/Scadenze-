@@ -7,6 +7,13 @@ import { Cantiere, AppSettings, Personale, DnlData } from '../types';
  * Esporta il contratto in formato Word (.doc)
  */
 export function exportContractToWord(contractText: string, cantiereName: string, nomeAzienda: string) {
+  // Converte markdown e tag per formattazione Word
+  const formattedHtml = contractText
+    .replace(/\*\*(.*?)\*\*/g, '<b>$1</b>')
+    .replace(/\*(.*?)\*/g, '<i>$1</i>')
+    .replace(/<center>(.*?)<\/center>/gis, '<div align="center" style="text-align: center; margin: 8px 0;">$1</div>')
+    .replace(/\n/g, '<br/>');
+
   const htmlContent = `
     <!DOCTYPE html>
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
@@ -14,18 +21,21 @@ export function exportContractToWord(contractText: string, cantiereName: string,
       <meta charset='utf-8'>
       <title>${cantiereName} - Contratto</title>
       <style>
-        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #111; margin: 2.5cm; }
+        body { font-family: 'Times New Roman', Times, serif; font-size: 11pt; line-height: 1.5; color: #111; margin: 2.5cm; }
         h1, h2, h3 { text-align: center; text-transform: uppercase; }
         p { margin-bottom: 0.8em; text-align: justify; }
-        .footer { margin-top: 50px; }
+        center { text-align: center; display: block; }
+        b, strong { font-weight: bold; }
+        i, em { font-style: italic; }
+        u { text-decoration: underline; }
       </style>
     </head>
     <body>
       <div style="border-bottom: 2px solid #333; padding-bottom: 8px; margin-bottom: 20px;">
         <strong style="font-size: 14pt;">${nomeAzienda}</strong><br/>
-        <span style="font-size: 9pt; color: #666;">Documento Contrattuale di Cantiere</span>
+        <span style="font-size: 9pt; color: #666;">Documento Contrattuale di Cantiere: ${cantiereName}</span>
       </div>
-      <div style="white-space: pre-wrap; font-family: 'Times New Roman', Times, serif;">${contractText}</div>
+      <div style="font-family: 'Times New Roman', Times, serif; text-align: justify;">${formattedHtml}</div>
     </body>
     </html>
   `;
@@ -43,7 +53,7 @@ export function exportContractToWord(contractText: string, cantiereName: string,
 }
 
 /**
- * Esporta il contratto in PDF professionale con intestazione, logo, numerazione pagine e firme
+ * Esporta il contratto in PDF professionale con intestazione, logo, numerazione pagine e formattazione
  */
 export function exportContractToPdf(
   contractText: string,
@@ -88,46 +98,99 @@ export function exportContractToPdf(
     }
   }
 
-  // Suddivisione testo
-  doc.setFont('times', 'normal');
-  doc.setFontSize(10.5);
-  doc.setTextColor(15, 23, 42);
-
-  const lines = doc.splitTextToSize(contractText, contentWidth);
+  // Suddivisione testo e gestione formattazione (grassetto, corsivo, sottolineato, centrato)
   let cursorY = marginTop + 4;
   const lineHeight = 5.2;
+  const rawParagraphs = contractText.split('\n');
 
-  lines.forEach((line: string) => {
-    if (cursorY + lineHeight > pageHeight - marginBottom) {
-      doc.addPage();
-      cursorY = marginTop;
-      
-      // Linea guida superiore sulle pagine successive
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(7.5);
-      doc.setTextColor(148, 163, 184);
-      doc.text(`${settings.nomeAzienda} • ${cantiere.nome}`, marginX, 15);
-      doc.setDrawColor(241, 245, 249);
-      doc.line(marginX, 17, pageWidth - marginX, 17);
-      
-      doc.setFont('times', 'normal');
+  rawParagraphs.forEach((rawPara: string) => {
+    let isCentered = false;
+    let isBold = false;
+    let isItalic = false;
+    let isUnderline = false;
+
+    const textToProcess = rawPara;
+
+    // Controllo se centrato
+    if (/<center>/i.test(textToProcess) || /\[center\]/i.test(textToProcess)) {
+      isCentered = true;
+    }
+    // Controllo se articolo/titolo o tag bold
+    const strippedCandidate = textToProcess.replace(/<[^>]+>/g, '').replace(/\[[^\]]+\]/g, '').trim();
+    if (
+      /<b>|<strong>|\*\*/i.test(textToProcess) ||
+      /^(ART\.|ARTICOLO|PREMESSO|SI CONVIENE|TRA|E$|PREMESSA|CONTRATTO|LETTERA DI)/i.test(strippedCandidate)
+    ) {
+      isBold = true;
+    }
+    if (/<i>|<em>|\*[^*]+\*/i.test(textToProcess)) {
+      isItalic = true;
+    }
+    if (/<u>/i.test(textToProcess)) {
+      isUnderline = true;
+    }
+
+    // Pulisci i tag HTML/Markdown dal testo da stampare in PDF
+    const cleanText = textToProcess
+      .replace(/<\/?(center|b|strong|i|em|u|h[1-6]|span|div|p)>/gi, '')
+      .replace(/\[\/?(center|b|i|u)\]/gi, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1');
+
+    if (cleanText.trim() === '') {
+      cursorY += lineHeight * 0.7;
+      return;
+    }
+
+    // Suddividi in linee se il testo supera la larghezza utile
+    const lines = doc.splitTextToSize(cleanText, contentWidth);
+
+    lines.forEach((line: string) => {
+      if (cursorY + lineHeight > pageHeight - marginBottom) {
+        doc.addPage();
+        cursorY = marginTop;
+        
+        // Linea guida superiore sulle pagine successive
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(148, 163, 184);
+        doc.text(`${settings.nomeAzienda} • ${cantiere.nome}`, marginX, 15);
+        doc.setDrawColor(241, 245, 249);
+        doc.line(marginX, 17, pageWidth - marginX, 17);
+      }
+
+      // Imposta font
+      if (isBold && isItalic) {
+        doc.setFont('times', 'bolditalic');
+      } else if (isBold) {
+        doc.setFont('times', 'bold');
+      } else if (isItalic) {
+        doc.setFont('times', 'italic');
+      } else {
+        doc.setFont('times', 'normal');
+      }
       doc.setFontSize(10.5);
       doc.setTextColor(15, 23, 42);
-    }
 
-    // Se la riga sembra un titolo di articolo, rendila in grassetto
-    if (/^(ART\.|ARTICOLO|PREMESSO|SI CONVIENE|TRA|E$|PREMESSA|CONTRATTO)/i.test(line.trim())) {
-      doc.setFont('times', 'bold');
-      doc.text(line, marginX, cursorY);
-      doc.setFont('times', 'normal');
-    } else {
-      doc.text(line, marginX, cursorY);
-    }
+      if (isCentered) {
+        doc.text(line, pageWidth / 2, cursorY, { align: 'center' });
+      } else {
+        doc.text(line, marginX, cursorY);
+      }
 
-    cursorY += lineHeight;
+      if (isUnderline) {
+        const textWidth = doc.getTextWidth(line);
+        const startX = isCentered ? (pageWidth / 2) - (textWidth / 2) : marginX;
+        doc.setDrawColor(15, 23, 42);
+        doc.setLineWidth(0.2);
+        doc.line(startX, cursorY + 0.8, startX + textWidth, cursorY + 0.8);
+      }
+
+      cursorY += lineHeight;
+    });
   });
 
-  // Numerazione pagine in piè di pagina
+  // Numerazione pagine in piè di pagina (senza alcuna dicitura generato il)
   const totalPages = doc.getNumberOfPages();
   for (let i = 1; i <= totalPages; i++) {
     doc.setPage(i);
@@ -137,7 +200,6 @@ export function exportContractToPdf(
     doc.setDrawColor(226, 232, 240);
     doc.line(marginX, pageHeight - 15, pageWidth - marginX, pageHeight - 15);
     doc.text(`Pagina ${i} di ${totalPages}`, pageWidth - marginX, pageHeight - 10, { align: 'right' });
-    doc.text(`Documento contrattuale generato il ${new Date().toLocaleDateString('it-IT')}`, marginX, pageHeight - 10);
   }
 
   const safeName = cantiere.nome.replace(/[^a-zA-Z0-9_-]/g, '_');

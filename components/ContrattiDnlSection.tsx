@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Cantiere, AppSettings, Personale, DnlData } from '../types';
+import { Cantiere, AppSettings, Personale, DnlData, CustomContractVariable } from '../types';
 import { Icons } from '../constants';
 import {
   CONTRACT_VARIABLES,
@@ -58,6 +58,12 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
   const [customVariableOverrides, setCustomVariableOverrides] = useState<Record<string, string>>({});
   const [showVariablesPanel, setShowVariablesPanel] = useState(false);
 
+  // Modal / Form creazione nuova variabile personalizzata
+  const [showAddVariableModal, setShowAddVariableModal] = useState(false);
+  const [newVarKey, setNewVarKey] = useState('');
+  const [newVarLabel, setNewVarLabel] = useState('');
+  const [newVarDefault, setNewVarDefault] = useState('');
+
   // Cambia il template base quando l'utente seleziona un altro modello
   useEffect(() => {
     if (selectedTemplateType === 'appalto') {
@@ -115,9 +121,21 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
 
     const cse = selectedCantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || dnlFormData.coordinatoreSicurezza || 'Da nominare a cura del Committente';
 
+    // Codice Fiscale Committente
+    const cfCommittente = dnlFormData.committenteCodiceFiscale ||
+      (selectedCantiere.note?.match(/C\.?F\.?[:\s]+([A-Z0-9]{11,16})/i)?.[1]) ||
+      'C.F. / P.IVA Committente';
+
+    // Allegati di default o specificati
+    const allegatiDefault = dnlFormData.noteDNL && dnlFormData.noteDNL.toLowerCase().includes('allegat')
+      ? dnlFormData.noteDNL
+      : `1. Computo Metrico Estimativo delle lavorazioni contrattualizzate;\n2. Piano Operativo di Sicurezza (POS) ex art. 89 D.Lgs. 81/2008;\n3. Cronoprogramma esecutivo dei lavori edili;\n4. Copia polizza assicurativa C.A.R. e R.C.T. dell'Impresa;\n5. Documento Unico di Regolarità Contributiva (DURC) in corso di validità.`;
+
     return {
       NOME_CANTIERE: selectedCantiere.nome || '',
       CLIENTE: selectedCantiere.cliente || '',
+      CODICEFISCALE: cfCommittente,
+      CODICE_FISCALE: cfCommittente,
       INDIRIZZO_CANTIERE: selectedCantiere.indirizzo || 'Ubicazione cantiere da specificare',
       IMPORTO_TOTALE: importoFormatted,
       IMPORTO_LETTERE: importoLettere,
@@ -135,6 +153,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
       MODALITA_PAGAMENTO: 'Bonifico bancario entro 30 giorni da presentazione fattura/SAL autorizzato.',
       ELENCO_SAL: salStr,
       ELENCO_SUBAPPALTI: subStr,
+      ALLEGATI: allegatiDefault,
       FORO_COMPETENTE: settings.indirizzoSede ? settings.indirizzoSede.split(',').pop()?.trim() || 'Foro competente' : 'Foro competente',
       CIG_CUP: dnlFormData.cig ? `CIG: ${dnlFormData.cig}${dnlFormData.cup ? ` - CUP: ${dnlFormData.cup}` : ''}` : 'Non applicabile (Opera privata)',
       DATA_OGGI: new Date().toLocaleDateString('it-IT'),
@@ -142,26 +161,52 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
     };
   }, [selectedCantiere, settings, dnlFormData]);
 
-  // Valori finali variabili = calcolati uniti alle sovrascritture manuali
+  // Lista di tutte le variabili disponibili (predefinite + personalizzate dell'utente)
+  const allAvailableVariables = useMemo(() => {
+    const customList = (settings.customContractVariables || []).map(cv => ({
+      key: cv.key,
+      tag: `{{${cv.key}}}`,
+      label: cv.label,
+      description: cv.description || `Variabile personalizzata {{${cv.key}}}`,
+      isCustom: true,
+    }));
+    return [
+      ...CONTRACT_VARIABLES.map(v => ({ ...v, isCustom: false })),
+      ...customList,
+    ];
+  }, [settings.customContractVariables]);
+
+  // Valori finali variabili = calcolati + default custom + valori cantiere + modifiche al volo
   const activeVariables = useMemo(() => {
+    const customDefaults: Record<string, string> = {};
+    (settings.customContractVariables || []).forEach(cv => {
+      customDefaults[cv.key] = cv.defaultValue || '';
+    });
+    const cantiereCustom = selectedCantiere?.customContractValues || {};
+
     return {
       ...computedVariables,
+      ...customDefaults,
+      ...cantiereCustom,
       ...customVariableOverrides,
     };
-  }, [computedVariables, customVariableOverrides]);
+  }, [computedVariables, settings.customContractVariables, selectedCantiere?.customContractValues, customVariableOverrides]);
 
   // Testo compilato del contratto sostituendo tutti i {{TAG}} con i valori
   const compiledContractText = useMemo(() => {
     let result = contractTemplateText;
-    CONTRACT_VARIABLES.forEach(v => {
+    allAvailableVariables.forEach(v => {
       const val = activeVariables[v.key] ?? '';
-      // Sostituisce sia {{TAG}} sia {TAG}
-      const regex1 = new RegExp(`\\{\\{${v.key}\\}\\}`, 'g');
-      const regex2 = new RegExp(`\\{${v.key}\\}`, 'g');
+      const regex1 = new RegExp(`\\{\\{${v.key}\\}\\}`, 'gi');
+      const regex2 = new RegExp(`\\{${v.key}\\}`, 'gi');
       result = result.replace(regex1, val).replace(regex2, val);
     });
+    // Supporto per alias CODICE_FISCALE se presente
+    if (activeVariables['CODICEFISCALE']) {
+      result = result.replace(/\{\{CODICE_FISCALE\}\}/gi, activeVariables['CODICEFISCALE']);
+    }
     return result;
-  }, [contractTemplateText, activeVariables]);
+  }, [contractTemplateText, allAvailableVariables, activeVariables]);
 
   // Personale assegnato al cantiere per la DNL
   const personaleAssegnato = useMemo(() => {
@@ -185,6 +230,120 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
       textarea.focus();
       textarea.setSelectionRange(start + tag.length, start + tag.length);
     }, 50);
+  };
+
+  // Applicazione formattazione rapida (grassetto, corsivo, sottolineato, centrato, ecc.)
+  const handleApplyFormatting = (prefix: string, suffix: string, defaultPlaceholder: string = 'testo') => {
+    const textarea = document.getElementById('contract-editor-textarea') as HTMLTextAreaElement | null;
+    if (!textarea) {
+      setContractTemplateText(prev => prev + `${prefix}${defaultPlaceholder}${suffix}`);
+      return;
+    }
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const text = textarea.value;
+    const selectedText = text.substring(start, end) || defaultPlaceholder;
+    const replacement = `${prefix}${selectedText}${suffix}`;
+    const newText = text.substring(0, start) + replacement + text.substring(end);
+    setContractTemplateText(newText);
+    setTimeout(() => {
+      textarea.focus();
+      textarea.setSelectionRange(start + prefix.length, start + prefix.length + selectedText.length);
+    }, 50);
+  };
+
+  // Creazione nuova variabile personalizzata
+  const handleCreateCustomVariable = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const sanitizedKey = newVarKey
+      .toUpperCase()
+      .replace(/[^A-Z0-9_]/g, '_')
+      .replace(/^_+|_+$/g, '');
+
+    if (!sanitizedKey) {
+      if (onShowToast) onShowToast('error', 'Inserisci una sigla valida per la variabile (es. IBAN, PENALE_RITARDO, GARANZIA)');
+      return;
+    }
+
+    const alreadyExists = allAvailableVariables.some(v => v.key === sanitizedKey);
+    if (alreadyExists) {
+      if (onShowToast) onShowToast('error', `La variabile {{${sanitizedKey}}} esiste già!`);
+      return;
+    }
+
+    const newVar: CustomContractVariable = {
+      key: sanitizedKey,
+      label: newVarLabel.trim() || sanitizedKey,
+      defaultValue: newVarDefault,
+      description: `Variabile personalizzata {{${sanitizedKey}}}`,
+    };
+
+    const updatedCustomList = [...(settings.customContractVariables || []), newVar];
+    onUpdateSettings({
+      ...settings,
+      customContractVariables: updatedCustomList,
+    });
+
+    // Se c'è un valore di default e un cantiere selezionato, memorizzalo
+    if (newVarDefault && selectedCantiere) {
+      onUpdateCantiere({
+        ...selectedCantiere,
+        customContractValues: {
+          ...(selectedCantiere.customContractValues || {}),
+          [sanitizedKey]: newVarDefault,
+        }
+      });
+    }
+
+    setNewVarKey('');
+    setNewVarLabel('');
+    setNewVarDefault('');
+    setShowAddVariableModal(false);
+    if (onShowToast) onShowToast('success', `Nuova variabile {{${sanitizedKey}}} creata con successo!`);
+  };
+
+  // Eliminazione variabile personalizzata
+  const handleDeleteCustomVariable = (keyToDelete: string) => {
+    const updatedCustomList = (settings.customContractVariables || []).filter(v => v.key !== keyToDelete);
+    onUpdateSettings({
+      ...settings,
+      customContractVariables: updatedCustomList,
+    });
+    if (onShowToast) onShowToast('info', `Variabile {{${keyToDelete}}} rimossa.`);
+  };
+
+  // Aggiornamento del valore di una variabile per il cantiere
+  const handleUpdateVariableValue = (key: string, value: string) => {
+    setCustomVariableOverrides(prev => ({ ...prev, [key]: value }));
+    if (selectedCantiere) {
+      onUpdateCantiere({
+        ...selectedCantiere,
+        customContractValues: {
+          ...(selectedCantiere.customContractValues || {}),
+          [key]: value,
+        }
+      });
+    }
+  };
+
+  // Rendering HTML sicuro ed elegante per l'anteprima
+  const sanitizeAndFormatContractHtml = (str: string): string => {
+    let s = str
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+
+    // Riattiva i tag di formattazione
+    s = s
+      .replace(/&lt;b&gt;(.*?)&lt;\/b&gt;/gi, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+      .replace(/&lt;strong&gt;(.*?)&lt;\/strong&gt;/gi, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+      .replace(/\*\*(.*?)\*\*/g, '<strong class="font-bold text-slate-900 dark:text-white">$1</strong>')
+      .replace(/&lt;i&gt;(.*?)&lt;\/i&gt;/gi, '<em class="italic text-slate-700 dark:text-slate-300">$1</em>')
+      .replace(/&lt;em&gt;(.*?)&lt;\/em&gt;/gi, '<em class="italic text-slate-700 dark:text-slate-300">$1</em>')
+      .replace(/\*(.*?)\*/g, '<em class="italic text-slate-700 dark:text-slate-300">$1</em>')
+      .replace(/&lt;u&gt;(.*?)&lt;\/u&gt;/gi, '<span class="underline decoration-slate-400 underline-offset-2">$1</span>');
+
+    return s;
   };
 
   // Salva template personalizzato nelle impostazioni
@@ -400,6 +559,14 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
                 </button>
 
                 <button
+                  onClick={() => setShowAddVariableModal(true)}
+                  className="px-3.5 py-2 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
+                  title="Aggiungi una nuova variabile personalizzata (es. IBAN, PENALE)"
+                >
+                  <span>➕</span> Nuova Variabile
+                </button>
+
+                <button
                   onClick={() => setContractViewMode(contractViewMode === 'preview' ? 'edit' : 'preview')}
                   className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-all flex items-center gap-1.5"
                 >
@@ -434,20 +601,46 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
 
             {/* Inseritore rapido Variabili nel testo */}
             {contractViewMode === 'edit' && (
-              <div className="pt-3 border-t border-slate-100 dark:border-slate-800">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5">
-                  <span>💡</span> Clicca su una variabile per inserirla nel punto del testo desiderato:
-                </p>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto custom-scrollbar p-1">
-                  {CONTRACT_VARIABLES.map(v => (
-                    <button
-                      key={v.key}
-                      onClick={() => handleInsertVariable(v.tag)}
-                      title={`${v.label}: ${v.description}`}
-                      className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-mono font-bold transition-all"
-                    >
-                      {v.tag}
-                    </button>
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
+                    <span>💡</span> Clicca su una variabile per inserirla nel punto del cursore:
+                  </p>
+                  <button
+                    onClick={() => setShowAddVariableModal(true)}
+                    className="text-[10px] font-black text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                  >
+                    <span>+</span> Crea Nuova Variabile
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto custom-scrollbar p-1">
+                  {allAvailableVariables.map(v => (
+                    <div key={v.key} className="inline-flex items-center group">
+                      <button
+                        onClick={() => handleInsertVariable(v.tag)}
+                        title={`${v.label}: ${v.description}`}
+                        className={`px-2.5 py-1 ${
+                          v.isCustom
+                            ? 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60 hover:bg-amber-100'
+                            : 'bg-slate-50 dark:bg-slate-800 hover:bg-blue-50 dark:hover:bg-blue-900/40 hover:text-blue-600 text-slate-600 dark:text-slate-300 border border-slate-200 dark:border-slate-700'
+                        } rounded-lg text-[10px] font-mono font-bold transition-all flex items-center gap-1`}
+                      >
+                        {v.tag}
+                        {v.isCustom && <span className="text-[8px] bg-amber-200/80 dark:bg-amber-800/80 px-1 rounded text-amber-900 dark:text-amber-100">Personalizzata</span>}
+                      </button>
+                      {v.isCustom && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteCustomVariable(v.key);
+                          }}
+                          className="ml-0.5 p-1 text-slate-400 hover:text-rose-500 rounded text-[10px]"
+                          title="Elimina variabile personalizzata"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
@@ -457,42 +650,81 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
           {/* Pannello Delle Variabili Modificabili (Collapsible) */}
           {showVariablesPanel && (
             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-blue-200 dark:border-blue-900/50 shadow-md space-y-4 animate-in slide-in-from-top-2 duration-200">
-              <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <span className="text-blue-600 font-black text-base">⚙️</span>
                   <div>
                     <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                      Variabili Dinamiche di Cantiere (Modificabili al Volo)
+                      Valori Variabili del Cantiere (Predefinite & Personalizzate)
                     </h4>
                     <p className="text-[10px] text-slate-400">
-                      I valori sono prelevati automaticamente dal cantiere e dall'azienda. Puoi modificarli qui per personalizzare il contratto finale.
+                      Modifica i valori al volo per questo cantiere. Puoi anche aggiungere ulteriori variabili personalizzate tramite il pulsante apposito.
                     </p>
                   </div>
                 </div>
-                <button
-                  onClick={() => setCustomVariableOverrides({})}
-                  className="px-3 py-1 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase hover:bg-slate-200 transition-all"
-                >
-                  Ripristina Valori Cantiere
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowAddVariableModal(true)}
+                    className="px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-xs flex items-center gap-1"
+                  >
+                    <span>+</span> Aggiungi Variabile
+                  </button>
+                  <button
+                    onClick={() => setCustomVariableOverrides({})}
+                    className="px-3 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-lg text-[10px] font-black uppercase hover:bg-slate-200 transition-all"
+                  >
+                    Ripristina
+                  </button>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {CONTRACT_VARIABLES.slice(0, 15).map(v => (
-                  <div key={v.key} className="space-y-1">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-wider flex justify-between">
-                      <span>{v.label}</span>
-                      <span className="text-slate-400 font-mono text-[9px]">{v.tag}</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={activeVariables[v.key] ?? ''}
-                      onChange={(e) => setCustomVariableOverrides({
-                        ...customVariableOverrides,
-                        [v.key]: e.target.value
-                      })}
-                      className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all"
-                    />
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-h-[500px] overflow-y-auto custom-scrollbar p-1">
+                {allAvailableVariables.map(v => (
+                  <div
+                    key={v.key}
+                    className={`p-3 rounded-xl border ${
+                      v.isCustom
+                        ? 'bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800/40'
+                        : 'bg-slate-50/50 dark:bg-slate-800/50 border-slate-200/80 dark:border-slate-700/80'
+                    } space-y-1`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <label className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1 truncate">
+                        <span>{v.label}</span>
+                        {v.isCustom && (
+                          <span className="text-[8px] bg-amber-200 dark:bg-amber-800/60 text-amber-800 dark:text-amber-200 px-1 py-0.5 rounded font-bold">
+                            Personalizzata
+                          </span>
+                        )}
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <span className="text-slate-400 font-mono text-[9px]">{v.tag}</span>
+                        {v.isCustom && (
+                          <button
+                            onClick={() => handleDeleteCustomVariable(v.key)}
+                            className="text-slate-400 hover:text-rose-500 p-0.5 rounded"
+                            title="Elimina variabile"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {v.key === 'ALLEGATI' || v.key === 'NOTE_CANTIERE' || (activeVariables[v.key] && activeVariables[v.key].length > 60) ? (
+                      <textarea
+                        rows={3}
+                        value={activeVariables[v.key] ?? ''}
+                        onChange={(e) => handleUpdateVariableValue(v.key, e.target.value)}
+                        className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all custom-scrollbar"
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        value={activeVariables[v.key] ?? ''}
+                        onChange={(e) => handleUpdateVariableValue(v.key, e.target.value)}
+                        className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all"
+                      />
+                    )}
                   </div>
                 ))}
               </div>
@@ -501,27 +733,145 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
 
           {/* Area Contratto: Editor vs Anteprima */}
           <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50/70 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <div className="px-6 py-4 bg-slate-50/70 dark:bg-slate-800/60 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-blue-500 animate-pulse" />
                 <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-wider">
-                  {contractViewMode === 'preview' ? 'Anteprima Contratto Compilato con i Dati di Cantiere' : 'Editor Modello Contrattuale Base (con segnaposto {{VARIABILE}})'}
+                  {contractViewMode === 'preview'
+                    ? 'Anteprima Contratto Compilato con i Dati di Cantiere'
+                    : 'Editor Modello Contrattuale (Supporta Formattazione e Variabili)'}
                 </span>
               </div>
-              {contractViewMode === 'edit' && (
+              <div className="flex items-center gap-2">
+                {contractViewMode === 'edit' && (
+                  <button
+                    onClick={handleSaveCustomTemplate}
+                    className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs flex items-center gap-1"
+                  >
+                    <Icons.Check /> Salva come Mio Modello Base
+                  </button>
+                )}
                 <button
-                  onClick={handleSaveCustomTemplate}
-                  className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-xs flex items-center gap-1"
+                  onClick={() => setContractViewMode(contractViewMode === 'preview' ? 'edit' : 'preview')}
+                  className="px-3.5 py-1.5 bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 rounded-xl text-xs font-black uppercase tracking-wider transition-all"
                 >
-                  <Icons.Check /> Salva come Mio Modello Base
+                  {contractViewMode === 'preview' ? '✏️ Apri Editor' : '👁️ Mostra Anteprima'}
                 </button>
-              )}
+              </div>
             </div>
 
-            <div className="p-6 md:p-8">
+            <div className="p-6 md:p-8 space-y-4">
+              {contractViewMode === 'edit' && (
+                /* Barra Strumenti di Formattazione Minima (Grassetto, Corsivo, Sottolineato, Centrato, ecc.) */
+                <div className="p-3 bg-slate-100/80 dark:bg-slate-800/80 rounded-2xl border border-slate-200/80 dark:border-slate-700 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider mr-1">
+                      Formattazione:
+                    </span>
+
+                    {/* Grassetto */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('<b>', '</b>', 'testo in grassetto')}
+                      className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 shadow-xs transition-all"
+                      title="Grassetto: <b>testo</b>"
+                    >
+                      <strong className="font-extrabold text-sm">B</strong>
+                    </button>
+
+                    {/* Corsivo */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('<i>', '</i>', 'testo in corsivo')}
+                      className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 shadow-xs transition-all"
+                      title="Corsivo: <i>testo</i>"
+                    >
+                      <span className="italic text-sm font-serif font-bold">I</span>
+                    </button>
+
+                    {/* Sottolineato */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('<u>', '</u>', 'testo sottolineato')}
+                      className="w-8 h-8 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 shadow-xs transition-all"
+                      title="Sottolineato: <u>testo</u>"
+                    >
+                      <span className="underline underline-offset-2 text-sm font-bold">U</span>
+                    </button>
+
+                    {/* Centrato */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('<center>', '</center>', 'testo centrato')}
+                      className="px-2.5 h-8 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-800 dark:text-slate-100 shadow-xs transition-all gap-1"
+                      title="Centrato: <center>testo</center>"
+                    >
+                      <span className="text-xs">≡</span>
+                      <span className="text-[10px] font-black uppercase">Centrato</span>
+                    </button>
+
+                    <div className="w-[1px] h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+
+                    {/* Titolo Articolo */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('\n\n<b>ART. ', ' - OGGETTO</b>\n', '1')}
+                      className="px-2.5 h-8 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 shadow-xs transition-all gap-1"
+                      title="Inserisci intestazione articolo"
+                    >
+                      <span>📑</span> Articolo
+                    </button>
+
+                    {/* Punto Elenco */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('\n- ', '', 'Nuovo punto elenco')}
+                      className="px-2.5 h-8 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 shadow-xs transition-all gap-1"
+                      title="Punto elenco"
+                    >
+                      <span>•</span> Elenco
+                    </button>
+
+                    {/* Firme Contratto */}
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFormatting('\n\nIL COMMITTENTE: ___________________________\n\nL\'APPALTATORE: ___________________________\n', '', '')}
+                      className="px-2.5 h-8 flex items-center justify-center bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-black uppercase text-slate-700 dark:text-slate-200 shadow-xs transition-all gap-1"
+                      title="Inserisci spazio per firme"
+                    >
+                      <span>✍️</span> Blocco Firme
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[10px] text-slate-400">
+                    <span>Supporta <code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;u&gt;</code>, <code>&lt;center&gt;</code></span>
+                  </div>
+                </div>
+              )}
+
               {contractViewMode === 'preview' ? (
-                <div className="bg-[#fcfdfd] dark:bg-slate-950 p-6 md:p-10 rounded-2xl border border-slate-200/80 dark:border-slate-800 font-serif text-sm leading-relaxed text-slate-800 dark:text-slate-200 whitespace-pre-wrap shadow-inner max-h-[700px] overflow-y-auto custom-scrollbar">
-                  {compiledContractText}
+                <div className="bg-[#fcfdfd] dark:bg-slate-950 p-6 md:p-10 rounded-2xl border border-slate-200/80 dark:border-slate-800 shadow-inner max-h-[700px] overflow-y-auto custom-scrollbar">
+                  <div className="max-w-3xl mx-auto space-y-2.5 font-serif text-[13px] leading-relaxed text-slate-800 dark:text-slate-200">
+                    {compiledContractText.split('\n').map((paragraph, pIdx) => {
+                      const trimmed = paragraph.trim();
+                      if (!trimmed) {
+                        return <div key={pIdx} className="h-2" />;
+                      }
+
+                      const isCentered = /<center>|\[center\]/i.test(paragraph);
+                      const cleanPara = paragraph.replace(/<\/?center>/gi, '').replace(/\[\/?center\]/gi, '');
+
+                      return (
+                        <div
+                          key={pIdx}
+                          className={`${isCentered ? 'text-center my-1.5' : 'text-justify'} transition-colors`}
+                          dangerouslySetInnerHTML={{
+                            __html: sanitizeAndFormatContractHtml(cleanPara),
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -533,18 +883,118 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
                     className="w-full p-5 bg-[#fcfdfd] dark:bg-slate-950 border-2 border-slate-200 dark:border-slate-700 rounded-2xl font-mono text-xs leading-relaxed text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 transition-all custom-scrollbar"
                     placeholder="Inserisci il testo contrattuale con le variabili..."
                   />
-                  <div className="flex items-center justify-between text-xs text-slate-400">
-                    <p>Usa il formato <code>{`{{NOME_VARIABILE}}`}</code> per creare nuovi campi dinamici.</p>
+                  <div className="flex flex-wrap items-center justify-between text-xs text-slate-400 gap-2">
+                    <p>
+                      Usa <code>{`{{NOME_VARIABILE}}`}</code> per i campi dinamici e i tag <code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;u&gt;</code>, <code>&lt;center&gt;</code> per la formattazione.
+                    </p>
                     <button
                       onClick={() => setContractTemplateText(DEFAULT_CONTRATTO_APPALTO)}
                       className="text-rose-500 hover:underline font-bold"
                     >
-                      Ripristina Testo Iniziale
+                      Ripristina Modello Iniziale
                     </button>
                   </div>
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: Aggiungi Nuova Variabile Personalizzata */}
+      {showAddVariableModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-[2.5rem] p-6 md:p-8 border border-slate-100 dark:border-slate-800 shadow-2xl space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2.5 bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 rounded-2xl text-lg">
+                  ➕
+                </span>
+                <div>
+                  <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">
+                    Nuova Variabile Contratto
+                  </h3>
+                  <p className="text-xs text-slate-400">
+                    Definisci un nuovo campo riutilizzabile nei contratti
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowAddVariableModal(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCustomVariable} className="space-y-4">
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Nome / Sigla Variabile *
+                </label>
+                <div className="relative flex items-center">
+                  <span className="absolute left-3 text-xs font-mono font-black text-slate-400">{`{{`}</span>
+                  <input
+                    type="text"
+                    required
+                    placeholder="ES: IBAN_PAGAMENTI, PENALE_RITARDO"
+                    value={newVarKey}
+                    onChange={(e) => setNewVarKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, '_'))}
+                    className="w-full pl-9 pr-8 py-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                  />
+                  <span className="absolute right-3 text-xs font-mono font-black text-slate-400">{`}}`}</span>
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Usa solo lettere maiuscole e trattini bassi (es. <code>IBAN</code>, <code>PENALE_RITARDO</code>).
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Etichetta / Descrizione *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Es: Codice IBAN per Bonifici SAL"
+                  value={newVarLabel}
+                  onChange={(e) => setNewVarLabel(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                  Valore Predefinito (Opzionale)
+                </label>
+                <input
+                  type="text"
+                  placeholder="Es: IT00X0000000000000000000000"
+                  value={newVarDefault}
+                  onChange={(e) => setNewVarDefault(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                />
+                <p className="text-[10px] text-slate-400">
+                  Questo valore potrà essere modificato per ciascun cantiere in "Modifica Variabili".
+                </p>
+              </div>
+
+              <div className="pt-2 flex items-center justify-end gap-2 border-t border-slate-100 dark:border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setShowAddVariableModal(false)}
+                  className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-black uppercase hover:bg-slate-200"
+                >
+                  Annulla
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase shadow-md shadow-blue-600/30"
+                >
+                  Crea Variabile
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

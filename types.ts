@@ -69,6 +69,13 @@ export interface DnlData {
   noteDNL?: string;
 }
 
+export interface CustomContractVariable {
+  key: string;
+  label: string;
+  defaultValue?: string;
+  description?: string;
+}
+
 export interface Cantiere {
   id: string;
   nome: string;
@@ -90,6 +97,7 @@ export interface Cantiere {
   extraList?: ExtraCantiere[];
   subappalti: Subappalto[];
   dnlData?: DnlData;
+  customContractValues?: Record<string, string>;
 }
 
 export interface Formazione {
@@ -166,6 +174,7 @@ export interface AppSettings {
   patInail?: string;
   ccnlApplicato?: string;
   contrattoBaseCustom?: string;
+  customContractVariables?: CustomContractVariable[];
 }
 
 export type AppData = {
