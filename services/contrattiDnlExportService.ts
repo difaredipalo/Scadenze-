@@ -274,8 +274,9 @@ export function exportDnlToTxt(
   }
   if (isFieldFilled(dnlData.committenteIndirizzo)) cantiereLines.push(`Indirizzo Committente:     ${dnlData.committenteIndirizzo}`);
   if (isFieldFilled(dnlData.committentePecTelefono)) cantiereLines.push(`Contatti Committente:      ${dnlData.committentePecTelefono}`);
-  if (isFieldFilled(dnlData.tipoLavoro)) cantiereLines.push(`Tipologia Intervento:      ${dnlData.tipoLavoro}`);
-  if (isFieldFilled(dnlData.naturaAppalto)) cantiereLines.push(`Natura Giuridica:          ${dnlData.naturaAppalto.toUpperCase()}`);
+  const tipoLavoriVal = dnlData.tipoLavoro || 'Ristrutturazione Edilizia';
+  cantiereLines.push(`Tipologia dei Lavori:      ${tipoLavoriVal}`);
+  if (isFieldFilled(dnlData.naturaAppalto)) cantiereLines.push(`Natura Giuridica Appalto:  ${dnlData.naturaAppalto.toUpperCase()}`);
   if (isFieldFilled(dnlData.titoloAbilitativoTipo)) cantiereLines.push(`Titolo Abilitativo:        ${dnlData.titoloAbilitativoTipo}`);
   if (isFieldFilled(dnlData.titoloAbilitativoNumero)) cantiereLines.push(`Numero Pratica / Prot.:    ${dnlData.titoloAbilitativoNumero}`);
   if (isFieldFilled(dnlData.titoloAbilitativoData)) cantiereLines.push(`Data Deposito Pratica:     ${formatDateItalian(dnlData.titoloAbilitativoData)}`);
@@ -457,8 +458,8 @@ export function exportDnlToExcel(
     { Campo: "PAT INAIL", Valore: dnlData.patInail || settings.patInail || '' },
     { Campo: "Matricola INPS", Valore: dnlData.matricolaInps || settings.matricolaInps || '' },
     { Campo: "CCNL Applicato", Valore: dnlData.ccnl || settings.ccnlApplicato || '' },
-    { Campo: "Tipologia Lavori", Valore: dnlData.tipoLavoro || '' },
-    { Campo: "Natura Appalto", Valore: dnlData.naturaAppalto || '' },
+    { Campo: "Tipologia dei Lavori", Valore: dnlData.tipoLavoro || 'Ristrutturazione Edilizia' },
+    { Campo: "Natura Giuridica Appalto", Valore: dnlData.naturaAppalto ? dnlData.naturaAppalto.toUpperCase() : 'PRIVATO' },
     { Campo: "Titolo Abilitativo", Valore: [dnlData.titoloAbilitativoTipo, dnlData.titoloAbilitativoNumero ? `N. ${dnlData.titoloAbilitativoNumero}` : '', dnlData.titoloAbilitativoData ? `del ${formatDateItalian(dnlData.titoloAbilitativoData)}` : ''].filter(Boolean).join(' ') },
     { Campo: "Notifica Preliminare", Valore: dnlData.protocolloNotificaPreliminare ? `Prot. ${dnlData.protocolloNotificaPreliminare} del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : '' },
     { Campo: "Coordinatore Sicurezza (CSE)", Valore: dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || '' },
@@ -578,11 +579,15 @@ export function exportDnlToPdf(
     ? `Prot. ${dnlData.protocolloNotificaPreliminare}${dnlData.dataNotificaPreliminare ? ` del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : ''}`
     : '';
 
+  const tipoLavoriVal = dnlData.tipoLavoro || 'Ristrutturazione Edilizia';
+  const naturaAppaltoVal = dnlData.naturaAppalto ? dnlData.naturaAppalto.toUpperCase() : 'PRIVATO';
+
   const bodyCantiere = [
     ["Denominazione Cantiere", cantiere.nome],
     ["Ubicazione / Indirizzo", cantiere.indirizzo || ""],
     ["Committente", `${cantiere.cliente}${isFieldFilled(dnlData.committenteCodiceFiscale) ? ` (C.F.: ${dnlData.committenteCodiceFiscale})` : ''}`],
-    ["Tipologia Intervento", `${dnlData.tipoLavoro || ''}${isFieldFilled(dnlData.naturaAppalto) ? ` • Appalto: ${dnlData.naturaAppalto.toUpperCase()}` : ''}`.trim()],
+    ["Tipologia dei Lavori", tipoLavoriVal],
+    ["Natura Giuridica Appalto", naturaAppaltoVal],
     ["Titolo Abilitativo (Pratica)", praticaParts],
     ["Notifica Preliminare ASL/ITL", notificaParts],
     ["Codice CIG", dnlData.cig || ''],
@@ -744,11 +749,15 @@ export function printDnlSheet(
     ? `Prot. ${dnlData.protocolloNotificaPreliminare}${dnlData.dataNotificaPreliminare ? ` del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : ''}`
     : '';
 
+  const tipoLavoriVal = dnlData.tipoLavoro || 'Ristrutturazione Edilizia';
+  const naturaAppaltoVal = dnlData.naturaAppalto ? dnlData.naturaAppalto.toUpperCase() : 'PRIVATO';
+
   const cantiereRows = [
     { label: "Denominazione Cantiere", value: cantiere.nome },
     { label: "Ubicazione / Indirizzo", value: cantiere.indirizzo },
     { label: "Committente", value: `${cantiere.cliente}${isFieldFilled(dnlData.committenteCodiceFiscale) ? ` (C.F.: ${dnlData.committenteCodiceFiscale})` : ''}` },
-    { label: "Tipologia Intervento", value: `${dnlData.tipoLavoro || ''}${isFieldFilled(dnlData.naturaAppalto) ? ` • Appalto: ${dnlData.naturaAppalto.toUpperCase()}` : ''}`.trim() },
+    { label: "Tipologia dei Lavori", value: tipoLavoriVal },
+    { label: "Natura Giuridica Appalto", value: naturaAppaltoVal },
     { label: "Titolo Abilitativo (Pratica)", value: praticaParts },
     { label: "Notifica Preliminare ASL/ITL", value: notificaParts },
     { label: "Codice CIG", value: dnlData.cig },
@@ -804,7 +813,7 @@ export function printDnlSheet(
     <body>
       <div class="header">
         <h1>Scheda di Denuncia di Nuovo Lavoro (D.N.L.)</h1>
-        <p>CASSA EDILE / EDILCASSA (CNCE) & INAIL • Cantiere: <strong>${cantiere.nome.toUpperCase()}</strong> • Data: <strong>${oggi}</strong></p>
+        <p>CASSA EDILE / EDILCASSA (CNCE) & INAIL • Cantiere: <strong>${cantiere.nome.toUpperCase()}</strong> • Tipologia Lavori: <strong>${tipoLavoriVal.toUpperCase()}</strong> • Data: <strong>${oggi}</strong></p>
       </div>
 
       ${impresaRows.length > 0 ? `

@@ -81,13 +81,21 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
 
   // ================= STATO MODULO DNL =================
   const [dnlFormData, setDnlFormData] = useState<DnlData>(() => {
-    return selectedCantiere?.dnlData || {};
+    return {
+      tipoLavoro: 'Ristrutturazione Edilizia',
+      naturaAppalto: 'privato',
+      ...(selectedCantiere?.dnlData || {}),
+    };
   });
 
   // Aggiorna lo stato DNL quando cambia il cantiere
   useEffect(() => {
     if (selectedCantiere) {
-      setDnlFormData(selectedCantiere.dnlData || {});
+      setDnlFormData({
+        tipoLavoro: 'Ristrutturazione Edilizia',
+        naturaAppalto: 'privato',
+        ...(selectedCantiere.dnlData || {}),
+      });
       setCustomVariableOverrides({});
     }
   }, [selectedCantiere?.id]);
@@ -209,12 +217,6 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
     }
     return result;
   }, [contractTemplateText, allAvailableVariables, activeVariables]);
-
-  // Personale assegnato al cantiere per la DNL
-  const personaleAssegnato = useMemo(() => {
-    const assignedIds = dnlFormData.lavoratoriAssegnatiIds || [];
-    return personaleList.filter(p => assignedIds.includes(p.id));
-  }, [personaleList, dnlFormData.lavoratoriAssegnatiIds]);
 
   // Inserisci variabile al cursore nell'editor del contratto
   const handleInsertVariable = (tag: string) => {
@@ -390,24 +392,9 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
   // Copia riepilogo DNL per il commercialista / consulente del lavoro
   const handleCopyDnlForConsultant = () => {
     if (!selectedCantiere) return;
-    const txt = exportDnlToTxt(selectedCantiere, settings, dnlFormData, personaleAssegnato);
+    const txt = exportDnlToTxt(selectedCantiere, settings, dnlFormData);
     const consultantMessage = `Spett.le Studio di Consulenza del Lavoro,\n\nVi trasmettiamo i dati completi per l'apertura e l'inoltro della Denuncia di Nuovo Lavoro (D.N.L.) per la Cassa Edile e l'INAIL relativi al nostro cantiere:\n\n${txt}\n\nRestiamo a disposizione per qualsiasi chiarimento.\nCordiali saluti,\n${settings.nomeAzienda}`;
     handleCopyText(consultantMessage, 'Scheda DNL per Consulente del Lavoro');
-  };
-
-  // Toggle selezione operaio assegnato alla DNL
-  const toggleWorkerAssignment = (workerId: string) => {
-    const current = dnlFormData.lavoratoriAssegnatiIds || [];
-    const exists = current.includes(workerId);
-    const updatedIds = exists
-      ? current.filter(id => id !== workerId)
-      : [...current, workerId];
-
-    setDnlFormData(prev => ({
-      ...prev,
-      lavoratoriAssegnatiIds: updatedIds,
-      numeroOperaiStimati: updatedIds.length > 0 ? updatedIds.length : prev.numeroOperaiStimati,
-    }));
   };
 
   if (cantieri.length === 0) {
@@ -1040,7 +1027,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
               </button>
 
               <button
-                onClick={() => downloadDnlTxtFile(selectedCantiere, settings, dnlFormData, personaleAssegnato)}
+                onClick={() => downloadDnlTxtFile(selectedCantiere, settings, dnlFormData)}
                 className="px-3.5 py-2.5 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/50 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
                 title="Scarica file testo .txt con tutti i dati per l'apertura telematica"
               >
@@ -1048,7 +1035,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
               </button>
 
               <button
-                onClick={() => downloadDnlJsonFile(selectedCantiere, settings, dnlFormData, personaleAssegnato)}
+                onClick={() => downloadDnlJsonFile(selectedCantiere, settings, dnlFormData)}
                 className="px-3.5 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
                 title="Scarica dati strutturati in JSON"
               >
@@ -1056,7 +1043,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
               </button>
 
               <button
-                onClick={() => exportDnlToExcel(selectedCantiere, settings, dnlFormData, personaleAssegnato)}
+                onClick={() => exportDnlToExcel(selectedCantiere, settings, dnlFormData)}
                 className="px-3.5 py-2.5 bg-emerald-50 dark:bg-emerald-950/40 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800 rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5"
                 title="Scarica foglio Excel completo"
               >
@@ -1064,7 +1051,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
               </button>
 
               <button
-                onClick={() => exportDnlToPdf(selectedCantiere, settings, dnlFormData, personaleAssegnato)}
+                onClick={() => exportDnlToPdf(selectedCantiere, settings, dnlFormData)}
                 className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all shadow-md shadow-blue-600/30 flex items-center gap-1.5"
                 title="Scarica scheda ufficiale DNL in PDF"
               >
@@ -1334,18 +1321,18 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
               </div>
             </div>
 
-            {/* RIQUADRO 4: Valori Economici & Congruità Manodopera */}
+            {/* RIQUADRO 4: Valori Economici */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
               <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
                 <span className="text-base">💶</span>
                 <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                  Riquadro 4: Valori Economici & Manodopera
+                  Riquadro 4: Valori Economici
                 </h4>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Valore Totale Opera (€)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Importo Complessivo Opera (€)</label>
                   <input
                     type="number"
                     value={selectedCantiere.importoTotale || 0}
@@ -1355,7 +1342,7 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Importo Opere Edili (Cassa Edile) (€)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Opere Edili (Cassa Edile) (€)</label>
                   <input
                     type="number"
                     value={dnlFormData.importoEdile !== undefined ? dnlFormData.importoEdile : selectedCantiere.importoTotale}
@@ -1365,144 +1352,22 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Oneri della Sicurezza (€)</label>
-                  <input
-                    type="number"
-                    placeholder="Es. 3500"
-                    value={dnlFormData.oneriSicurezza || 0}
-                    onChange={(e) => setDnlFormData({ ...dnlFormData, oneriSicurezza: parseFloat(e.target.value) || 0 })}
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Incidenza Min. Manodopera (%)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={dnlFormData.incidenzaManodoperaPerc || 14.28}
-                    onChange={(e) => setDnlFormData({ ...dnlFormData, incidenzaManodoperaPerc: parseFloat(e.target.value) || 14.28 })}
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ore Lavorative Stimate</label>
-                  <input
-                    type="number"
-                    placeholder="Es. 600"
-                    value={dnlFormData.oreLavorativeStimate || 0}
-                    onChange={(e) => setDnlFormData({ ...dnlFormData, oreLavorativeStimate: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">N. Presunto Operai Impiegati</label>
-                  <input
-                    type="number"
-                    value={dnlFormData.numeroOperaiStimati || personaleAssegnato.length || 0}
-                    onChange={(e) => setDnlFormData({ ...dnlFormData, numeroOperaiStimati: parseInt(e.target.value, 10) || 0 })}
-                    className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
-                  />
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subappalti Totale (€)</label>
+                  <div className="w-full p-3 bg-slate-100 dark:bg-slate-800 rounded-xl text-xs font-bold text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 flex items-center justify-between">
+                    <span>€ {((selectedCantiere.subappalti || []).reduce((acc, s) => acc + (s.prezzoOriginale || 0), 0)).toLocaleString('it-IT', { minimumFractionDigits: 2 })}</span>
+                    <span className="text-[10px] text-slate-400 font-normal">{(selectedCantiere.subappalti || []).length} ditte</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* RIQUADRO 5: Assegnazione Personale & Maestranze alla DNL */}
-          <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <div className="flex items-center gap-2">
-                <div className="p-2 bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 rounded-xl">
-                  <Icons.Personale />
-                </div>
-                <div>
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                    Maestranze & Lavoratori Assegnati al Cantiere ({personaleAssegnato.length} selezionati)
-                  </h4>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Seleziona gli operai della tua azienda impiegati in questo cantiere per includerli automaticamente nel file e nella scheda DNL.
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const allIds = personaleList.filter(p => p.inForza).map(p => p.id);
-                    setDnlFormData(prev => ({ ...prev, lavoratoriAssegnatiIds: allIds, numeroOperaiStimati: allIds.length }));
-                  }}
-                  className="px-3 py-1 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-lg text-[10px] font-bold uppercase transition-all"
-                >
-                  Seleziona Tutti in Forza
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDnlFormData(prev => ({ ...prev, lavoratoriAssegnatiIds: [], numeroOperaiStimati: 0 }))}
-                  className="px-3 py-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-[10px] font-bold uppercase transition-all"
-                >
-                  Deseleziona
-                </button>
-              </div>
-            </div>
-
-            {personaleList.length === 0 ? (
-              <p className="text-xs text-slate-400 italic">Nessun dipendente registrato nell'anagrafica personale.</p>
-            ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
-                {personaleList.map(p => {
-                  const isSelected = (dnlFormData.lavoratoriAssegnatiIds || []).includes(p.id);
-                  return (
-                    <div
-                      key={p.id}
-                      onClick={() => toggleWorkerAssignment(p.id)}
-                      className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between gap-3 ${
-                        isSelected
-                          ? 'bg-blue-50/80 dark:bg-blue-950/40 border-blue-500 text-blue-950 dark:text-blue-200 shadow-xs'
-                          : 'bg-slate-50/60 dark:bg-slate-800/40 border-slate-200/70 dark:border-slate-700/70 hover:border-slate-400 opacity-75 hover:opacity-100'
-                      }`}
-                    >
-                      <div className="min-w-0 flex items-center gap-2.5">
-                        <input
-                          type="checkbox"
-                          checked={isSelected}
-                          onChange={() => {}} // gestito da onClick contenitore
-                          className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 pointer-events-none"
-                        />
-                        <div className="min-w-0">
-                          <p className="text-xs font-black truncate">{p.cognome} {p.nome}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">
-                            {p.ruolo} • <span className="capitalize">{p.categoria}</span>
-                          </p>
-                          <p className="text-[9px] text-slate-400 font-mono truncate">
-                            CF: {p.codiceFiscale || 'N.D.'}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="text-right shrink-0 text-[9px]">
-                        <span className={`px-2 py-0.5 rounded-md font-bold ${p.inForza ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-red-100 text-red-700'}`}>
-                          {p.inForza ? 'In Forza' : 'Cessato'}
-                        </span>
-                        {p.dataAssunzione && (
-                          <p className="text-slate-400 mt-1">Assunto: {p.dataAssunzione}</p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* RIQUADRO 6: Subappalti & Note Aggiuntive */}
+          {/* RIQUADRO 5: Subappalti & Note Aggiuntive */}
           <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
             <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
               <span className="text-base">🤝</span>
               <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                Riquadro 6: Subappalti & Note Speciali
+                Riquadro 5: Subappalti & Note Speciali
               </h4>
             </div>
 
