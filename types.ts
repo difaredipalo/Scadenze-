@@ -37,6 +37,9 @@ export interface Subappalto {
   lavoro: string;
   prezzoOriginale: number;
   maggiorazione: number;
+  partitaIva?: string;
+  email?: string;
+  pec?: string;
 }
 
 export interface DnlData {
@@ -57,6 +60,10 @@ export interface DnlData {
   committenteCodiceFiscale?: string;
   committenteIndirizzo?: string;
   committentePecTelefono?: string;
+  progettistaNome?: string;
+  progettistaTelefono?: string;
+  progettistaEmail?: string;
+  progettistaPec?: string;
   coordinatoreSicurezza?: string;
   responsabileLavori?: string;
   capocantiere?: string;

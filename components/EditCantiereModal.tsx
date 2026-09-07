@@ -472,6 +472,20 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
                             <input placeholder="Es: Scavi, Cartongesso" value={sub.lavoro} onChange={e => updateArrayItem('subappalti', idx, { lavoro: e.target.value })} className={inputBaseClasses} />
                           </div>
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Partita IVA / Codice Fiscale</label>
+                            <input placeholder="P.IVA o Codice Fiscale" value={sub.partitaIva || ''} onChange={e => updateArrayItem('subappalti', idx, { partitaIva: e.target.value })} className={inputBaseClasses} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Email Impresa</label>
+                            <input type="email" placeholder="azienda@email.it" value={sub.email || ''} onChange={e => updateArrayItem('subappalti', idx, { email: e.target.value })} className={inputBaseClasses} />
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">PEC Impresa</label>
+                            <input type="email" placeholder="azienda@pec.it" value={sub.pec || ''} onChange={e => updateArrayItem('subappalti', idx, { pec: e.target.value })} className={inputBaseClasses} />
+                          </div>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-50 items-end">
                           <div className="space-y-2">
                             <label className="text-[10px] font-black text-slate-400 uppercase">Prezzo Originale (€)</label>
@@ -609,6 +623,66 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
                       className={inputBaseClasses} 
                     />
                   </div>
+                  <div className="md:col-span-2 p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm">📐</span>
+                      <span className="text-xs font-black text-slate-800 uppercase tracking-wider">Dati Progettista dell'Opera (Importante DNL)</span>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Nome Progettista / Studio</label>
+                        <input
+                          placeholder="Arch. / Ing. ..."
+                          value={formData.dnlData?.progettistaNome || ''}
+                          onChange={e => setFormData({
+                            ...formData,
+                            dnlData: { ...(formData.dnlData || {}), progettistaNome: e.target.value }
+                          })}
+                          className={inputBaseClasses}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Telefono Progettista</label>
+                        <input
+                          type="tel"
+                          placeholder="Tel. Progettista"
+                          value={formData.dnlData?.progettistaTelefono || ''}
+                          onChange={e => setFormData({
+                            ...formData,
+                            dnlData: { ...(formData.dnlData || {}), progettistaTelefono: e.target.value }
+                          })}
+                          className={inputBaseClasses}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">Email Progettista</label>
+                        <input
+                          type="email"
+                          placeholder="progettista@email.it"
+                          value={formData.dnlData?.progettistaEmail || ''}
+                          onChange={e => setFormData({
+                            ...formData,
+                            dnlData: { ...(formData.dnlData || {}), progettistaEmail: e.target.value }
+                          })}
+                          className={inputBaseClasses}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase">PEC Progettista</label>
+                        <input
+                          type="email"
+                          placeholder="progettista@pec.it"
+                          value={formData.dnlData?.progettistaPec || ''}
+                          onChange={e => setFormData({
+                            ...formData,
+                            dnlData: { ...(formData.dnlData || {}), progettistaPec: e.target.value }
+                          })}
+                          className={inputBaseClasses}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
                   <div className="md:col-span-2 space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Note Operative Denuncia DNL</label>
                     <textarea 

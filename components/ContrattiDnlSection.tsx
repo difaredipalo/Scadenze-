@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Cantiere, AppSettings, Personale, DnlData, CustomContractVariable } from '../types';
+import { Cantiere, AppSettings, Personale, DnlData, CustomContractVariable, Subappalto } from '../types';
 import { Icons } from '../constants';
 import {
   CONTRACT_VARIABLES,
@@ -126,10 +126,23 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
 
     // Subappalti
     const subStr = selectedCantiere.subappalti && selectedCantiere.subappalti.length > 0
-      ? selectedCantiere.subappalti.map(s => `${s.azienda} (${s.lavoro})`).join(', ')
+      ? selectedCantiere.subappalti.map(s => {
+          const details = [
+            s.partitaIva ? `P.IVA: ${s.partitaIva}` : '',
+            s.email ? `Email: ${s.email}` : '',
+            s.pec ? `PEC: ${s.pec}` : ''
+          ].filter(Boolean).join(', ');
+          return `${s.azienda} (${s.lavoro})${details ? ` [${details}]` : ''}`;
+        }).join('; ')
       : 'Nessuna ditta in subappalto al momento stipulata';
 
     const cse = selectedCantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || dnlFormData.coordinatoreSicurezza || 'Da nominare a cura del Committente';
+
+    // Progettista
+    const progNome = dnlFormData.progettistaNome || selectedCantiere.tecnici?.find(t => /progettista/i.test(t.ruolo))?.nome || '';
+    const progTel = dnlFormData.progettistaTelefono || selectedCantiere.tecnici?.find(t => /progettista/i.test(t.ruolo))?.telefono || '';
+    const progEmail = dnlFormData.progettistaEmail || selectedCantiere.tecnici?.find(t => /progettista/i.test(t.ruolo))?.email || '';
+    const progPec = dnlFormData.progettistaPec || '';
 
     // Codice Fiscale Committente
     const cfCommittente = dnlFormData.committenteCodiceFiscale ||
@@ -155,6 +168,10 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
       DURATA_GIORNI: durataGiorni,
       DIRETTORE_LAVORI: selectedCantiere.direttoreLavori || 'Da designare a cura del Committente',
       COORDINATORE_SICUREZZA: cse,
+      PROGETTISTA: progNome || 'Da nominare a cura del Committente',
+      PROGETTISTA_TEL: progTel || 'N.D.',
+      PROGETTISTA_EMAIL: progEmail || 'N.D.',
+      PROGETTISTA_PEC: progPec || 'N.D.',
       NOME_IMPRESA: settings.nomeAzienda || '',
       PIVA_IMPRESA: settings.partitaIva || settings.codiceFiscaleAzienda || 'P.IVA da definire',
       SEDE_IMPRESA: settings.indirizzoSede || 'Sede da definire',
@@ -395,6 +412,45 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
     const txt = exportDnlToTxt(selectedCantiere, settings, dnlFormData);
     const consultantMessage = `Spett.le Studio di Consulenza del Lavoro,\n\nVi trasmettiamo i dati completi per l'apertura e l'inoltro della Denuncia di Nuovo Lavoro (D.N.L.) per la Cassa Edile e l'INAIL relativi al nostro cantiere:\n\n${txt}\n\nRestiamo a disposizione per qualsiasi chiarimento.\nCordiali saluti,\n${settings.nomeAzienda}`;
     handleCopyText(consultantMessage, 'Scheda DNL per Consulente del Lavoro');
+  };
+
+  // Gestione Subappalti direttamente dalla sezione DNL
+  const handleUpdateSubappalto = (subId: string, updates: Partial<Subappalto>) => {
+    if (!selectedCantiere) return;
+    const updatedSubappalti = (selectedCantiere.subappalti || []).map(s =>
+      s.id === subId ? { ...s, ...updates } : s
+    );
+    onUpdateCantiere({
+      ...selectedCantiere,
+      subappalti: updatedSubappalti,
+    });
+  };
+
+  const handleAddSubappalto = () => {
+    if (!selectedCantiere) return;
+    const newSub: Subappalto = {
+      id: Math.random().toString(),
+      azienda: '',
+      lavoro: '',
+      prezzoOriginale: 0,
+      maggiorazione: 0,
+      partitaIva: '',
+      email: '',
+      pec: '',
+    };
+    onUpdateCantiere({
+      ...selectedCantiere,
+      subappalti: [...(selectedCantiere.subappalti || []), newSub],
+    });
+    if (onShowToast) onShowToast('info', 'Nuovo subappalto inserito nella DNL.');
+  };
+
+  const handleDeleteSubappalto = (subId: string) => {
+    if (!selectedCantiere) return;
+    onUpdateCantiere({
+      ...selectedCantiere,
+      subappalti: (selectedCantiere.subappalti || []).filter(s => s.id !== subId),
+    });
   };
 
   if (cantieri.length === 0) {
@@ -1246,16 +1302,21 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
               </div>
             </div>
 
-            {/* RIQUADRO 3: Committente & Figure Tecniche */}
+            {/* RIQUADRO 3: Committente, Progettista & Figure Tecniche */}
             <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-                <span className="text-base">👤</span>
-                <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                  Riquadro 3: Committente & Responsabili
-                </h4>
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">👤</span>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Riquadro 3: Committente, Progettista & Sicurezza
+                  </h4>
+                </div>
+                <span className="text-[10px] bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 font-bold px-2 py-0.5 rounded-full">
+                  Dati Obbligatori DNL
+                </span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Committente</label>
                   <input
@@ -1278,11 +1339,11 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Direttore dei Lavori (D.L.)</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scadenza Invio DNL</label>
                   <input
-                    type="text"
-                    value={selectedCantiere.direttoreLavori || ''}
-                    onChange={(e) => onUpdateCantiere({ ...selectedCantiere, direttoreLavori: e.target.value })}
+                    type="date"
+                    value={selectedCantiere.scadenzaDNL || ''}
+                    onChange={(e) => onUpdateCantiere({ ...selectedCantiere, scadenzaDNL: e.target.value })}
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
                   />
                 </div>
@@ -1310,13 +1371,88 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scadenza Invio DNL</label>
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Responsabile dei Lavori</label>
                   <input
-                    type="date"
-                    value={selectedCantiere.scadenzaDNL || ''}
-                    onChange={(e) => onUpdateCantiere({ ...selectedCantiere, scadenzaDNL: e.target.value })}
+                    type="text"
+                    placeholder="Nome Responsabile Lavori"
+                    value={dnlFormData.responsabileLavori || ''}
+                    onChange={(e) => setDnlFormData({ ...dnlFormData, responsabileLavori: e.target.value })}
                     className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
                   />
+                </div>
+              </div>
+
+              {/* SEZIONE PROGETTISTA DELL'OPERA (TELEFONO, MAIL, PEC) */}
+              <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3 bg-blue-50/40 dark:bg-blue-950/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-base">📐</span>
+                    <div>
+                      <h5 className="text-xs font-black text-blue-950 dark:text-blue-200 uppercase tracking-wider">
+                        Dati del Progettista (Importante DNL)
+                      </h5>
+                      <p className="text-[10px] text-blue-600/80 dark:text-blue-400">
+                        Inserisci i recapiti ufficiali: Mail, Telefono e PEC per la trasmissione Cassa Edile.
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-blue-600 text-white font-bold px-2 py-0.5 rounded-full">
+                    DNL Cassa Edile
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      Nome Progettista / Studio
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Arch. / Ing. Nome Cognome"
+                      value={dnlFormData.progettistaNome || ''}
+                      onChange={(e) => setDnlFormData({ ...dnlFormData, progettistaNome: e.target.value })}
+                      className="w-full p-2.5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      Numero di Telefono
+                    </label>
+                    <input
+                      type="tel"
+                      placeholder="Es. +39 333 1234567"
+                      value={dnlFormData.progettistaTelefono || ''}
+                      onChange={(e) => setDnlFormData({ ...dnlFormData, progettistaTelefono: e.target.value })}
+                      className="w-full p-2.5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      Email Progettista
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="progettista@studio.it"
+                      value={dnlFormData.progettistaEmail || ''}
+                      onChange={(e) => setDnlFormData({ ...dnlFormData, progettistaEmail: e.target.value })}
+                      className="w-full p-2.5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+                      PEC Progettista
+                    </label>
+                    <input
+                      type="email"
+                      placeholder="progettista@pec.it"
+                      value={dnlFormData.progettistaPec || ''}
+                      onChange={(e) => setDnlFormData({ ...dnlFormData, progettistaPec: e.target.value })}
+                      className="w-full p-2.5 bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500 transition-all"
+                    />
+                  </div>
                 </div>
               </div>
             </div>
@@ -1362,34 +1498,162 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
             </div>
           </div>
 
-          {/* RIQUADRO 5: Subappalti & Note Aggiuntive */}
-          <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
-            <div className="flex items-center gap-2 pb-3 border-b border-slate-100 dark:border-slate-800">
-              <span className="text-base">🤝</span>
-              <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                Riquadro 5: Subappalti & Note Speciali
-              </h4>
+          {/* RIQUADRO 5: Subappalti (Partita IVA, Email, PEC) & Note */}
+          <div className="bg-white dark:bg-slate-900 p-6 md:p-8 rounded-[2rem] border border-slate-100 dark:border-slate-800 shadow-sm space-y-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex items-center gap-2">
+                <span className="text-base">🤝</span>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                    Riquadro 5: Subappalti (P.IVA, Email, PEC) & Note Speciali
+                  </h4>
+                  <p className="text-[10px] text-slate-400">
+                    Dati fiscali e telematici obbligatori per le ditte subappaltatrici dichiarate alla Cassa Edile.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={handleAddSubappalto}
+                className="px-4 py-2 bg-slate-900 hover:bg-blue-600 dark:bg-blue-600 dark:hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider transition-all flex items-center gap-1.5 self-start sm:self-auto shadow-sm"
+              >
+                <span>+</span> Aggiungi Subappalto
+              </button>
             </div>
 
             <div className="space-y-4">
-              {selectedCantiere.subappalti.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ditte in subappalto dichiarate per il cantiere:</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {selectedCantiere.subappalti.map(s => (
-                      <div key={s.id} className="p-3 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 text-xs">
-                        <p className="font-black text-slate-800 dark:text-slate-200">{s.azienda}</p>
-                        <p className="text-[10px] text-slate-400">{s.lavoro}</p>
-                        <p className="text-blue-600 font-bold mt-1">€ {s.prezzoOriginale.toLocaleString('it-IT')}</p>
+              {selectedCantiere.subappalti && selectedCantiere.subappalti.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    {selectedCantiere.subappalti.map((s, idx) => (
+                      <div
+                        key={s.id || idx}
+                        className="p-4 bg-slate-50/80 dark:bg-slate-800/80 rounded-2xl border-2 border-slate-100 dark:border-slate-700 space-y-3 hover:border-blue-200 dark:hover:border-blue-800 transition-all"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-amber-500 text-white flex items-center justify-center text-[10px] font-black">
+                              {idx + 1}
+                            </span>
+                            <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase tracking-tight">
+                              Ditta Subappaltatrice
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteSubappalto(s.id)}
+                            className="text-[10px] font-bold text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-2 py-1 rounded-lg transition-all"
+                            title="Rimuovi subappalto"
+                          >
+                            Elimina
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                              Ragione Sociale Impresa
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Es. Impresa Edile Rossi Srl"
+                              value={s.azienda}
+                              onChange={(e) => handleUpdateSubappalto(s.id, { azienda: e.target.value })}
+                              className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-slate-400 uppercase tracking-wider">
+                              Tipologia Lavorazione
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="Es. Impianti Elettrici / Cartongessi"
+                              value={s.lavoro}
+                              onChange={(e) => handleUpdateSubappalto(s.id, { lavoro: e.target.value })}
+                              className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                            />
+                          </div>
+                        </div>
+
+                        {/* PARTITA IVA, EMAIL E PEC SUBAPPALTI (RICHIESTI DAL COMMITTENTE) */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-wider flex items-center gap-1">
+                              <span>🆔</span> Partita IVA / CF
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="P.IVA o Codice Fiscale"
+                              value={s.partitaIva || ''}
+                              onChange={(e) => handleUpdateSubappalto(s.id, { partitaIva: e.target.value })}
+                              className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-900 dark:text-white outline-none focus:border-amber-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-wider flex items-center gap-1">
+                              <span>✉️</span> Email Impresa
+                            </label>
+                            <input
+                              type="email"
+                              placeholder="subappalto@email.it"
+                              value={s.email || ''}
+                              onChange={(e) => handleUpdateSubappalto(s.id, { email: e.target.value })}
+                              className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                            />
+                          </div>
+
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-emerald-600 dark:text-emerald-400 uppercase tracking-wider flex items-center gap-1">
+                              <span>🛡️</span> PEC Impresa
+                            </label>
+                            <input
+                              type="email"
+                              placeholder="subappalto@pec.it"
+                              value={s.pec || ''}
+                              onChange={(e) => handleUpdateSubappalto(s.id, { pec: e.target.value })}
+                              className="w-full p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-900 dark:text-white outline-none focus:border-emerald-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="pt-2 border-t border-slate-200/60 dark:border-slate-700/60 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black text-slate-400 uppercase">Importo (€):</span>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={s.prezzoOriginale || 0}
+                              onChange={(e) => handleUpdateSubappalto(s.id, { prezzoOriginale: parseFloat(e.target.value) || 0 })}
+                              className="w-28 p-1.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500"
+                            />
+                          </div>
+                          <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                            € {(s.prezzoOriginale || 0).toLocaleString('it-IT', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <p className="text-xs text-slate-400 italic">Nessun subappalto inserito per questo cantiere. Eventuali subappalti aggiunti nella scheda cantiere appariranno qui automaticamente.</p>
+                <div className="p-6 bg-slate-50 dark:bg-slate-800 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-center space-y-2">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Nessuna ditta in subappalto registrata per questo cantiere.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleAddSubappalto}
+                    className="px-3 py-1.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-300 rounded-xl text-xs font-black uppercase hover:bg-blue-100 transition-all inline-flex items-center gap-1"
+                  >
+                    <span>+</span> Aggiungi Subappaltatore adesso
+                  </button>
+                </div>
               )}
 
-              <div className="space-y-1">
+              <div className="space-y-1 pt-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Note e Istruzioni DNL</label>
                 <textarea
                   rows={3}

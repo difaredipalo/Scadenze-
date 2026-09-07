@@ -295,8 +295,12 @@ export function exportDnlToTxt(
     out += `[2] CANTIERE E TITOLO ABILITATIVO\n${subSep}\n${cantiereLines.join('\n')}\n\n`;
   }
 
-  // [3] FIGURE DI SICUREZZA (NO DIRETTORE LAVORI!)
+  // [3] FIGURE TECNICHE & SICUREZZA (NO DIRETTORE LAVORI!)
   const sicurezzaLines: string[] = [];
+  if (isFieldFilled(dnlData.progettistaNome)) sicurezzaLines.push(`Progettista:              ${dnlData.progettistaNome}`);
+  if (isFieldFilled(dnlData.progettistaTelefono)) sicurezzaLines.push(`Telefono Progettista:     ${dnlData.progettistaTelefono}`);
+  if (isFieldFilled(dnlData.progettistaEmail)) sicurezzaLines.push(`Email Progettista:        ${dnlData.progettistaEmail}`);
+  if (isFieldFilled(dnlData.progettistaPec)) sicurezzaLines.push(`PEC Progettista:          ${dnlData.progettistaPec}`);
   const coordSicurezza = dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome;
   if (isFieldFilled(coordSicurezza)) sicurezzaLines.push(`Coord. Sicurezza (CSE):    ${coordSicurezza}`);
   const capocantiere = dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome;
@@ -304,7 +308,7 @@ export function exportDnlToTxt(
   if (isFieldFilled(dnlData.responsabileLavori)) sicurezzaLines.push(`Responsabile dei Lavori:   ${dnlData.responsabileLavori}`);
 
   if (sicurezzaLines.length > 0) {
-    out += `[3] RESPONSABILI DELLA SICUREZZA\n${subSep}\n${sicurezzaLines.join('\n')}\n\n`;
+    out += `[3] FIGURE TECNICHE & RESPONSABILI DELLA SICUREZZA\n${subSep}\n${sicurezzaLines.join('\n')}\n\n`;
   }
 
   // [4] RIQUADRO ECONOMICO: solo Importo Complessivo, Opere Edili, Subappalti Totale
@@ -320,7 +324,13 @@ export function exportDnlToTxt(
   if (cantiere.subappalti && cantiere.subappalti.length > 0) {
     out += `[5] DITTE IN SUBAPPALTO (${cantiere.subappalti.length})\n${subSep}\n`;
     cantiere.subappalti.forEach((s, idx) => {
-      out += `${idx + 1}. ${s.azienda} | Lavorazione: ${s.lavoro} | Importo: € ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n`;
+      const extraFields = [
+        isFieldFilled(s.partitaIva) ? `P.IVA: ${s.partitaIva}` : '',
+        isFieldFilled(s.email) ? `Email: ${s.email}` : '',
+        isFieldFilled(s.pec) ? `PEC: ${s.pec}` : '',
+      ].filter(Boolean).join(' | ');
+
+      out += `${idx + 1}. ${s.azienda}${extraFields ? ` (${extraFields})` : ''} | Lavorazione: ${s.lavoro} | Importo: € ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}\n`;
     });
     out += `\n`;
   }
@@ -403,6 +413,12 @@ export function downloadDnlJsonFile(
       cig: dnlData.cig || null,
       cup: dnlData.cup || null,
     },
+    progettista: {
+      nome: dnlData.progettistaNome || null,
+      telefono: dnlData.progettistaTelefono || null,
+      email: dnlData.progettistaEmail || null,
+      pec: dnlData.progettistaPec || null,
+    },
     sicurezza: {
       coordinatoreSicurezza: dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || null,
       capocantiere: dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || null,
@@ -415,6 +431,9 @@ export function downloadDnlJsonFile(
     },
     subappalti: (cantiere.subappalti || []).map(s => ({
       azienda: s.azienda,
+      partitaIva: s.partitaIva || null,
+      email: s.email || null,
+      pec: s.pec || null,
       lavoro: s.lavoro,
       importo: s.prezzoOriginale
     })),
@@ -462,6 +481,10 @@ export function exportDnlToExcel(
     { Campo: "Natura Giuridica Appalto", Valore: dnlData.naturaAppalto ? dnlData.naturaAppalto.toUpperCase() : 'PRIVATO' },
     { Campo: "Titolo Abilitativo", Valore: [dnlData.titoloAbilitativoTipo, dnlData.titoloAbilitativoNumero ? `N. ${dnlData.titoloAbilitativoNumero}` : '', dnlData.titoloAbilitativoData ? `del ${formatDateItalian(dnlData.titoloAbilitativoData)}` : ''].filter(Boolean).join(' ') },
     { Campo: "Notifica Preliminare", Valore: dnlData.protocolloNotificaPreliminare ? `Prot. ${dnlData.protocolloNotificaPreliminare} del ${formatDateItalian(dnlData.dataNotificaPreliminare)}` : '' },
+    { Campo: "Progettista", Valore: dnlData.progettistaNome || '' },
+    { Campo: "Telefono Progettista", Valore: dnlData.progettistaTelefono || '' },
+    { Campo: "Email Progettista", Valore: dnlData.progettistaEmail || '' },
+    { Campo: "PEC Progettista", Valore: dnlData.progettistaPec || '' },
     { Campo: "Coordinatore Sicurezza (CSE)", Valore: dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || '' },
     { Campo: "Capocantiere / Preposto", Valore: dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || '' },
     { Campo: "Data Inizio Lavori", Valore: formatDateItalian(cantiere.dataInizio) },
@@ -483,6 +506,9 @@ export function exportDnlToExcel(
   if (cantiere.subappalti && cantiere.subappalti.length > 0) {
     const subData = cantiere.subappalti.map(s => ({
       Azienda: s.azienda,
+      Partita_IVA: s.partitaIva || '',
+      Email: s.email || '',
+      PEC: s.pec || '',
       Lavorazione: s.lavoro,
       Importo_Subappalto: s.prezzoOriginale
     }));
@@ -611,12 +637,16 @@ export function exportDnlToPdf(
     y = (doc as any).lastAutoTable.finalY + 5;
   }
 
-  // RIQUADRO 3: Figure di Sicurezza (NO DIRETTORE LAVORI!)
+  // RIQUADRO 3: Figure Tecniche & Sicurezza (NO DIRETTORE LAVORI!)
   const coordSicurezza = dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || '';
   const capocantiere = dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || '';
   const respLavori = dnlData.responsabileLavori || '';
 
   const bodySicurezza = [
+    ["Progettista", dnlData.progettistaNome || ''],
+    ["Telefono Progettista", dnlData.progettistaTelefono || ''],
+    ["Email Progettista", dnlData.progettistaEmail || ''],
+    ["PEC Progettista", dnlData.progettistaPec || ''],
     ["Coordinatore Sicurezza (CSE)", coordSicurezza],
     ["Capocantiere / Preposto", capocantiere],
     ["Responsabile dei Lavori", respLavori],
@@ -626,7 +656,7 @@ export function exportDnlToPdf(
     (doc as any).autoTable({
       startY: y,
       margin: { left: marginX, right: marginX },
-      head: [["RIQUADRO 3: RESPONSABILI DELLA SICUREZZA", "NOMINATIVI"]],
+      head: [["RIQUADRO 3: FIGURE TECNICHE & RESPONSABILI DELLA SICUREZZA", "NOMINATIVI & RECAPITI"]],
       body: bodySicurezza,
       theme: 'grid',
       headStyles: { fillColor: [100, 116, 139], textColor: 255, fontStyle: 'bold', fontSize: 8 },
@@ -660,17 +690,29 @@ export function exportDnlToPdf(
     (doc as any).autoTable({
       startY: y,
       margin: { left: marginX, right: marginX },
-      head: [["#", "Impresa Subappaltatrice", "Lavorazione Specializzata", "Importo Subappalto"]],
-      body: cantiere.subappalti.map((s, i) => [
-        (i + 1).toString(),
-        s.azienda,
-        s.lavoro,
-        `€ ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
-      ]),
+      head: [["#", "Impresa Subappaltatrice", "P.IVA", "Contatti (Email / PEC)", "Lavorazione", "Importo Subappalto"]],
+      body: cantiere.subappalti.map((s, i) => {
+        const contatti = [s.email, s.pec ? `PEC: ${s.pec}` : ''].filter(Boolean).join('\n');
+        return [
+          (i + 1).toString(),
+          s.azienda,
+          s.partitaIva || '-',
+          contatti || '-',
+          s.lavoro,
+          `€ ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
+        ];
+      }),
       theme: 'grid',
       headStyles: { fillColor: [217, 119, 6], textColor: 255, fontStyle: 'bold', fontSize: 7.5 },
-      styles: { fontSize: 7, cellPadding: 1.6 },
-      columnStyles: { 0: { cellWidth: 8 }, 1: { cellWidth: 60, fontStyle: 'bold' } }
+      styles: { fontSize: 6.8, cellPadding: 1.5 },
+      columnStyles: {
+        0: { cellWidth: 7 },
+        1: { cellWidth: 42, fontStyle: 'bold' },
+        2: { cellWidth: 26 },
+        3: { cellWidth: 44 },
+        4: { cellWidth: 35 },
+        5: { cellWidth: 26, halign: 'right' }
+      }
     });
     y = (doc as any).lastAutoTable.finalY + 5;
   }
@@ -767,12 +809,16 @@ export function printDnlSheet(
     { label: "Scadenza Denuncia DNL", value: formatDateItalian(cantiere.scadenzaDNL) },
   ].filter(r => isFieldFilled(r.value));
 
-  // Riquadro 3: Figure di Sicurezza (NO DIRETTORE LAVORI!)
+  // Riquadro 3: Figure Tecniche & Sicurezza (NO DIRETTORE LAVORI!)
   const coordSicurezza = dnlData.coordinatoreSicurezza || cantiere.tecnici?.find(t => /sicurezza|cse/i.test(t.ruolo))?.nome || '';
   const capocantiere = dnlData.capocantiere || cantiere.tecnici?.find(t => /capocantiere|preposto/i.test(t.ruolo))?.nome || '';
   const respLavori = dnlData.responsabileLavori || '';
 
   const sicurezzaRows = [
+    { label: "Progettista", value: dnlData.progettistaNome },
+    { label: "Telefono Progettista", value: dnlData.progettistaTelefono },
+    { label: "Email Progettista", value: dnlData.progettistaEmail },
+    { label: "PEC Progettista", value: dnlData.progettistaPec },
     { label: "Coordinatore Sicurezza (CSE)", value: coordSicurezza },
     { label: "Capocantiere / Preposto", value: capocantiere },
     { label: "Responsabile dei Lavori", value: respLavori },
@@ -852,21 +898,31 @@ export function printDnlSheet(
         <table>
           <thead>
             <tr style="background: #f1f5f9;">
-              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; width: 6%;">#</th>
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; width: 4%;">#</th>
               <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left;">Impresa Subappaltatrice</th>
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left; width: 17%;">P.IVA / C.F.</th>
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left; width: 24%;">Contatti (Email / PEC)</th>
               <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: left;">Lavorazione</th>
-              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right; width: 22%;">Importo (€)</th>
+              <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right; width: 16%;">Importo (€)</th>
             </tr>
           </thead>
           <tbody>
-            ${cantiere.subappalti.map((s, i) => `
+            ${cantiere.subappalti.map((s, i) => {
+              const contattiHtml = [
+                s.email ? `<div><a href="mailto:${s.email}" style="color:#0f172a;text-decoration:none;">${s.email}</a></div>` : '',
+                s.pec ? `<div style="font-size:7pt;color:#2563eb;"><strong>PEC:</strong> ${s.pec}</div>` : ''
+              ].filter(Boolean).join('');
+              return `
               <tr>
                 <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center;">${i + 1}</td>
                 <td style="padding: 5px 8px; border: 1px solid #cbd5e1; font-weight: bold;">${s.azienda}</td>
+                <td style="padding: 5px 8px; border: 1px solid #cbd5e1; font-family: monospace; font-size: 8pt;">${s.partitaIva || '-'}</td>
+                <td style="padding: 5px 8px; border: 1px solid #cbd5e1; font-size: 7.5pt;">${contattiHtml || '-'}</td>
                 <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">${s.lavoro}</td>
                 <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right; font-weight: bold;">€ ${s.prezzoOriginale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}</td>
               </tr>
-            `).join('')}
+            `;
+            }).join('')}
           </tbody>
         </table>
       ` : ''}
