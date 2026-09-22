@@ -1,5 +1,5 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { AppData, Cantiere, Personale, Mezzo, Documento } from '../types';
+import { AppData, Cantiere, Personale, Mezzo, Documento, PosDocument } from '../types';
 
 export interface SupabaseConfig {
   url: string;
@@ -133,11 +133,12 @@ export const fetchAllDataFromSupabase = async (): Promise<{ data: Partial<AppDat
     }
 
     // 2. Altrimenti scarica dalle singole tabelle strutturate
-    const [cantieriRes, personaleRes, mezziRes, documentiRes] = await Promise.all([
+    const [cantieriRes, personaleRes, mezziRes, documentiRes, posRes] = await Promise.all([
       client.from('cantieri').select('*'),
       client.from('personale').select('*'),
       client.from('mezzi').select('*'),
       client.from('documenti').select('*'),
+      client.from('pos_documents').select('*'),
     ]);
 
     const partialData: Partial<AppData> = {};
@@ -154,12 +155,16 @@ export const fetchAllDataFromSupabase = async (): Promise<{ data: Partial<AppDat
     if (!documentiRes.error && documentiRes.data) {
       partialData.documenti = documentiRes.data.map(mapRowToDocumento);
     }
+    if (!posRes.error && posRes.data) {
+      partialData.posList = posRes.data.map(mapRowToPos);
+    }
 
     if (
       (partialData.cantieri && partialData.cantieri.length > 0) ||
       (partialData.personale && partialData.personale.length > 0) ||
       (partialData.mezzi && partialData.mezzi.length > 0) ||
-      (partialData.documenti && partialData.documenti.length > 0)
+      (partialData.documenti && partialData.documenti.length > 0) ||
+      (partialData.posList && partialData.posList.length > 0)
     ) {
       return { data: partialData, error: null };
     }
@@ -209,6 +214,11 @@ export const syncAllDataToSupabase = async (appData: AppData): Promise<{ ok: boo
       if (appData.documenti && appData.documenti.length > 0) {
         const rows = appData.documenti.map(d => mapDocumentoToRow(d, now));
         await client.from('documenti').upsert(rows);
+      }
+
+      if (appData.posList && appData.posList.length > 0) {
+        const rows = appData.posList.map(p => mapPosToRow(p, now));
+        await client.from('pos_documents').upsert(rows);
       }
     } catch (tblErr) {
       console.warn('Avviso sincronizzazione tabelle dettagliate:', tblErr);
@@ -317,12 +327,39 @@ CREATE TABLE IF NOT EXISTS public.documenti (
     updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
 );
 
+-- 6. Tabella Piani Operativi di Sicurezza (POS) - D.Lgs. 81/2008
+CREATE TABLE IF NOT EXISTS public.pos_documents (
+    id TEXT PRIMARY KEY,
+    cantiere_id TEXT,
+    codice TEXT NOT NULL,
+    versione TEXT DEFAULT '00',
+    titolo TEXT NOT NULL,
+    stato TEXT DEFAULT 'bozza',
+    data_redazione DATE NOT NULL,
+    data_revisione DATE,
+    redattore TEXT,
+    dati_impresa JSONB NOT NULL,
+    dati_cantiere JSONB NOT NULL,
+    organizzazione JSONB NOT NULL,
+    lavoratori JSONB DEFAULT '[]'::jsonb,
+    attivita JSONB DEFAULT '[]'::jsonb,
+    attrezzature JSONB DEFAULT '[]'::jsonb,
+    sostanze JSONB DEFAULT '[]'::jsonb,
+    dpi_richiesti JSONB DEFAULT '[]'::jsonb,
+    emergenza JSONB NOT NULL,
+    allegati JSONB DEFAULT '[]'::jsonb,
+    note_prescrizioni TEXT,
+    created_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW()),
+    updated_at TIMESTAMPTZ DEFAULT TIMEZONE('utc', NOW())
+);
+
 -- Abilitazione Row Level Security (RLS) e policy pubbliche (lettura/scrittura per anon/autenticati)
 ALTER TABLE public.app_data ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.cantieri ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.personale ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.mezzi ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.documenti ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.pos_documents ENABLE ROW LEVEL SECURITY;
 
 DO $$ 
 BEGIN
@@ -351,6 +388,12 @@ END $$;
 DO $$ 
 BEGIN
   CREATE POLICY "Accesso completo documenti" ON public.documenti FOR ALL USING (true) WITH CHECK (true);
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
+
+DO $$ 
+BEGIN
+  CREATE POLICY "Accesso completo pos_documents" ON public.pos_documents FOR ALL USING (true) WITH CHECK (true);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 `;
@@ -500,6 +543,60 @@ function mapDocumentoToRow(d: Documento, now: string): any {
     ente: d.ente,
     priorita: d.priorita,
     note: d.note || null,
+    updated_at: now,
+  };
+}
+
+function mapRowToPos(row: any): PosDocument {
+  return {
+    id: row.id,
+    cantiereId: row.cantiere_id || '',
+    codice: row.codice,
+    versione: row.versione || '00',
+    titolo: row.titolo,
+    stato: row.stato || 'bozza',
+    dataRedazione: row.data_redazione,
+    dataRevisione: row.data_revisione || undefined,
+    redattore: row.redattore || '',
+    datiImpresa: row.dati_impresa || {},
+    datiCantiere: row.dati_cantiere || {},
+    organizzazione: row.organizzazione || {},
+    lavoratori: row.lavoratori || [],
+    attivita: row.attivita || [],
+    attrezzature: row.attrezzature || [],
+    sostanze: row.sostanze || [],
+    dpiRichiesti: row.dpi_richiesti || [],
+    emergenza: row.emergenza || {},
+    allegati: row.allegati || [],
+    notePrescrizioni: row.note_prescrizioni || '',
+    createdAt: row.created_at || new Date().toISOString(),
+    updatedAt: row.updated_at || new Date().toISOString(),
+  };
+}
+
+function mapPosToRow(p: PosDocument, now: string): any {
+  return {
+    id: p.id,
+    cantiere_id: p.cantiereId || null,
+    codice: p.codice,
+    versione: p.versione || '00',
+    titolo: p.titolo,
+    stato: p.stato || 'bozza',
+    data_redazione: p.dataRedazione,
+    data_revisione: p.dataRevisione || null,
+    redattore: p.redattore || null,
+    dati_impresa: p.datiImpresa || {},
+    dati_cantiere: p.datiCantiere || {},
+    organizzazione: p.organizzazione || {},
+    lavoratori: p.lavoratori || [],
+    attivita: p.attivita || [],
+    attrezzature: p.attrezzature || [],
+    sostanze: p.sostanze || [],
+    dpi_richiesti: p.dpiRichiesti || [],
+    emergenza: p.emergenza || {},
+    allegati: p.allegati || [],
+    note_prescrizioni: p.notePrescrizioni || null,
+    created_at: p.createdAt || now,
     updated_at: now,
   };
 }

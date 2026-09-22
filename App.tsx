@@ -11,6 +11,7 @@ import EditDocumentoModal from './components/EditDocumentoModal';
 import { BadgeGeneratorModal } from './components/BadgeGeneratorModal';
 import GaraCalculator from './components/GaraCalculator';
 import ContrattiDnlSection from './components/ContrattiDnlSection';
+import { PosSection } from './components/pos/PosSection';
 import Login from './components/Login';
 import { getInsights, getGeminiApiKey, saveGeminiApiKey, testGeminiApiKey } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -50,6 +51,8 @@ const INITIAL_DATA: AppData = {
     { id: 'd1', titolo: 'DURC Regolare', categoria: 'Aziendale', scadenza: '2025-10-30', ente: 'INPS', priorita: 'alta' },
     { id: 'd2', titolo: 'POS Cantiere A', categoria: 'Sicurezza', scadenza: '2025-12-15', ente: 'ASL', priorita: 'media' },
   ],
+  posList: [],
+  posTemplates: [],
   settings: {
     nomeAzienda: 'Edilizia Generale SRL',
     theme: 'light',
@@ -84,6 +87,28 @@ const App: React.FC = () => {
         if (!parsed.cantieri) parsed.cantieri = INITIAL_DATA.cantieri;
         if (!parsed.mezzi) parsed.mezzi = INITIAL_DATA.mezzi;
         if (!parsed.documenti) parsed.documenti = INITIAL_DATA.documenti;
+        if (!parsed.posList) {
+          parsed.posList = [];
+        } else {
+          parsed.posList = parsed.posList.map((p: any) => {
+            if (!p) return p;
+            const org = p.organizzazioneCantiere || p.organizzazione || {};
+            const safeOrg = {
+              ...org,
+              serviziIgienici: p.organizzazioneCantiere?.serviziIgienici || p.organizzazione?.serviziIgienici || p.organizzazione?.serviziIgieniciAssistenziali || 'Presenza di monoblocco coibentato a uso spogliatoio e servizi igienici.',
+              viabilita: p.organizzazioneCantiere?.viabilita || p.organizzazione?.viabilita || p.organizzazione?.viabilitaSicurezza || 'Percorsi pedonali protetti distinti dai transiti automezzi.',
+              recinzioneAccessi: p.organizzazioneCantiere?.recinzioneAccessi || p.organizzazione?.recinzioneAccessi || 'Recinzione perimetrale continua di altezza non inferiore a 2,00 m.',
+              impiantoElettrico: p.organizzazioneCantiere?.impiantoElettrico || p.organizzazione?.impiantoElettrico || p.organizzazione?.impiantoElettricoCantiere || 'Quadro elettrico generale da cantiere conforme CEI 64-8/7.',
+              stoccaggioRifiuti: p.organizzazioneCantiere?.stoccaggioRifiuti || p.organizzazione?.stoccaggioRifiuti || p.organizzazione?.gestioneRifiutiTerre || 'Aree di deposito ordinate e cassoni scarrabili per codice CER.',
+            };
+            return {
+              ...p,
+              organizzazioneCantiere: safeOrg,
+              organizzazione: safeOrg,
+            };
+          });
+        }
+        if (!parsed.posTemplates) parsed.posTemplates = [];
         return parsed;
       } catch (e) {
         return INITIAL_DATA;
@@ -104,7 +129,7 @@ const App: React.FC = () => {
       return false;
     }
   });
-  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'contratti_dnl' | 'impostazioni'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'contratti_dnl' | 'pos' | 'impostazioni'>('dashboard');
   const [showOnlyActivePersonale, setShowOnlyActivePersonale] = useState(true);
   const [hideClosedCantieri, setHideClosedCantieri] = useState(false);
   const [hideNotInUseMezzi, setHideNotInUseMezzi] = useState(false);
@@ -2366,6 +2391,7 @@ const App: React.FC = () => {
             { id: 'dashboard', label: 'Dashboard', icon: <Icons.Dashboard /> },
             { id: 'cantiere', label: 'Cantieri', icon: <Icons.Cantiere /> },
             { id: 'contratti_dnl', label: 'Contratti & DNL', icon: <Icons.Contract /> },
+            { id: 'pos', label: 'Modulo POS', icon: <Icons.Shield /> },
             { id: 'personale', label: 'Personale', icon: <Icons.Personale /> },
             { id: 'mezzo', label: 'Mezzi', icon: <Icons.Mezzi /> },
             { id: 'documento', label: 'Archivio', icon: <Icons.Documenti /> },
@@ -2639,6 +2665,24 @@ const App: React.FC = () => {
                onUpdateCantiere={(u) => updateEntity('cantiere', u)}
                onUpdateSettings={(s) => setData(prev => ({ ...prev, settings: s }))}
                onShowToast={(type, msg) => showCloudToast(type, msg)}
+             />
+           ) :
+           activeTab === 'pos' ? (
+             <PosSection
+               posList={data.posList || []}
+               cantieri={data.cantieri}
+               personale={data.personale}
+               settings={data.settings}
+               customTemplates={data.posTemplates || []}
+               onUpdatePosList={(updatedList) => {
+                 setData(prev => ({ ...prev, posList: updatedList }));
+               }}
+               onUpdateCustomTemplates={(templates) => {
+                 setData(prev => ({ ...prev, posTemplates: templates }));
+               }}
+               onUpdateSettings={(updatedSettings) => {
+                 setData(prev => ({ ...prev, settings: updatedSettings }));
+               }}
              />
            ) :
            renderList(activeTab)}

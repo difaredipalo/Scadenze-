@@ -5,6 +5,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Scadenze + | Professional ERP</title>
+    <meta name="description" content="Sistema di gestione professionale per monitorare scadenze di cantieri, personale, mezzi e documenti tecnici con calcolatore gare e analisi AI.">
+    <meta property="og:title" content="Scadenze + | Professional ERP">
+    <meta property="og:description" content="Sistema di gestione professionale per monitorare scadenze di cantieri, personale, mezzi e documenti tecnici con calcolatore gare e analisi AI.">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -19,15 +22,59 @@
             font-family: 'Inter', sans-serif;
             overflow: hidden; /* Blocca lo scroll del body */
         }
+        /* Scrollbar moderne, comode ed eleganti sia orizzontali che verticali */
+        *::-webkit-scrollbar,
         .custom-scrollbar::-webkit-scrollbar {
-            width: 4px;
+            width: 8px;
+            height: 8px;
         }
+        *::-webkit-scrollbar-track,
         .custom-scrollbar::-webkit-scrollbar-track {
             background: transparent;
         }
+        *::-webkit-scrollbar-thumb,
         .custom-scrollbar::-webkit-scrollbar-thumb {
             background: #cbd5e1;
-            border-radius: 10px;
+            border-radius: 9999px;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+            transition: background-color 0.2s ease;
+        }
+        *::-webkit-scrollbar-thumb:hover,
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        .dark *::-webkit-scrollbar-thumb,
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #334155;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        .dark *::-webkit-scrollbar-thumb:hover,
+        .dark .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #475569;
+            border: 2px solid transparent;
+            background-clip: padding-box;
+        }
+        /* Rimuove le antiestetiche e scomode freccette predefinite native dei browser */
+        *::-webkit-scrollbar-button,
+        .custom-scrollbar::-webkit-scrollbar-button {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+        }
+        *::-webkit-scrollbar-corner {
+            background: transparent;
+        }
+        /* Supporto Firefox */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        .dark * {
+            scrollbar-color: #334155 transparent;
         }
     </style>
 <script type="importmap">
