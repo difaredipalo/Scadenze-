@@ -34,7 +34,6 @@ import {
   PosCapitolo11View,
   PosCapitolo12View,
 } from './PosChapterExtraViews';
-import { generatePosPdf } from './posPdfGenerator';
 
 interface PosEditorModalProps {
   pos: PosDocument;
@@ -321,37 +320,6 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
     });
   };
 
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
-
-  const handleDownloadDirectPdf = () => {
-    try {
-      setIsExportingPdf(true);
-      const safeVersione = formData.versione || (formData as any).revisione || '00';
-      const updated: PosDocument = {
-        ...formData,
-        versione: safeVersione,
-        revisione: safeVersione,
-        updatedAt: new Date().toISOString(),
-      };
-      if (onSaveAziendaDefaults) {
-        onSaveAziendaDefaults(formData.datiImpresa);
-      }
-      if (onUpdatePosLive) {
-        onUpdatePosLive(updated);
-      }
-      // Genera il PDF direttamente con il documento fresco aggiornato all'ultimo istante
-      generatePosPdf(updated);
-      setDownloadNotice(`File PDF generato con successo con tutte le ultime modifiche (Rev. ${updated.versione})!`);
-      setTimeout(() => setDownloadNotice(null), 4000);
-    } catch (err) {
-      console.error('Errore durante il download del PDF:', err);
-      alert('Si è verificato un errore durante la generazione del file PDF.');
-    } finally {
-      setTimeout(() => setIsExportingPdf(false), 600);
-    }
-  };
-
   const handleOpenAnteprima = () => {
     const safeVersione = formData.versione || (formData as any).revisione || '00';
     const updated: PosDocument = {
@@ -392,19 +360,11 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleDownloadDirectPdf}
-              disabled={isExportingPdf}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-emerald-600/20 transition-all flex items-center gap-1.5 active:scale-95 disabled:opacity-50"
-              title="Salva le modifiche ed esporta il PDF aggiornato a 14 Capitoli"
-            >
-              <span>📥</span>
-              <span>{isExportingPdf ? 'Esportazione...' : 'Scarica PDF'}</span>
-            </button>
-            <button
               onClick={handleOpenAnteprima}
-              className="px-3.5 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 font-black text-xs uppercase tracking-wider transition-colors flex items-center gap-1.5"
+              className="px-4 py-2 rounded-xl bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-600 dark:text-blue-400 font-black text-xs uppercase tracking-wider transition-colors flex items-center gap-1.5 border border-blue-200 dark:border-blue-800"
+              title="Apri e Stampa POS A4 con tutte le immagini e modifiche"
             >
-              <span>🖨️</span> <span>Anteprima di Stampa</span>
+              <span>🖨️</span> <span>Stampa / Anteprima A4</span>
             </button>
             <button
               onClick={handleSave}
@@ -421,13 +381,6 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
             </button>
           </div>
         </div>
-
-        {downloadNotice && (
-          <div className="bg-emerald-600 text-white text-xs font-bold px-4 py-2 text-center animate-fadeIn flex items-center justify-center gap-2">
-            <span>✅</span>
-            <span>{downloadNotice}</span>
-          </div>
-        )}
 
         {/* Tab Navigation (14 Capitoli + Copertina + Audit) */}
         <div className="flex items-center gap-1 px-4 py-2 border-b border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-900/70 overflow-x-auto shrink-0 scrollbar-none">

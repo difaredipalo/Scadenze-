@@ -76,6 +76,16 @@
         .dark * {
             scrollbar-color: #334155 transparent;
         }
+        @media print {
+            body {
+                overflow: visible !important;
+                height: auto !important;
+            }
+            html {
+                overflow: visible !important;
+                height: auto !important;
+            }
+        }
     </style>
 <script type="importmap">
 {

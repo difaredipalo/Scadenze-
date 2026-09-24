@@ -510,4 +510,7 @@ export type AppData = {
   settings: AppSettings;
   posList?: PosDocument[];
   posTemplates?: PosAttivitaTemplate[];
+  posAttrezzatureCatalogo?: PosAttrezzaturaItem[];
+  posOpereCatalogo?: PosOperaProvvisionaleItem[];
+  posSostanzeCatalogo?: PosSostanzaItem[];
 };

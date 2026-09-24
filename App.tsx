@@ -2674,11 +2674,23 @@ const App: React.FC = () => {
                personale={data.personale}
                settings={data.settings}
                customTemplates={data.posTemplates || []}
+               customAttrezzature={data.posAttrezzatureCatalogo || []}
+               customOpere={data.posOpereCatalogo || []}
+               customSostanze={data.posSostanzeCatalogo || []}
                onUpdatePosList={(updatedList) => {
                  setData(prev => ({ ...prev, posList: updatedList }));
                }}
                onUpdateCustomTemplates={(templates) => {
                  setData(prev => ({ ...prev, posTemplates: templates }));
+               }}
+               onUpdateCustomAttrezzature={(items) => {
+                 setData(prev => ({ ...prev, posAttrezzatureCatalogo: items }));
+               }}
+               onUpdateCustomOpere={(items) => {
+                 setData(prev => ({ ...prev, posOpereCatalogo: items }));
+               }}
+               onUpdateCustomSostanze={(items) => {
+                 setData(prev => ({ ...prev, posSostanzeCatalogo: items }));
                }}
                onUpdateSettings={(updatedSettings) => {
                  setData(prev => ({ ...prev, settings: updatedSettings }));

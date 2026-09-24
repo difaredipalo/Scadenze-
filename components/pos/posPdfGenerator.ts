@@ -33,6 +33,45 @@ const getDpiNormLabel = (name: string): string => {
   return 'D.Lgs. 81/08 All. VIII';
 };
 
+const imageCache = new Map<string, string>();
+
+const loadImageAsBase64 = async (url: string): Promise<string | null> => {
+  if (!url || typeof url !== 'string') return null;
+  if (
+    url.startsWith('data:image/png') ||
+    url.startsWith('data:image/jpeg') ||
+    url.startsWith('data:image/jpg') ||
+    url.startsWith('data:image/webp')
+  ) {
+    return url;
+  }
+  if (imageCache.has(url)) {
+    return imageCache.get(url) || null;
+  }
+  try {
+    const res = await fetch(url, { mode: 'cors' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const result = reader.result as string;
+        if (result && typeof result === 'string') {
+          imageCache.set(url, result);
+          resolve(result);
+        } else {
+          resolve(null);
+        }
+      };
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch (err) {
+    console.warn('Impossibile caricare immagine remota per PDF:', url, err);
+    return null;
+  }
+};
+
 const embedImageSafely = (
   doc: jsPDF,
   imageUrl: string | undefined,
@@ -42,24 +81,47 @@ const embedImageSafely = (
   h: number
 ): boolean => {
   if (!imageUrl || typeof imageUrl !== 'string') return false;
-  if (
-    imageUrl.startsWith('data:image/png') ||
-    imageUrl.startsWith('data:image/jpeg') ||
-    imageUrl.startsWith('data:image/jpg') ||
-    imageUrl.startsWith('data:image/webp')
-  ) {
+  const resolved = imageCache.get(imageUrl) || (imageUrl.startsWith('data:') ? imageUrl : null);
+  if (resolved) {
     try {
-      const format = imageUrl.includes('png') ? 'PNG' : 'JPEG';
-      doc.addImage(imageUrl, format, x, y, w, h);
+      const format = resolved.includes('png') ? 'PNG' : 'JPEG';
+      doc.addImage(resolved, format, x, y, w, h);
       return true;
-    } catch {
+    } catch (e) {
+      console.warn('Errore rendering immagine in doc jsPDF:', e);
       return false;
     }
   }
   return false;
 };
 
-export const generatePosPdf = (pos: PosDocument): void => {
+export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
+  // Precaricamento asincrono di tutte le immagini del documento (loghi, foto attrezzature, sostanze, ecc.)
+  const urlsToPreload: string[] = [];
+  const addUrl = (u?: string) => {
+    if (u && typeof u === 'string' && u.trim().length > 0) urlsToPreload.push(u.trim());
+  };
+
+  (pos.attivita || []).forEach(a => {
+    addUrl((a as any).logoUrl);
+    addUrl((a as any).immagineUrl);
+  });
+  (pos.attrezzature || []).forEach(a => {
+    addUrl(a.logoUrl);
+    addUrl(a.immagineUrl);
+  });
+  (pos.opereProvvisionali || []).forEach(o => {
+    addUrl(o.logoUrl);
+    addUrl(o.immagineUrl);
+  });
+  (pos.sostanze || []).forEach(s => {
+    addUrl(s.logoUrl);
+    addUrl(s.immagineUrl);
+  });
+
+  if (urlsToPreload.length > 0) {
+    await Promise.allSettled(urlsToPreload.map(u => loadImageAsBase64(u)));
+  }
   const safeVersione = pos.versione || (pos as any).revisione || '00';
   const doc = new jsPDF({
     orientation: 'portrait',

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { PosDocument } from '../../types';
 import {
   POS_DPI_LIST,
@@ -10,8 +10,8 @@ import {
   DEFAULT_ORGANIZZAZIONE_CANTIERE,
 } from '../../data/posDefaultData';
 import { Icons } from '../../constants';
-import { generatePosPdf } from './posPdfGenerator';
 import { PosSchedaLogo, PosDpiBadge, GhsHazardDiamond } from './PosSafetyCardVisuals';
+import { generatePosPdf } from './posPdfGenerator';
 
 interface PosDocumentPrintViewProps {
   pos: PosDocument;
@@ -25,9 +25,22 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
     versione: safeVersione,
     revisione: safeVersione,
   };
+  const [isPrinting, setIsPrinting] = useState(false);
   const [isExportingPdf, setIsExportingPdf] = useState(false);
-  const [downloadNotice, setDownloadNotice] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const handleExportDirectPdf = async () => {
+    setIsExportingPdf(true);
+    try {
+      await generatePosPdf(safePos);
+    } catch (e) {
+      console.error('Errore durante la generazione PDF:', e);
+      // fallback sulla stampa browser
+      handlePrint();
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
 
   const handleScroll = (direction: 'up' | 'down' | 'left' | 'right' | 'top') => {
     if (!scrollContainerRef.current) return;
@@ -43,28 +56,83 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleDownloadPdf = () => {
-    try {
-      setIsExportingPdf(true);
-      generatePosPdf(safePos);
-      setDownloadNotice(`File PDF scaricato nella versione aggiornata a 14 Capitoli (Rev. ${safeVersione})!`);
-      setTimeout(() => setDownloadNotice(null), 4500);
-    } catch (err) {
-      console.error('Errore durante la generazione del PDF:', err);
-      alert('Si è verificato un errore durante la generazione del file PDF.');
-    } finally {
-      setTimeout(() => setIsExportingPdf(false), 800);
-    }
-  };
-
   const handlePrint = () => {
+    setIsPrinting(true);
     const el = document.getElementById('pos-document-root');
     if (!el) {
       window.print();
+      setIsPrinting(false);
       return;
     }
 
     try {
+      // 1. Raccoglie tutti i fogli di stile attivi (Tailwind, font, ecc.)
+      const existingStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+        .map(styleEl => styleEl.outerHTML)
+        .join('\n');
+
+      const printHtml = `
+        <!DOCTYPE html>
+        <html lang="it">
+        <head>
+          <meta charset="UTF-8">
+          <title>POS - ${pos.codice} - ${pos.datiCantiere.nome || 'Cantiere'}</title>
+          ${existingStyles}
+          <style>
+            @page {
+              size: A4 portrait !important;
+              margin: 10mm 12mm !important;
+            }
+            @media print {
+              body {
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              .print\\:hidden, #pos-print-hidden-iframe {
+                display: none !important;
+              }
+            }
+            html, body {
+              font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
+              background: #ffffff !important;
+              color: #0f172a !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              font-size: 11px !important;
+              line-height: 1.4 !important;
+            }
+            .page-break-before {
+              page-break-before: always !important;
+              break-before: page !important;
+            }
+            .page-break-avoid {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            table {
+              page-break-inside: auto !important;
+              width: 100% !important;
+              border-collapse: collapse !important;
+            }
+            tr {
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+            td, th {
+              border-color: #cbd5e1 !important;
+            }
+          </style>
+        </head>
+        <body>
+          <div style="width: 100%; max-width: 210mm; margin: 0 auto; padding: 2mm;">
+            ${el.innerHTML}
+          </div>
+        </body>
+        </html>
+      `;
+
+      // 2. Utilizza un iframe nascosto dedicato alla stampa
       let printFrame = document.getElementById('pos-print-hidden-iframe') as HTMLIFrameElement;
       if (printFrame && printFrame.parentNode) {
         printFrame.parentNode.removeChild(printFrame);
@@ -83,85 +151,31 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
 
       const frameDoc = printFrame.contentWindow?.document;
       if (frameDoc) {
-        // Raccoglie tutti i fogli di stile e tag style attivi nella finestra principale
-        const existingStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-          .map(styleEl => styleEl.outerHTML)
-          .join('\n');
-
         frameDoc.open();
-        frameDoc.write(`
-          <!DOCTYPE html>
-          <html lang="it">
-          <head>
-            <meta charset="UTF-8">
-            <title>POS - ${pos.codice} - ${pos.datiCantiere.nome || 'Cantiere'}</title>
-            ${existingStyles}
-            <style>
-              @page {
-                size: A4 portrait !important;
-                margin: 10mm 12mm !important;
-              }
-              @media print {
-                body {
-                  -webkit-print-color-adjust: exact !important;
-                  print-color-adjust: exact !important;
-                }
-              }
-              html, body {
-                font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-                background: #ffffff !important;
-                color: #0f172a !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                width: 100% !important;
-                font-size: 11px !important;
-                line-height: 1.4 !important;
-              }
-              .page-break-before {
-                page-break-before: always !important;
-                break-before: page !important;
-              }
-              .page-break-avoid {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-              }
-              table {
-                page-break-inside: auto !important;
-                width: 100% !important;
-                border-collapse: collapse !important;
-              }
-              tr {
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
-              }
-              td, th {
-                border-color: #cbd5e1 !important;
-              }
-            </style>
-          </head>
-          <body>
-            <div style="width: 100%; max-width: 210mm; margin: 0 auto; padding: 2mm;">
-              ${el.innerHTML}
-            </div>
-          </body>
-          </html>
-        `);
+        frameDoc.write(printHtml);
         frameDoc.close();
 
+        // Breve delay per assicurare che tutti gli stili e le immagini siano processati
         setTimeout(() => {
           try {
             printFrame.contentWindow?.focus();
             printFrame.contentWindow?.print();
           } catch (e) {
+            console.warn('Iframe print focus error, using window.print:', e);
             window.print();
+          } finally {
+            setIsPrinting(false);
           }
-        }, 300);
+        }, 350);
         return;
       }
     } catch (err) {
-      console.warn('Iframe print error, fallback:', err);
+      console.warn('Iframe print error, falling back to window.print():', err);
     }
+
+    // Fallback immediato
     window.print();
+    setIsPrinting(false);
   };
 
   const getDpiNorma = (dpiNome: string) => {
@@ -170,12 +184,9 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
   };
 
   return (
-    <div
-      ref={scrollContainerRef}
-      className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-start overflow-y-auto overflow-x-auto p-2 sm:p-6 print:p-0 print:static print:bg-white print:overflow-visible custom-scrollbar"
-    >
-      {/* Floating Directional Navigation Pad */}
-      <div className="fixed bottom-6 right-6 z-50 print:hidden flex flex-col items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2 select-none">
+    <>
+      {/* Floating Directional Navigation Pad - Rigorosamente fisso sul Viewport (non scrolla con il documento) */}
+      <div className="fixed bottom-6 right-6 z-[60] print:hidden flex flex-col items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2 select-none">
         <div className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center w-full">
           Navigatore
         </div>
@@ -185,7 +196,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             type="button"
             onClick={() => handleScroll('up')}
             title="Scorri in alto"
-            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95"
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Icons.ChevronUp className="w-5 h-5" />
           </button>
@@ -195,7 +206,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             type="button"
             onClick={() => handleScroll('left')}
             title="Scorri a sinistra"
-            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95"
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Icons.ChevronLeft className="w-5 h-5" />
           </button>
@@ -204,7 +215,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             type="button"
             onClick={() => handleScroll('top')}
             title="Torna all'inizio"
-            className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white flex items-center justify-center font-black text-[10px] transition-all shadow-sm active:scale-95"
+            className="w-9 h-9 rounded-xl bg-blue-50 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white flex items-center justify-center font-black text-[10px] transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             TOP
           </button>
@@ -213,7 +224,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             type="button"
             onClick={() => handleScroll('right')}
             title="Scorri a destra"
-            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95"
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Icons.ChevronRight className="w-5 h-5" />
           </button>
@@ -223,7 +234,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             type="button"
             onClick={() => handleScroll('down')}
             title="Scorri in basso"
-            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95"
+            className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-700 dark:text-slate-300 flex items-center justify-center transition-all shadow-sm active:scale-95 cursor-pointer"
           >
             <Icons.ChevronDown className="w-5 h-5" />
           </button>
@@ -235,111 +246,122 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
           <button
             type="button"
             onClick={() => scrollToSection('pos-cap-copertina')}
-            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer"
           >
             📋 Copertina & Indice
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('pos-cap-1')}
-            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer"
           >
             🏢 Cap. 1: Dati Identificativi
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('pos-cap-6')}
-            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer"
           >
             📊 Cap. 6: Metodologia Rischi
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('pos-cap-9')}
-            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer"
           >
             🔨 Cap. 9: Schede Lavorazioni
           </button>
           <button
             type="button"
             onClick={() => scrollToSection('pos-cap-14')}
-            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40"
+            className="w-full text-left px-2 py-1 rounded-lg text-[10px] font-bold text-slate-600 dark:text-slate-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 cursor-pointer"
           >
             ✍️ Cap. 14: Firme e Chiusura
           </button>
         </div>
       </div>
 
-      {/* Action Bar Header */}
-      <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 mb-6 flex flex-col gap-3 sticky top-4 z-20 print:hidden">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
-              <Icons.Printer />
+      {/* Main Print Overlay Container con Scroll Interno */}
+      <div
+        ref={scrollContainerRef}
+        className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-start overflow-y-auto overflow-x-auto p-2 sm:p-6 print:p-0 print:static print:bg-white print:overflow-visible custom-scrollbar"
+      >
+        {/* Action Bar Header */}
+        <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 mb-6 flex flex-col gap-3 sticky top-4 z-20 print:hidden">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
+                <Icons.Printer />
+              </div>
+              <div>
+                <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
+                  Documento POS Ufficiale (14 Capitoli - All. XV D.Lgs. 81/08)
+                </h3>
+                <p className="text-[11px] font-bold text-slate-400">
+                  {safePos.codice} • Rev. {safeVersione} • Formato UNI A4 Verticale • Aspetto Tecnico Rigoroso
+                </p>
+              </div>
             </div>
-            <div>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-wider">
-                Documento POS Ufficiale (14 Capitoli - All. XV D.Lgs. 81/08)
-              </h3>
-              <p className="text-[11px] font-bold text-slate-400">
-                {safePos.codice} • Rev. {safeVersione} • Formato UNI A4 Verticale • Aspetto Tecnico Rigoroso
-              </p>
+
+            <div className="flex items-center gap-2.5">
+              {/* Tasto 1: Salva PDF Diretto (jsPDF ad altissima fedeltà) */}
+              <button
+                type="button"
+                onClick={handleExportDirectPdf}
+                disabled={isExportingPdf || isPrinting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
+                title="Genera e scarica direttamente il file PDF completo di tutti i 14 capitoli e immagini"
+              >
+                {isExportingPdf ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Generazione PDF...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>📥</span>
+                    <span>Scarica PDF</span>
+                  </>
+                )}
+              </button>
+
+              {/* Tasto 2: Stampa A4 / Salva PDF dal browser */}
+              <button
+                type="button"
+                onClick={handlePrint}
+                disabled={isExportingPdf || isPrinting}
+                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-blue-600/20 active:scale-95 cursor-pointer"
+                title="Apre la finestra di stampa del browser (Ctrl+P) per stampare su carta o salvare in PDF"
+              >
+                {isPrinting ? (
+                  <>
+                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Apertura stampa...</span>
+                  </>
+                ) : (
+                  <>
+                    <Icons.Printer />
+                    <span>Stampa / PDF Browser</span>
+                  </>
+                )}
+              </button>
+
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-widest transition-all cursor-pointer"
+              >
+                Chiudi
+              </button>
             </div>
-          </div>
-
-          <div className="flex items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleDownloadPdf}
-              disabled={isExportingPdf}
-              className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-emerald-600/20 active:scale-95 disabled:opacity-50"
-              title="Scarica direttamente il file PDF ufficiale in formato A4"
-            >
-              <span>📥</span>
-              <span>{isExportingPdf ? 'Generazione PDF...' : 'Scarica File PDF (A4)'}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-blue-600/20 active:scale-95"
-            >
-              <Icons.Printer />
-              <span>Stampa A4</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
-            >
-              Chiudi
-            </button>
           </div>
         </div>
 
-        {downloadNotice && (
-          <div className="p-2.5 rounded-xl bg-emerald-600 text-white text-xs font-bold shadow flex items-center justify-between animate-fadeIn">
-            <div className="flex items-center gap-2">
-              <span>✅</span>
-              <span>{downloadNotice}</span>
-            </div>
-            <button
-              type="button"
-              onClick={() => setDownloadNotice(null)}
-              className="text-white/80 hover:text-white px-2 font-black"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* ========================================================= */}
-      {/* FOGLIO A4 DOCUMENTO POS TECNICO UFFICIALE (14 CAPITOLI) */}
-      {/* ========================================================= */}
-      <div
-        id="pos-document-root"
+        {/* ========================================================= */}
+        {/* FOGLIO A4 DOCUMENTO POS TECNICO UFFICIALE (14 CAPITOLI) */}
+        {/* ========================================================= */}
+        <div
+          id="pos-document-root"
         className="w-full max-w-[210mm] bg-white text-slate-900 shadow-2xl p-6 sm:p-10 mb-16 rounded-sm border border-slate-200 font-sans print:p-0 print:shadow-none print:border-none print:m-0 print:w-full print:max-w-none leading-relaxed text-[11px]"
       >
         {/* ================= COPERTINA ================= */}
@@ -1408,6 +1430,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 };

@@ -15,8 +15,7 @@ import { PosWizardModal } from './PosWizardModal';
 import { PosAuditModal } from './PosAuditModal';
 import { PosTemplateLibraryModal } from './PosTemplateLibraryModal';
 import { Icons } from '../../constants';
-import { PosDatiImpresa } from '../../types';
-import { generatePosPdf } from './posPdfGenerator';
+import { PosDatiImpresa, PosAttrezzaturaItem, PosOperaProvvisionaleItem, PosSostanzaItem } from '../../types';
 
 interface PosSectionProps {
   posList: PosDocument[];
@@ -24,8 +23,14 @@ interface PosSectionProps {
   personale: Personale[];
   settings: AppSettings;
   customTemplates?: PosAttivitaTemplate[];
+  customAttrezzature?: PosAttrezzaturaItem[];
+  customOpere?: PosOperaProvvisionaleItem[];
+  customSostanze?: PosSostanzaItem[];
   onUpdatePosList: (newList: PosDocument[]) => void;
   onUpdateCustomTemplates?: (templates: PosAttivitaTemplate[]) => void;
+  onUpdateCustomAttrezzature?: (items: PosAttrezzaturaItem[]) => void;
+  onUpdateCustomOpere?: (items: PosOperaProvvisionaleItem[]) => void;
+  onUpdateCustomSostanze?: (items: PosSostanzaItem[]) => void;
   onUpdateSettings?: (updatedSettings: AppSettings) => void;
 }
 
@@ -35,8 +40,14 @@ export const PosSection: React.FC<PosSectionProps> = ({
   personale = [],
   settings,
   customTemplates = [],
+  customAttrezzature = [],
+  customOpere = [],
+  customSostanze = [],
   onUpdatePosList,
   onUpdateCustomTemplates,
+  onUpdateCustomAttrezzature,
+  onUpdateCustomOpere,
+  onUpdateCustomSostanze,
   onUpdateSettings,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -75,25 +86,6 @@ export const PosSection: React.FC<PosSectionProps> = ({
   const [auditingPos, setAuditingPos] = useState<PosDocument | null>(null);
   const [isLibraryOpen, setIsLibraryOpen] = useState(false);
   const [posToDelete, setPosToDelete] = useState<PosDocument | null>(null);
-  const [downloadToast, setDownloadToast] = useState<string | null>(null);
-
-  const handleDownloadPos = (posItem: PosDocument, e: React.MouseEvent) => {
-    e.stopPropagation();
-    try {
-      const safeVersione = posItem.versione || (posItem as any).revisione || '00';
-      const safePos: PosDocument = {
-        ...posItem,
-        versione: safeVersione,
-        revisione: safeVersione,
-      };
-      generatePosPdf(safePos);
-      setDownloadToast(`PDF ${safePos.codice} (Rev. ${safeVersione}) scaricato con successo nella versione aggiornata a 14 Capitoli!`);
-      setTimeout(() => setDownloadToast(null), 4000);
-    } catch (err) {
-      console.error(err);
-      alert('Errore durante la generazione del file PDF.');
-    }
-  };
 
   // Filtered POS list
   const filteredList = posList.filter(p => {
@@ -232,22 +224,6 @@ export const PosSection: React.FC<PosSectionProps> = ({
           </button>
         </div>
       </div>
-
-      {/* Top Banner Alert Download */}
-      {downloadToast && (
-        <div className="p-3.5 rounded-2xl bg-emerald-600 text-white text-xs font-bold shadow-lg flex items-center justify-between animate-fadeIn">
-          <div className="flex items-center gap-2">
-            <span>✅</span>
-            <span>{downloadToast}</span>
-          </div>
-          <button
-            onClick={() => setDownloadToast(null)}
-            className="text-white/80 hover:text-white text-sm px-2 font-black"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* KPI Cards Strip */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -418,22 +394,15 @@ export const PosSection: React.FC<PosSectionProps> = ({
                     </button>
 
                     <button
-                      onClick={e => handleDownloadPos(posItem, e)}
-                      className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 transition-colors"
-                      title="Scarica File PDF Ufficiale Aggiornato (A4 Verticale)"
-                    >
-                      📥
-                    </button>
-
-                    <button
                       onClick={e => {
                         e.stopPropagation();
                         setPrintingPos(posItem);
                       }}
-                      className="p-2 rounded-xl text-slate-600 dark:text-slate-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950/40 transition-colors"
-                      title="Stampa / Anteprima POS (A4)"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 hover:bg-blue-600 hover:text-white transition-all text-xs font-black uppercase tracking-wider"
+                      title="Stampa Ufficiale POS (A4 Verticale con Tutte le Immagini)"
                     >
-                      🖨️
+                      <span>🖨️</span>
+                      <span>Stampa A4</span>
                     </button>
 
                     <button
@@ -510,6 +479,18 @@ export const PosSection: React.FC<PosSectionProps> = ({
           customTemplates={customTemplates}
           onSaveTemplates={updated => {
             if (onUpdateCustomTemplates) onUpdateCustomTemplates(updated);
+          }}
+          customAttrezzature={customAttrezzature}
+          onSaveAttrezzature={updated => {
+            if (onUpdateCustomAttrezzature) onUpdateCustomAttrezzature(updated);
+          }}
+          customOpere={customOpere}
+          onSaveOpere={updated => {
+            if (onUpdateCustomOpere) onUpdateCustomOpere(updated);
+          }}
+          customSostanze={customSostanze}
+          onSaveSostanze={updated => {
+            if (onUpdateCustomSostanze) onUpdateCustomSostanze(updated);
           }}
           onClose={() => setIsLibraryOpen(false)}
         />
