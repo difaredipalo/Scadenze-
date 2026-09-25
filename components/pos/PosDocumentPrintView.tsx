@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { PosDocument } from '../../types';
 import {
   POS_DPI_LIST,
@@ -11,7 +12,6 @@ import {
 } from '../../data/posDefaultData';
 import { Icons } from '../../constants';
 import { PosSchedaLogo, PosDpiBadge, GhsHazardDiamond } from './PosSafetyCardVisuals';
-import { generatePosPdf } from './posPdfGenerator';
 
 interface PosDocumentPrintViewProps {
   pos: PosDocument;
@@ -26,21 +26,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
     revisione: safeVersione,
   };
   const [isPrinting, setIsPrinting] = useState(false);
-  const [isExportingPdf, setIsExportingPdf] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-
-  const handleExportDirectPdf = async () => {
-    setIsExportingPdf(true);
-    try {
-      await generatePosPdf(safePos);
-    } catch (e) {
-      console.error('Errore durante la generazione PDF:', e);
-      // fallback sulla stampa browser
-      handlePrint();
-    } finally {
-      setIsExportingPdf(false);
-    }
-  };
 
   const handleScroll = (direction: 'up' | 'down' | 'left' | 'right' | 'top') => {
     if (!scrollContainerRef.current) return;
@@ -58,124 +44,19 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
 
   const handlePrint = () => {
     setIsPrinting(true);
-    const el = document.getElementById('pos-document-root');
-    if (!el) {
-      window.print();
-      setIsPrinting(false);
-      return;
+    // Assicura che la vista sia posizionata in cima per una corretta impaginazione browser
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
     }
-
-    try {
-      // 1. Raccoglie tutti i fogli di stile attivi (Tailwind, font, ecc.)
-      const existingStyles = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-        .map(styleEl => styleEl.outerHTML)
-        .join('\n');
-
-      const printHtml = `
-        <!DOCTYPE html>
-        <html lang="it">
-        <head>
-          <meta charset="UTF-8">
-          <title>POS - ${pos.codice} - ${pos.datiCantiere.nome || 'Cantiere'}</title>
-          ${existingStyles}
-          <style>
-            @page {
-              size: A4 portrait !important;
-              margin: 10mm 12mm !important;
-            }
-            @media print {
-              body {
-                -webkit-print-color-adjust: exact !important;
-                print-color-adjust: exact !important;
-              }
-              .print\\:hidden, #pos-print-hidden-iframe {
-                display: none !important;
-              }
-            }
-            html, body {
-              font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-              background: #ffffff !important;
-              color: #0f172a !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 100% !important;
-              font-size: 11px !important;
-              line-height: 1.4 !important;
-            }
-            .page-break-before {
-              page-break-before: always !important;
-              break-before: page !important;
-            }
-            .page-break-avoid {
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-            table {
-              page-break-inside: auto !important;
-              width: 100% !important;
-              border-collapse: collapse !important;
-            }
-            tr {
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-            td, th {
-              border-color: #cbd5e1 !important;
-            }
-          </style>
-        </head>
-        <body>
-          <div style="width: 100%; max-width: 210mm; margin: 0 auto; padding: 2mm;">
-            ${el.innerHTML}
-          </div>
-        </body>
-        </html>
-      `;
-
-      // 2. Utilizza un iframe nascosto dedicato alla stampa
-      let printFrame = document.getElementById('pos-print-hidden-iframe') as HTMLIFrameElement;
-      if (printFrame && printFrame.parentNode) {
-        printFrame.parentNode.removeChild(printFrame);
+    setTimeout(() => {
+      try {
+        window.print();
+      } catch (err) {
+        console.error('Errore durante la stampa:', err);
+      } finally {
+        setIsPrinting(false);
       }
-
-      printFrame = document.createElement('iframe');
-      printFrame.id = 'pos-print-hidden-iframe';
-      printFrame.style.position = 'fixed';
-      printFrame.style.right = '0';
-      printFrame.style.bottom = '0';
-      printFrame.style.width = '0';
-      printFrame.style.height = '0';
-      printFrame.style.border = '0';
-      printFrame.style.visibility = 'hidden';
-      document.body.appendChild(printFrame);
-
-      const frameDoc = printFrame.contentWindow?.document;
-      if (frameDoc) {
-        frameDoc.open();
-        frameDoc.write(printHtml);
-        frameDoc.close();
-
-        // Breve delay per assicurare che tutti gli stili e le immagini siano processati
-        setTimeout(() => {
-          try {
-            printFrame.contentWindow?.focus();
-            printFrame.contentWindow?.print();
-          } catch (e) {
-            console.warn('Iframe print focus error, using window.print:', e);
-            window.print();
-          } finally {
-            setIsPrinting(false);
-          }
-        }, 350);
-        return;
-      }
-    } catch (err) {
-      console.warn('Iframe print error, falling back to window.print():', err);
-    }
-
-    // Fallback immediato
-    window.print();
-    setIsPrinting(false);
+    }, 150);
   };
 
   const getDpiNorma = (dpiNome: string) => {
@@ -183,10 +64,84 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
     return found ? found.norma : 'Norma armonizzata EN';
   };
 
-  return (
-    <>
+  return createPortal(
+    <div id="pos-modal-portal">
+      <style dangerouslySetInnerHTML={{ __html: `
+        @media print {
+          @page {
+            size: A4 portrait !important;
+            margin: 8mm 10mm !important;
+          }
+          /* Nasconde l'intera applicazione sottostante */
+          body > *:not(#pos-modal-portal) {
+            display: none !important;
+          }
+          html, body {
+            overflow: visible !important;
+            height: auto !important;
+            background: #ffffff !important;
+            color: #0f172a !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          #pos-modal-portal {
+            display: block !important;
+            position: static !important;
+            width: 100% !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: #ffffff !important;
+            overflow: visible !important;
+          }
+          #pos-modal-portal * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+          }
+          .print\\:hidden, #pos-floating-nav, #pos-top-actionbar {
+            display: none !important;
+          }
+          #pos-scroll-container {
+            position: static !important;
+            display: block !important;
+            overflow: visible !important;
+            background: #ffffff !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+            max-width: 100% !important;
+          }
+          #pos-document-root {
+            width: 100% !important;
+            max-width: 100% !important;
+            margin: 0 auto !important;
+            padding: 0 !important;
+            box-shadow: none !important;
+            border: none !important;
+          }
+          .page-break-before {
+            page-break-before: always !important;
+            break-before: page !important;
+          }
+          .page-break-avoid {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          tr {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          table {
+            page-break-inside: auto !important;
+            width: 100% !important;
+            border-collapse: collapse !important;
+          }
+        }
+      `}} />
+
       {/* Floating Directional Navigation Pad - Rigorosamente fisso sul Viewport (non scrolla con il documento) */}
-      <div className="fixed bottom-6 right-6 z-[60] print:hidden flex flex-col items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2 select-none">
+      <div id="pos-floating-nav" className="fixed bottom-6 right-6 z-[60] print:hidden flex flex-col items-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-2 select-none">
         <div className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 text-center w-full">
           Navigatore
         </div>
@@ -284,10 +239,11 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
       {/* Main Print Overlay Container con Scroll Interno */}
       <div
         ref={scrollContainerRef}
+        id="pos-scroll-container"
         className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex flex-col items-center justify-start overflow-y-auto overflow-x-auto p-2 sm:p-6 print:p-0 print:static print:bg-white print:overflow-visible custom-scrollbar"
       >
         {/* Action Bar Header */}
-        <div className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 mb-6 flex flex-col gap-3 sticky top-4 z-20 print:hidden">
+        <div id="pos-top-actionbar" className="w-full max-w-5xl bg-white dark:bg-slate-900 rounded-2xl shadow-xl border border-slate-200 dark:border-slate-800 p-4 mb-6 flex flex-col gap-3 sticky top-4 z-20 print:hidden">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-black">
@@ -298,50 +254,29 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                   Documento POS Ufficiale (14 Capitoli - All. XV D.Lgs. 81/08)
                 </h3>
                 <p className="text-[11px] font-bold text-slate-400">
-                  {safePos.codice} • Rev. {safeVersione} • Formato UNI A4 Verticale • Aspetto Tecnico Rigoroso
+                  {safePos.codice} • Rev. {safeVersione} • Formato UNI A4 Verticale • Layout e Grafica Ufficiale
                 </p>
               </div>
             </div>
 
             <div className="flex items-center gap-2.5">
-              {/* Tasto 1: Salva PDF Diretto (jsPDF ad altissima fedeltà) */}
-              <button
-                type="button"
-                onClick={handleExportDirectPdf}
-                disabled={isExportingPdf || isPrinting}
-                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
-                title="Genera e scarica direttamente il file PDF completo di tutti i 14 capitoli e immagini"
-              >
-                {isExportingPdf ? (
-                  <>
-                    <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Generazione PDF...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>📥</span>
-                    <span>Scarica PDF</span>
-                  </>
-                )}
-              </button>
-
-              {/* Tasto 2: Stampa A4 / Salva PDF dal browser */}
+              {/* Tasto Primario Unico: Stampa Diretta / Salva in PDF */}
               <button
                 type="button"
                 onClick={handlePrint}
-                disabled={isExportingPdf || isPrinting}
-                className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-blue-600/20 active:scale-95 cursor-pointer"
-                title="Apre la finestra di stampa del browser (Ctrl+P) per stampare su carta o salvare in PDF"
+                disabled={isPrinting}
+                className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all shadow-md shadow-blue-600/30 active:scale-95 cursor-pointer ring-2 ring-blue-500/20"
+                title="Apre la finestra di stampa del browser (Ctrl+P) per stampare su carta o Salvare in PDF con grafica aggiornata e immagini"
               >
                 {isPrinting ? (
                   <>
                     <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    <span>Apertura stampa...</span>
+                    <span>Apertura Stampa...</span>
                   </>
                 ) : (
                   <>
                     <Icons.Printer />
-                    <span>Stampa / PDF Browser</span>
+                    <span>Stampa / Salva in PDF</span>
                   </>
                 )}
               </button>
@@ -354,6 +289,14 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                 Chiudi
               </button>
             </div>
+          </div>
+
+          {/* Istruzione chiara e immediata per salvare in PDF */}
+          <div className="flex items-center gap-2 px-3.5 py-2.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/60 rounded-xl text-[11px] text-blue-900 dark:text-blue-200">
+            <span className="text-base select-none">💡</span>
+            <span>
+              <strong>Come salvare in PDF con la grafica aggiornata:</strong> Clicca sul pulsante blu <strong>"Stampa / Salva in PDF"</strong> e nella finestra di stampa del browser scegli come <em>Destinazione</em> la voce <strong>"Salva come PDF"</strong>. Il file conterrà l'impaginazione completa, i loghi, le tabelle e tutte le immagini ad alta risoluzione.
+            </span>
           </div>
         </div>
 
@@ -1431,6 +1374,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
       </div>
       </div>
-    </>
+    </div>,
+    document.body
   );
 };

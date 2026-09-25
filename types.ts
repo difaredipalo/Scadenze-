@@ -40,6 +40,22 @@ export interface Subappalto {
   partitaIva?: string;
   email?: string;
   pec?: string;
+  sedeLegale?: string;
+  rappresentanteLegale?: string;
+  codiceFiscale?: string;
+  oneriSicurezza?: number;
+  telefono?: string;
+}
+
+export interface ModelloContratto {
+  id: string;
+  titolo: string;
+  descrizione?: string;
+  categoria: 'appalto' | 'subappalto' | 'incarico' | 'personalizzato';
+  contenuto: string;
+  isPredefinito?: boolean;
+  dataCreazione?: string;
+  dataModifica?: string;
 }
 
 export interface DnlData {
@@ -182,6 +198,7 @@ export interface AppSettings {
   ccnlApplicato?: string;
   contrattoBaseCustom?: string;
   customContractVariables?: CustomContractVariable[];
+  modelliContratti?: ModelloContratto[];
   datoreDiLavoro?: string;
   rspp?: string;
   rls?: string;
