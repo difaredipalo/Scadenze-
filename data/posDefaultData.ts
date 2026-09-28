@@ -1752,7 +1752,7 @@ export function createNewPosFromCantiere(
   // Costruisci subappaltatori se presenti
   const subNames = (cantiere.subappalti || []).map(s => `${s.azienda} (${s.lavoro})`).join(', ');
 
-  // Recupera i dati aziendali salvati da preferenze precedenti
+  // Recupera i dati aziendali salvati da preferenze precedenti o impostazioni
   const savedDati = settings.posDefaultDatiImpresa || {};
 
   const prepostoNominato =
@@ -1780,6 +1780,16 @@ export function createNewPosFromCantiere(
           ? `${defaultLavoratori[1].nome} ${defaultLavoratori[1].cognome}`
           : (defaultLavoratori[0] ? `${defaultLavoratori[0].nome} ${defaultLavoratori[0].cognome}` : 'Da nominare con corso valido')));
 
+  // Costruisci le posizioni assicurative dai dati di Setup
+  const posAssicurativeParts = [
+    settings.matricolaInps ? `INPS: ${settings.matricolaInps}` : '',
+    settings.patInail ? `INAIL PAT: ${settings.patInail}` : '',
+    settings.codiceCassaEdile ? `Cassa Edile: ${settings.codiceCassaEdile}` : ''
+  ].filter(Boolean);
+  const posizioniAssicurativeCalc = posAssicurativeParts.length > 0 
+    ? posAssicurativeParts.join(' | ') 
+    : (savedDati.posizioniAssicurative || 'INPS / INAIL / Cassa Edile');
+
   return {
     id: Math.random().toString(),
     codice,
@@ -1787,27 +1797,28 @@ export function createNewPosFromCantiere(
     versione: '00',
     dataRedazione: today,
     stato: 'bozza',
-    redattore: savedDati.datoreDiLavoro || settings.rappresentanteLegale || settings.datoreDiLavoro || 'Datore di Lavoro',
+    redattore: settings.datoreDiLavoro || settings.rappresentanteLegale || savedDati.datoreDiLavoro || 'Datore di Lavoro',
     cantiereId: cantiere.id,
 
     datiImpresa: {
-      ragioneSociale: savedDati.ragioneSociale || settings.nomeAzienda || 'Impresa Edile',
-      sedeLegale: savedDati.sedeLegale || settings.indirizzoSede || 'Sede da completare',
-      partitaIva: savedDati.partitaIva || settings.partitaIva || 'P.IVA da definire',
-      codiceFiscale: savedDati.codiceFiscale || settings.codiceFiscaleAzienda || settings.partitaIva || 'CF da definire',
-      telefono: savedDati.telefono || settings.telefonoAzienda || '',
-      email: savedDati.email || (settings.username ? `${settings.username}@azienda.it` : ''),
-      pec: savedDati.pec || settings.pec || '',
-      datoreDiLavoro: savedDati.datoreDiLavoro || settings.datoreDiLavoro || settings.rappresentanteLegale || 'Da indicare',
-      rspp: savedDati.rspp || settings.rspp || 'Datore di Lavoro (art. 34 D.Lgs. 81/08)',
-      rls: savedDati.rls || settings.rls || 'RLS Aziendale / RLST Territoriale',
-      medicoCompetente: savedDati.medicoCompetente || settings.medicoCompetente || 'Dr. Medico Competente Nominato',
+      ragioneSociale: settings.nomeAzienda || savedDati.ragioneSociale || 'Impresa Edile',
+      sedeLegale: settings.indirizzoSede || savedDati.sedeLegale || 'Sede legale da definire',
+      partitaIva: settings.partitaIva || savedDati.partitaIva || 'P.IVA da definire',
+      codiceFiscale: settings.codiceFiscaleAzienda || settings.partitaIva || savedDati.codiceFiscale || 'CF da definire',
+      telefono: settings.telefonoAzienda || savedDati.telefono || '',
+      email: settings.emailAzienda || savedDati.email || (settings.pec ? settings.pec : (settings.username ? `${settings.username}@azienda.it` : '')),
+      pec: settings.pec || savedDati.pec || '',
+      datoreDiLavoro: settings.datoreDiLavoro || settings.rappresentanteLegale || savedDati.datoreDiLavoro || 'Da indicare',
+      direttoreTecnico: settings.rappresentanteLegale || savedDati.direttoreTecnico || '',
+      rspp: settings.rspp || savedDati.rspp || 'Datore di Lavoro (art. 34 D.Lgs. 81/08)',
+      rls: settings.rls || savedDati.rls || 'RLS Aziendale / RLST Territoriale',
+      medicoCompetente: settings.medicoCompetente || savedDati.medicoCompetente || 'Dr. Medico Competente Nominato',
       prepostoCantiere: prepostoNominato,
       addettoPrimoSoccorso: primoSoccorsoNominato,
       addettoAntincendio: antincendioNominato,
-      iscrizioneCciaa: savedDati.iscrizioneCciaa || 'Iscritta con REA c/o CCIAA',
-      posizioniAssicurative: savedDati.posizioniAssicurative || `INPS: ${settings.matricolaInps || 'N.D.'} | INAIL PAT: ${settings.patInail || 'N.D.'} | Cassa Edile: ${settings.codiceCassaEdile || 'N.D.'}`,
-      contrattoCollettivo: savedDati.contrattoCollettivo || settings.ccnlApplicato || 'CCNL Edilizia e Affini (Industria / Artigianato)',
+      iscrizioneCciaa: settings.iscrizioneCciaa || savedDati.iscrizioneCciaa || 'Iscritta con REA c/o CCIAA',
+      posizioniAssicurative: posizioniAssicurativeCalc,
+      contrattoCollettivo: settings.ccnlApplicato || savedDati.contrattoCollettivo || 'CCNL Edilizia e Affini (Industria / Artigianato)',
     },
 
     datiCantiere: {

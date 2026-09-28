@@ -60,7 +60,26 @@ const INITIAL_DATA: AppData = {
     nomeAzienda: 'Edilizia Generale SRL',
     theme: 'light',
     username: 'admin',
-    password: 'admin'
+    password: 'admin',
+    partitaIva: '09876543210',
+    codiceFiscaleAzienda: '09876543210',
+    indirizzoSede: 'Via dell’Edilizia 45, 00100 Roma (RM)',
+    telefonoAzienda: '+39 06 87654321',
+    emailAzienda: 'ufficio@ediliziagenerale.it',
+    pec: 'ediliziageneralesrl@pec.it',
+    rappresentanteLegale: 'Mario Rossi',
+    datoreDiLavoro: 'Mario Rossi',
+    rspp: 'Ing. Roberto Ferri',
+    medicoCompetente: 'Dott.ssa Laura Mancini',
+    rls: 'Luigi Verdi',
+    prepostoDefault: 'Mario Rossi',
+    addettoPrimoSoccorsoDefault: 'Mario Rossi',
+    addettoAntincendioDefault: 'Luigi Verdi',
+    iscrizioneCciaa: 'CCIAA di Roma n. REA RM-1234567',
+    codiceCassaEdile: 'CE-RM-45892',
+    patInail: '98765432/01',
+    matricolaInps: '7021345678',
+    ccnlApplicato: 'Edilizia Industria e Artigianato',
   }
 };
 
@@ -83,7 +102,7 @@ const App: React.FC = () => {
           ...c,
           extraList: c.extraList || []
         }));
-        if (!parsed.settings) parsed.settings = { ...INITIAL_DATA.settings };
+        parsed.settings = { ...INITIAL_DATA.settings, ...(parsed.settings || {}) };
         if (!parsed.settings.theme) parsed.settings.theme = 'light';
         if (!parsed.settings.username) parsed.settings.username = 'admin';
         if (!parsed.settings.password) parsed.settings.password = 'admin';
@@ -2045,34 +2064,103 @@ const App: React.FC = () => {
     );
   };
 
+  const updateSetting = (field: keyof AppSettings, val: any) => {
+    setData(prev => {
+      const updated = { ...prev.settings, [field]: val };
+      // Mantieni sincronizzato il profilo di default per i nuovi POS
+      updated.posDefaultDatiImpresa = {
+        ...(updated.posDefaultDatiImpresa || {}),
+        ragioneSociale: updated.nomeAzienda,
+        sedeLegale: updated.indirizzoSede || '',
+        partitaIva: updated.partitaIva || '',
+        codiceFiscale: updated.codiceFiscaleAzienda || updated.partitaIva || '',
+        telefono: updated.telefonoAzienda || '',
+        email: updated.emailAzienda || updated.pec || '',
+        pec: updated.pec || '',
+        datoreDiLavoro: updated.datoreDiLavoro || updated.rappresentanteLegale || '',
+        rspp: updated.rspp || '',
+        rls: updated.rls || '',
+        medicoCompetente: updated.medicoCompetente || '',
+        prepostoCantiere: updated.prepostoDefault || '',
+        addettoPrimoSoccorso: updated.addettoPrimoSoccorsoDefault || '',
+        addettoAntincendio: updated.addettoAntincendioDefault || '',
+        iscrizioneCciaa: updated.iscrizioneCciaa || '',
+        contrattoCollettivo: updated.ccnlApplicato || '',
+      };
+      return { ...prev, settings: updated };
+    });
+  };
+
   const renderSettings = () => (
-    <div className="max-w-2xl mx-auto space-y-8 animate-in zoom-in-95 duration-500">
-      <div className="bg-white dark:bg-slate-900 p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
-        <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase mb-8">Configurazione Sistema</h3>
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Nome Impresa</label>
-            <input type="text" value={data.settings.nomeAzienda} onChange={(e)=>setData({...data, settings: {...data.settings, nomeAzienda: e.target.value}})} className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" />
+    <div className="max-w-3xl mx-auto space-y-8 animate-in zoom-in-95 duration-500 pb-12">
+      {/* Banner Informativo Automatic POS */}
+      <div className="p-5 rounded-3xl bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-xl shadow-blue-500/20 flex items-start gap-4">
+        <div className="p-3 bg-white/20 rounded-2xl shrink-0 text-xl font-black">
+          🛡️
+        </div>
+        <div className="space-y-1">
+          <h4 className="font-black text-sm uppercase tracking-wide">
+            Dati Aziendali & Sicurezza Sincronizzati
+          </h4>
+          <p className="text-xs text-blue-100 font-medium leading-relaxed">
+            I dati aziendali, fiscali e le figure di sicurezza (RSPP, Medico, Preposto, Addetti Emergenze) inseriti in questo Setup vengono prelevati <strong>in automatico ogni volta che crei un nuovo POS</strong> (Piano Operativo di Sicurezza) per qualsiasi cantiere, senza doverli reinserire.
+          </p>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-900 p-8 sm:p-10 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 shadow-sm">
+        <div className="space-y-8">
+          <div>
+            <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">
+              Anagrafica Aziendale & Sede
+            </h3>
+            <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mt-1">
+              Dati fiscali e recapiti ufficiali dell'impresa
+            </p>
+          </div>
+
+        <div className="space-y-5">
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+              Ragione Sociale / Nome Impresa
+            </label>
+            <input 
+              type="text" 
+              value={data.settings.nomeAzienda} 
+              onChange={(e) => updateSetting('nomeAzienda', e.target.value)} 
+              className="w-full p-4 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              placeholder="Es. Edilizia Generale SRL"
+            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Partita IVA / Codice Fiscale</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Partita IVA</label>
               <input 
                 type="text" 
                 placeholder="Es. 01234567890" 
                 value={data.settings.partitaIva || ''} 
-                onChange={(e) => setData({ ...data, settings: { ...data.settings, partitaIva: e.target.value } })} 
-                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+                onChange={(e) => updateSetting('partitaIva', e.target.value)} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all font-mono" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Codice Fiscale Impresa</label>
+              <input 
+                type="text" 
+                placeholder="Es. 01234567890 oppure codice alfanumerico" 
+                value={data.settings.codiceFiscaleAzienda || ''} 
+                onChange={(e) => updateSetting('codiceFiscaleAzienda', e.target.value)} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all font-mono" 
               />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Legale Rappresentante</label>
               <input 
                 type="text" 
-                placeholder="Nome e Cognome Titolare/Amministratore" 
+                placeholder="Nome e Cognome Amministratore / Titolare" 
                 value={data.settings.rappresentanteLegale || ''} 
-                onChange={(e) => setData({ ...data, settings: { ...data.settings, rappresentanteLegale: e.target.value } })} 
+                onChange={(e) => updateSetting('rappresentanteLegale', e.target.value)} 
                 className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
               />
             </div>
@@ -2082,70 +2170,210 @@ const App: React.FC = () => {
                 type="text" 
                 placeholder="Via, Civico, CAP, Città (Prov)" 
                 value={data.settings.indirizzoSede || ''} 
-                onChange={(e) => setData({ ...data, settings: { ...data.settings, indirizzoSede: e.target.value } })} 
+                onChange={(e) => updateSetting('indirizzoSede', e.target.value)} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Telefono Aziendale</label>
+              <input 
+                type="text" 
+                placeholder="+39 06 1234567" 
+                value={data.settings.telefonoAzienda || ''} 
+                onChange={(e) => updateSetting('telefonoAzienda', e.target.value)} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Ufficio / Aziendale</label>
+              <input 
+                type="email" 
+                placeholder="info@azienda.it" 
+                value={data.settings.emailAzienda || ''} 
+                onChange={(e) => updateSetting('emailAzienda', e.target.value)} 
                 className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
               />
             </div>
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Indirizzo PEC</label>
               <input 
-                type="text" 
+                type="email" 
                 placeholder="azienda@pec.it" 
                 value={data.settings.pec || ''} 
-                onChange={(e) => setData({ ...data, settings: { ...data.settings, pec: e.target.value } })} 
+                onChange={(e) => updateSetting('pec', e.target.value)} 
+                className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Iscrizione CCIAA / Numero REA</label>
+              <input 
+                type="text" 
+                placeholder="Es. CCIAA di Roma n. REA RM-123456" 
+                value={data.settings.iscrizioneCciaa || ''} 
+                onChange={(e) => updateSetting('iscrizioneCciaa', e.target.value)} 
                 className="w-full p-3.5 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-2xl font-bold text-xs text-slate-900 dark:text-white focus:border-blue-500 outline-none transition-all" 
               />
             </div>
           </div>
+        </div>
 
-          {/* Dati Cassa Edile / INAIL Predefiniti */}
-          <div className="pt-4 border-t border-slate-100 dark:border-slate-800 space-y-3">
-            <h4 className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-wider">
-              Dati Previdenziali & Cassa Edile (per Contratti & DNL)
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Codice Impresa Cassa Edile</label>
-                <input 
-                  type="text" 
-                  placeholder="Es. CE-12345" 
-                  value={data.settings.codiceCassaEdile || ''} 
-                  onChange={(e) => setData({ ...data, settings: { ...data.settings, codiceCassaEdile: e.target.value } })} 
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Codice Ditta & PAT INAIL</label>
-                <input 
-                  type="text" 
-                  placeholder="Es. 98765432/01" 
-                  value={data.settings.patInail || ''} 
-                  onChange={(e) => setData({ ...data, settings: { ...data.settings, patInail: e.target.value } })} 
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Matricola Aziendale INPS</label>
-                <input 
-                  type="text" 
-                  placeholder="Es. 1234567890" 
-                  value={data.settings.matricolaInps || ''} 
-                  onChange={(e) => setData({ ...data, settings: { ...data.settings, matricolaInps: e.target.value } })} 
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CCNL Applicato</label>
-                <input 
-                  type="text" 
-                  placeholder="Edilizia Industria / Artigianato" 
-                  value={data.settings.ccnlApplicato || ''} 
-                  onChange={(e) => setData({ ...data, settings: { ...data.settings, ccnlApplicato: e.target.value } })} 
-                  className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
-                />
-              </div>
+        {/* ================= FIGURE DI SICUREZZA PER IL POS ================= */}
+        <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                <span>🛡️</span> Figure di Sicurezza Predefinite (D.Lgs. 81/2008 & All. XV)
+              </h4>
+              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+                Verranno caricate in automatico ad ogni creazione del POS
+              </p>
+            </div>
+            <span className="px-2.5 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-xl text-[10px] font-black uppercase">
+              Auto-POS
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Datore di Lavoro (Titolare Obbligo POS)
+              </label>
+              <input 
+                type="text" 
+                placeholder="Se vuoto coincide col Legale Rappresentante" 
+                value={data.settings.datoreDiLavoro || ''} 
+                onChange={(e) => updateSetting('datoreDiLavoro', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                R.S.P.P. (Resp. Servizio Prev. & Protezione)
+              </label>
+              <input 
+                type="text" 
+                placeholder="Es. Ing. Mario Rossi oppure Datore di Lavoro" 
+                value={data.settings.rspp || ''} 
+                onChange={(e) => updateSetting('rspp', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Medico Competente Nominato
+              </label>
+              <input 
+                type="text" 
+                placeholder="Es. Dott.ssa Maria Bianchi" 
+                value={data.settings.medicoCompetente || ''} 
+                onChange={(e) => updateSetting('medicoCompetente', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                R.L.S. (Rappresentante Lavoratori per la Sicurezza)
+              </label>
+              <input 
+                type="text" 
+                placeholder="Es. RLS Aziendale o RLST Territoriale" 
+                value={data.settings.rls || ''} 
+                onChange={(e) => updateSetting('rls', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Preposto / Capocantiere di Riferimento
+              </label>
+              <input 
+                type="text" 
+                placeholder="Nominativo del preposto predefinito" 
+                value={data.settings.prepostoDefault || ''} 
+                onChange={(e) => updateSetting('prepostoDefault', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Addetto al Primo Soccorso Predefinito
+              </label>
+              <input 
+                type="text" 
+                placeholder="Nominativo con attestato primo soccorso" 
+                value={data.settings.addettoPrimoSoccorsoDefault || ''} 
+                onChange={(e) => updateSetting('addettoPrimoSoccorsoDefault', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1 sm:col-span-2">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                Addetto alla Lotta Antincendio & Emergenze
+              </label>
+              <input 
+                type="text" 
+                placeholder="Nominativo con attestato rischio medio/alto" 
+                value={data.settings.addettoAntincendioDefault || ''} 
+                onChange={(e) => updateSetting('addettoAntincendioDefault', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
             </div>
           </div>
+        </div>
+
+        {/* Dati Cassa Edile / INAIL Predefiniti */}
+        <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-4">
+          <div>
+            <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
+              <span>📋</span> Dati Previdenziali, Assicurativi & CCNL
+            </h4>
+            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">
+              Utilizzati per Contratti, DNL e Capitolo 1 del POS
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Codice Impresa Cassa Edile</label>
+              <input 
+                type="text" 
+                placeholder="Es. CE-12345" 
+                value={data.settings.codiceCassaEdile || ''} 
+                onChange={(e) => updateSetting('codiceCassaEdile', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Codice Ditta & PAT INAIL</label>
+              <input 
+                type="text" 
+                placeholder="Es. 98765432/01" 
+                value={data.settings.patInail || ''} 
+                onChange={(e) => updateSetting('patInail', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Matricola Aziendale INPS</label>
+              <input 
+                type="text" 
+                placeholder="Es. 1234567890" 
+                value={data.settings.matricolaInps || ''} 
+                onChange={(e) => updateSetting('matricolaInps', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">CCNL Applicato</label>
+              <input 
+                type="text" 
+                placeholder="Edilizia Industria / Artigianato" 
+                value={data.settings.ccnlApplicato || ''} 
+                onChange={(e) => updateSetting('ccnlApplicato', e.target.value)} 
+                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none focus:border-blue-500" 
+              />
+            </div>
+          </div>
+        </div>
 
           <div className="space-y-2">
             <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Logo Impresa (Utilizzato nei Tesserini)</label>

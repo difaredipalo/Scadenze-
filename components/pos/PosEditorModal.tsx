@@ -149,6 +149,44 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
     setTimeout(() => setCompanyDefaultsSavedNotice(null), 4000);
   };
 
+  const handleSyncCompanyFromSettings = () => {
+    if (!settings) return;
+    const posAssicurativeParts = [
+      settings.matricolaInps ? `INPS: ${settings.matricolaInps}` : '',
+      settings.patInail ? `INAIL PAT: ${settings.patInail}` : '',
+      settings.codiceCassaEdile ? `Cassa Edile: ${settings.codiceCassaEdile}` : ''
+    ].filter(Boolean);
+    const posAssicurative = posAssicurativeParts.length > 0 
+      ? posAssicurativeParts.join(' | ') 
+      : (formData.datiImpresa.posizioniAssicurative || 'INPS / INAIL / Cassa Edile');
+
+    setFormData(prev => ({
+      ...prev,
+      datiImpresa: {
+        ...prev.datiImpresa,
+        ragioneSociale: settings.nomeAzienda || prev.datiImpresa.ragioneSociale,
+        sedeLegale: settings.indirizzoSede || prev.datiImpresa.sedeLegale,
+        partitaIva: settings.partitaIva || prev.datiImpresa.partitaIva,
+        codiceFiscale: settings.codiceFiscaleAzienda || settings.partitaIva || prev.datiImpresa.codiceFiscale,
+        telefono: settings.telefonoAzienda || prev.datiImpresa.telefono,
+        pec: settings.pec || prev.datiImpresa.pec,
+        email: settings.emailAzienda || settings.pec || prev.datiImpresa.email,
+        datoreDiLavoro: settings.datoreDiLavoro || settings.rappresentanteLegale || prev.datiImpresa.datoreDiLavoro,
+        rspp: settings.rspp || prev.datiImpresa.rspp,
+        rls: settings.rls || prev.datiImpresa.rls,
+        medicoCompetente: settings.medicoCompetente || prev.datiImpresa.medicoCompetente,
+        prepostoCantiere: settings.prepostoDefault || prev.datiImpresa.prepostoCantiere,
+        addettoPrimoSoccorso: settings.addettoPrimoSoccorsoDefault || prev.datiImpresa.addettoPrimoSoccorso,
+        addettoAntincendio: settings.addettoAntincendioDefault || prev.datiImpresa.addettoAntincendio,
+        iscrizioneCciaa: settings.iscrizioneCciaa || prev.datiImpresa.iscrizioneCciaa,
+        posizioniAssicurative: posAssicurative,
+        contrattoCollettivo: settings.ccnlApplicato || prev.datiImpresa.contrattoCollettivo,
+      }
+    }));
+    setCompanyDefaultsSavedNotice('✓ Dati aziendali e figure di sicurezza aggiornati con successo dal Setup!');
+    setTimeout(() => setCompanyDefaultsSavedNotice(null), 4000);
+  };
+
   // Caricamento automatico dal cantiere selezionato
   const handleApplyCantiere = (cId: string) => {
     if (!cId) {
@@ -511,13 +549,25 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                   <h3 className="font-black text-xs uppercase text-slate-900 dark:text-white">
                     1.1 Dati Identificativi dell'Impresa Esecutrice
                   </h3>
-                  <button
-                    type="button"
-                    onClick={handleSaveCompanyAsDefault}
-                    className="px-3 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-700 dark:text-slate-300"
-                  >
-                    Salva come Predefinito Azienda
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {settings && (
+                      <button
+                        type="button"
+                        onClick={handleSyncCompanyFromSettings}
+                        title="Aggiorna con i dati aziendali correnti definiti nel Setup"
+                        className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1"
+                      >
+                        <span>↻</span> Sincronizza da Setup
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleSaveCompanyAsDefault}
+                      className="px-3 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 rounded-lg text-[10px] font-black uppercase text-slate-700 dark:text-slate-300 transition-all"
+                    >
+                      Salva come Predefinito Azienda
+                    </button>
+                  </div>
                 </div>
 
                 {companyDefaultsSavedNotice && (

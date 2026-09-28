@@ -7,6 +7,7 @@ import {
   PosAttivitaTemplate,
   PosLavoratoreAssegnato,
   PosAttivitaItem,
+  PosDatiImpresa,
 } from '../../types';
 import {
   createNewPosFromCantiere,
@@ -25,6 +26,7 @@ interface PosWizardModalProps {
   customTemplates?: PosAttivitaTemplate[];
   onSave: (newPos: PosDocument) => void;
   onClose: () => void;
+  onSaveAziendaDefaults?: (dati: PosDatiImpresa) => void;
 }
 
 export const PosWizardModal: React.FC<PosWizardModalProps> = ({
@@ -34,9 +36,11 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
   customTemplates = [],
   onSave,
   onClose,
+  onSaveAziendaDefaults,
 }) => {
   const [currentStep, setCurrentStep] = useState<number>(1);
   const totalSteps = 6;
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
 
   // Selected cantiere
   const [selectedCantiereId, setSelectedCantiereId] = useState<string>(cantieri[0]?.id || '');
@@ -81,6 +85,51 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
       const freshPos = createNewPosFromCantiere(targetC, settings, personale);
       setDraftPos(freshPos);
       setSelectedTemplateIds(freshPos.attivita.map(a => a.templateId || a.id).filter(Boolean));
+    }
+  };
+
+  const handleReloadCompanyFromSetup = () => {
+    const posAssicurativeParts = [
+      settings.matricolaInps ? `INPS: ${settings.matricolaInps}` : '',
+      settings.patInail ? `INAIL PAT: ${settings.patInail}` : '',
+      settings.codiceCassaEdile ? `Cassa Edile: ${settings.codiceCassaEdile}` : ''
+    ].filter(Boolean);
+    const posAssicurative = posAssicurativeParts.length > 0 
+      ? posAssicurativeParts.join(' | ') 
+      : (draftPos.datiImpresa.posizioniAssicurative || 'INPS / INAIL / Cassa Edile');
+
+    setDraftPos(prev => ({
+      ...prev,
+      datiImpresa: {
+        ...prev.datiImpresa,
+        ragioneSociale: settings.nomeAzienda || prev.datiImpresa.ragioneSociale,
+        sedeLegale: settings.indirizzoSede || prev.datiImpresa.sedeLegale,
+        partitaIva: settings.partitaIva || prev.datiImpresa.partitaIva,
+        codiceFiscale: settings.codiceFiscaleAzienda || settings.partitaIva || prev.datiImpresa.codiceFiscale,
+        telefono: settings.telefonoAzienda || prev.datiImpresa.telefono,
+        pec: settings.pec || prev.datiImpresa.pec,
+        email: settings.emailAzienda || settings.pec || prev.datiImpresa.email,
+        datoreDiLavoro: settings.datoreDiLavoro || settings.rappresentanteLegale || prev.datiImpresa.datoreDiLavoro,
+        rspp: settings.rspp || prev.datiImpresa.rspp,
+        rls: settings.rls || prev.datiImpresa.rls,
+        medicoCompetente: settings.medicoCompetente || prev.datiImpresa.medicoCompetente,
+        prepostoCantiere: settings.prepostoDefault || prev.datiImpresa.prepostoCantiere,
+        addettoPrimoSoccorso: settings.addettoPrimoSoccorsoDefault || prev.datiImpresa.addettoPrimoSoccorso,
+        addettoAntincendio: settings.addettoAntincendioDefault || prev.datiImpresa.addettoAntincendio,
+        iscrizioneCciaa: settings.iscrizioneCciaa || prev.datiImpresa.iscrizioneCciaa,
+        posizioniAssicurative: posAssicurative,
+        contrattoCollettivo: settings.ccnlApplicato || prev.datiImpresa.contrattoCollettivo,
+      }
+    }));
+    setSyncNotice('✓ Dati aziendali e figure di sicurezza sincronizzati con successo dal Setup!');
+    setTimeout(() => setSyncNotice(null), 3500);
+  };
+
+  const handleSaveCompanyToSetup = () => {
+    if (onSaveAziendaDefaults) {
+      onSaveAziendaDefaults(draftPos.datiImpresa);
+      setSyncNotice('✓ Dati aziendali salvati come nuovi predefiniti in Setup!');
+      setTimeout(() => setSyncNotice(null), 3500);
     }
   };
 
@@ -337,84 +386,200 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
 
           {/* STEP 2: IMPRESA & FIGURE DI SICUREZZA */}
           {currentStep === 2 && (
-            <div className="space-y-4">
-              <div className="p-3.5 rounded-xl bg-blue-50/50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-900/40 text-blue-900 dark:text-blue-300">
-                I dati dell’impresa sono stati ereditati dalle impostazioni generali. Verifica e completa i soggetti incaricati per questo specifico cantiere.
+            <div className="space-y-5 animate-in fade-in-50 duration-200">
+              <div className="p-4 rounded-2xl bg-blue-50/80 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-600 text-white text-[10px] font-black">✓</span>
+                    <h3 className="text-xs font-black text-blue-950 dark:text-blue-200 uppercase tracking-wider">
+                      Dati Aziendali Prelevati Automaticamente da Setup
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-blue-800 dark:text-blue-300 font-medium">
+                    Tutti i dati dell'impresa esecutrice e le figure di sicurezza (RSPP, RLS, Medico, Preposto) sono stati importati dal tuo Setup.
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleReloadCompanyFromSetup}
+                    title="Ricarica i dati dalle Impostazioni di Setup"
+                    className="px-3 py-1.5 bg-white dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-slate-700 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-xs"
+                  >
+                    <span>↻</span>
+                    <span>Ricarica da Setup</span>
+                  </button>
+                  {onSaveAziendaDefaults && (
+                    <button
+                      type="button"
+                      onClick={handleSaveCompanyToSetup}
+                      title="Salva questi dati come nuovi predefiniti in Setup"
+                      className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase tracking-wider transition-all shadow-xs"
+                    >
+                      Salva in Setup
+                    </button>
+                  )}
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Ragione Sociale Impresa</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.ragioneSociale}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, ragioneSociale: e.target.value } }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
+              {syncNotice && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl text-emerald-800 dark:text-emerald-300 font-bold text-xs flex items-center gap-2 animate-in fade-in duration-200">
+                  <span>✓</span>
+                  <span>{syncNotice}</span>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Partita IVA / Codice Fiscale</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.partitaIva}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, partitaIva: e.target.value } }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
+              )}
+
+              {/* Dati Anagrafici Impresa */}
+              <div className="bg-slate-50/70 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <h4 className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                  <span>🏢</span> Anagrafica & Sede Impresa
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Ragione Sociale Impresa</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.ragioneSociale}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, ragioneSociale: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Partita IVA</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.partitaIva}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, partitaIva: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Codice Fiscale Impresa</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.codiceFiscale}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, codiceFiscale: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Sede Legale</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.sedeLegale}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, sedeLegale: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Telefono Aziendale</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.telefono || ''}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, telefono: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Indirizzo PEC</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.pec || ''}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, pec: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Email Aziendale</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.email || ''}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, email: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Datore di Lavoro (Titolare Obbligo)</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.datoreDiLavoro}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, datoreDiLavoro: e.target.value } }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-blue-700 dark:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">RSPP (Resp. Servizio Prev. e Protezione)</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.rspp}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, rspp: e.target.value } }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Preposto / Capocantiere</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.prepostoCantiere}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, prepostoCantiere: e.target.value } }))}
-                    placeholder="Nome del preposto o capocantiere"
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium text-emerald-700 dark:text-emerald-400 placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Medico Competente</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.medicoCompetente}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, medicoCompetente: e.target.value } }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Addetto Primo Soccorso</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.addettoPrimoSoccorso}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, addettoPrimoSoccorso: e.target.value } }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Addetto Antincendio</label>
-                  <input
-                    type="text"
-                    value={draftPos.datiImpresa.addettoAntincendio}
-                    onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, addettoAntincendio: e.target.value } }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
+              </div>
+
+              {/* Figure di Sicurezza D.Lgs. 81/2008 */}
+              <div className="bg-slate-50/70 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-200/80 dark:border-slate-800 space-y-3">
+                <h4 className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-widest flex items-center gap-2">
+                  <span>🛡️</span> Figure della Sicurezza (D.Lgs. 81/2008)
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Datore di Lavoro (Titolare Obbligo)</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.datoreDiLavoro}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, datoreDiLavoro: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-blue-700 dark:text-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">RSPP (Resp. Prev. & Protezione)</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.rspp}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, rspp: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">RLS (Rappresentante Lavoratori)</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.rls}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, rls: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Medico Competente</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.medicoCompetente}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, medicoCompetente: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Preposto / Capocantiere</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.prepostoCantiere}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, prepostoCantiere: e.target.value } }))}
+                      placeholder="Nome del preposto di cantiere"
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-medium text-emerald-700 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Addetto Primo Soccorso</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.addettoPrimoSoccorso}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, addettoPrimoSoccorso: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Addetto Antincendio</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.addettoAntincendio}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, addettoAntincendio: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase mb-1">Posizioni Assicurative (INPS, INAIL, Cassa Edile)</label>
+                    <input
+                      type="text"
+                      value={draftPos.datiImpresa.posizioniAssicurative || ''}
+                      onChange={e => setDraftPos(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, posizioniAssicurative: e.target.value } }))}
+                      className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-mono text-[11px] focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
                 </div>
               </div>
             </div>

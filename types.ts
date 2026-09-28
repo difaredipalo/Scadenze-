@@ -219,7 +219,9 @@ export interface AppSettings {
   codiceFiscaleAzienda?: string;
   indirizzoSede?: string;
   pec?: string;
+  emailAzienda?: string;
   telefonoAzienda?: string;
+  iscrizioneCciaa?: string;
   rappresentanteLegale?: string;
   codiceCassaEdile?: string;
   matricolaInps?: string;
