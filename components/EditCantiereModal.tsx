@@ -1,19 +1,40 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Cantiere, CantiereStato, Tecnico, ChecklistItem, SAL, Subappalto, ExtraCantiere } from '../types';
+import { Cantiere, CantiereStato, Tecnico, ChecklistItem, SAL, Subappalto, ExtraCantiere, SubappaltatoreRubrica } from '../types';
+import { getDurcStatus } from '../data/defaultSubappaltatori';
 
 interface EditCantiereModalProps {
   isOpen: boolean;
   cantiere: Cantiere | null;
   onClose: () => void;
   onSave: (updated: Cantiere) => void;
+  subappaltatoriRubrica?: SubappaltatoreRubrica[];
+  onSaveToRubrica?: (sub: SubappaltatoreRubrica) => void;
 }
 
 type TabType = 'generale' | 'extra' | 'sal' | 'subappalti' | 'tecnici' | 'documenti' | 'dnl';
 
-const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere, onClose, onSave }) => {
+const EditCantiereModal: React.FC<EditCantiereModalProps> = ({
+  isOpen,
+  cantiere,
+  onClose,
+  onSave,
+  subappaltatoriRubrica = [],
+  onSaveToRubrica,
+}) => {
   const [formData, setFormData] = useState<Partial<Cantiere>>({});
   const [activeTab, setActiveTab] = useState<TabType>('generale');
+
+  // Stato per il selettore rapido da Rubrica Subappaltatori
+  const [showRubricaPicker, setShowRubricaPicker] = useState(false);
+  const [pickerTargetIdx, setPickerTargetIdx] = useState<number | null>(null);
+  const [pickerSearch, setPickerSearch] = useState('');
+  const [toastNotice, setToastNotice] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastNotice(msg);
+    setTimeout(() => setToastNotice(null), 3500);
+  };
 
   useEffect(() => {
     if (cantiere) {
@@ -81,6 +102,84 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
   };
 
   const stati: CantiereStato[] = ['aperto', 'chiuso', 'in pausa', 'in apertura'];
+
+  const handleOpenRubricaPicker = (targetIdx: number | null = null) => {
+    setPickerTargetIdx(targetIdx);
+    setPickerSearch('');
+    setShowRubricaPicker(true);
+  };
+
+  const handleSelectFromRubrica = (selectedSub: SubappaltatoreRubrica) => {
+    if (pickerTargetIdx === null) {
+      const newSub: Subappalto = {
+        id: `sub-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`,
+        azienda: selectedSub.ragioneSociale,
+        lavoro: selectedSub.settore || 'Lavorazioni Specialistiche',
+        prezzoOriginale: 0,
+        maggiorazione: selectedSub.maggiorazioneDefault !== undefined ? selectedSub.maggiorazioneDefault : 10,
+        partitaIva: selectedSub.partitaIva || '',
+        codiceFiscale: selectedSub.codiceFiscale || '',
+        email: selectedSub.email || '',
+        pec: selectedSub.pec || '',
+        sedeLegale: selectedSub.sedeLegale || '',
+        rappresentanteLegale: selectedSub.rappresentanteLegale || '',
+        telefono: selectedSub.telefono || '',
+        subappaltatoreId: selectedSub.id,
+        durcScadenza: selectedSub.durcScadenza || '',
+        iban: selectedSub.iban || '',
+        oneriSicurezza: 0,
+      };
+      addArrayItem('subappalti', newSub);
+      showToast(`✅ "${selectedSub.ragioneSociale}" aggiunto dalla Rubrica!`);
+    } else {
+      updateArrayItem('subappalti', pickerTargetIdx, {
+        azienda: selectedSub.ragioneSociale,
+        lavoro: selectedSub.settore || formData.subappalti?.[pickerTargetIdx]?.lavoro,
+        partitaIva: selectedSub.partitaIva || '',
+        codiceFiscale: selectedSub.codiceFiscale || '',
+        email: selectedSub.email || '',
+        pec: selectedSub.pec || '',
+        sedeLegale: selectedSub.sedeLegale || '',
+        rappresentanteLegale: selectedSub.rappresentanteLegale || '',
+        telefono: selectedSub.telefono || '',
+        subappaltatoreId: selectedSub.id,
+        durcScadenza: selectedSub.durcScadenza || '',
+        iban: selectedSub.iban || '',
+      });
+      showToast(`🔄 Dati aggiornati dalla Rubrica per "${selectedSub.ragioneSociale}"!`);
+    }
+    setShowRubricaPicker(false);
+  };
+
+  const handleSaveSubToRubrica = (sub: Subappalto) => {
+    if (!sub.azienda?.trim()) {
+      alert('Inserire almeno la Ragione Sociale dell\'impresa prima di salvare in Rubrica.');
+      return;
+    }
+
+    if (onSaveToRubrica) {
+      const newRubricaItem: SubappaltatoreRubrica = {
+        id: sub.subappaltatoreId || `sub-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        ragioneSociale: sub.azienda.trim(),
+        settore: sub.lavoro || 'Altro / Speciale',
+        partitaIva: sub.partitaIva || '',
+        codiceFiscale: sub.codiceFiscale || sub.partitaIva || '',
+        sedeLegale: sub.sedeLegale || '',
+        rappresentanteLegale: sub.rappresentanteLegale || '',
+        telefono: sub.telefono || '',
+        email: sub.email || '',
+        pec: sub.pec || '',
+        iban: sub.iban || '',
+        maggiorazioneDefault: sub.maggiorazione || 10,
+        durcScadenza: sub.durcScadenza || '',
+        note: `Salvato dal cantiere "${formData.nome || 'Cantiere'}"`,
+        rating: 5,
+        dataCreazione: new Date().toISOString().split('T')[0],
+      };
+      onSaveToRubrica(newRubricaItem);
+      showToast(`🎉 "${sub.azienda}" salvata nella Rubrica Subappaltatori!`);
+    }
+  };
 
   const tabClasses = (tab: TabType) => `px-4 py-3 text-sm font-black rounded-2xl transition-all border-2 ${
     activeTab === tab 
@@ -451,57 +550,249 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
 
             {activeTab === 'subappalti' && (
               <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
-                <div className="flex justify-between items-center mb-6">
-                  <h3 className="text-xl font-black text-slate-900 tracking-tight">Gestione Subappalti</h3>
-                  <button type="button" onClick={() => addArrayItem('subappalti', { id: Math.random().toString(), azienda: '', lavoro: '', prezzoOriginale: 0, maggiorazione: 0 })} className="bg-slate-900 text-white px-5 py-2.5 rounded-2xl font-black text-xs hover:bg-blue-600 transition-all flex items-center gap-2">
-                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5v14"/></svg> NUOVO SUBAPPALTO
-                  </button>
+                {/* Header Subappalti con Tasti Rubrica */}
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-3 p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+                      <span>🏗️ Subappalti del Cantiere</span>
+                      <span className="text-xs bg-blue-100 text-blue-800 font-bold px-2 py-0.5 rounded-full">
+                        {formData.subappalti?.length || 0}
+                      </span>
+                    </h3>
+                    <p className="text-xs text-slate-500 font-medium">
+                      Collega le ditte dalla Rubrica centralizzata o inseriscine di nuove
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRubricaPicker(null)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl font-black text-xs transition-all shadow-md shadow-blue-600/20 flex items-center gap-2 hover:scale-105 active:scale-95"
+                    >
+                      <span>📋 SCEGLI DA RUBRICA</span>
+                      <span className="bg-blue-500 text-white text-[10px] px-1.5 py-0.2 rounded-md">
+                        {subappaltatoriRubrica.length}
+                      </span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => addArrayItem('subappalti', { id: Math.random().toString(), azienda: '', lavoro: '', prezzoOriginale: 0, maggiorazione: 10 })}
+                      className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2.5 rounded-xl font-black text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M12 5v14"/></svg>
+                      <span>MANUALE</span>
+                    </button>
+                  </div>
                 </div>
+
+                {(!formData.subappalti || formData.subappalti.length === 0) && (
+                  <div className="p-8 text-center bg-slate-50/60 rounded-3xl border-2 border-dashed border-slate-200 space-y-3">
+                    <span className="text-3xl block">📋</span>
+                    <p className="text-sm font-bold text-slate-700">Nessun subappalto registrato per questo cantiere</p>
+                    <p className="text-xs text-slate-500 max-w-md mx-auto">
+                      Seleziona una ditta già presente nella Rubrica Subappaltatori per compilare i dati all'istante, oppure inseriscine una manualmente.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenRubricaPicker(null)}
+                      className="px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-black uppercase tracking-wider hover:bg-blue-700 transition-all shadow-md"
+                    >
+                      Scegli Subappaltatore da Rubrica
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 gap-6">
                   {formData.subappalti?.map((sub, idx) => {
                     const prezzoFinale = (Number(sub.prezzoOriginale) || 0) * (1 + (Number(sub.maggiorazione) || 0) / 100);
+                    
+                    // Verifica se l'azienda è censita in Rubrica
+                    const matchedRubrica = subappaltatoriRubrica.find(
+                      r => (sub.subappaltatoreId && r.id === sub.subappaltatoreId) ||
+                           (sub.azienda && r.ragioneSociale.trim().toLowerCase() === sub.azienda.trim().toLowerCase())
+                    );
+                    const durcScadenza = matchedRubrica?.durcScadenza || sub.durcScadenza;
+                    const durcInfo = getDurcStatus(durcScadenza);
+
                     return (
-                      <div key={sub.id} className="p-8 bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase">Ragione Sociale Impresa</label>
-                            <input placeholder="Nome Azienda" value={sub.azienda} onChange={e => updateArrayItem('subappalti', idx, { azienda: e.target.value })} className={inputBaseClasses} />
+                      <div key={sub.id} className="p-6 md:p-8 bg-white rounded-[2rem] border-2 border-slate-100 shadow-sm space-y-5 relative">
+                        {/* Banner Stato Rubrica / DURC */}
+                        <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="flex items-center gap-2">
+                            {matchedRubrica ? (
+                              <span className="px-2.5 py-1 bg-blue-100 text-blue-800 rounded-lg text-[10px] font-black uppercase flex items-center gap-1">
+                                <span>🔗 Da Rubrica:</span>
+                                <span className="font-bold">{matchedRubrica.settore}</span>
+                              </span>
+                            ) : (
+                              <span className="px-2.5 py-1 bg-slate-200 text-slate-700 rounded-lg text-[10px] font-black uppercase">
+                                ⚠️ Inserimento Locale
+                              </span>
+                            )}
+
+                            {/* Badge DURC */}
+                            <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold border flex items-center gap-1 ${durcInfo.badgeClass}`}>
+                              <span className={`w-1.5 h-1.5 rounded-full ${durcInfo.dotClass}`} />
+                              <span>{durcInfo.label}</span>
+                            </span>
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase">Tipologia di Lavoro</label>
-                            <input placeholder="Es: Scavi, Cartongesso" value={sub.lavoro} onChange={e => updateArrayItem('subappalti', idx, { lavoro: e.target.value })} className={inputBaseClasses} />
+
+                          <div className="flex items-center gap-2">
+                            {!matchedRubrica && onSaveToRubrica && (
+                              <button
+                                type="button"
+                                onClick={() => handleSaveSubToRubrica(sub)}
+                                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-all shadow-xs flex items-center gap-1"
+                                title="Salva questa ditta nella Rubrica generale per riutilizzarla in tutti i cantieri"
+                              >
+                                <span>💾 Salva in Rubrica</span>
+                              </button>
+                            )}
+
+                            <button
+                              type="button"
+                              onClick={() => handleOpenRubricaPicker(idx)}
+                              className="px-2.5 py-1 bg-white border border-slate-200 text-slate-700 hover:text-blue-600 rounded-lg text-[10px] font-bold transition-all"
+                              title="Sostituisci o aggiorna i dati prendendoli dalla Rubrica"
+                            >
+                              🔄 Scegli da Rubrica
+                            </button>
                           </div>
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase">Partita IVA / Codice Fiscale</label>
-                            <input placeholder="P.IVA o Codice Fiscale" value={sub.partitaIva || ''} onChange={e => updateArrayItem('subappalti', idx, { partitaIva: e.target.value })} className={inputBaseClasses} />
+
+                        {/* Riga 1: Ragione Sociale e Lavoro */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Ragione Sociale Impresa *</label>
+                            <input
+                              placeholder="Nome Azienda / Impresa Subappaltatrice"
+                              value={sub.azienda}
+                              onChange={e => updateArrayItem('subappalti', idx, { azienda: e.target.value })}
+                              className={inputBaseClasses}
+                            />
                           </div>
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase">Email Impresa</label>
-                            <input type="email" placeholder="azienda@email.it" value={sub.email || ''} onChange={e => updateArrayItem('subappalti', idx, { email: e.target.value })} className={inputBaseClasses} />
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Tipologia di Lavoro *</label>
+                            <input
+                              placeholder="Es: Impianti Elettrici, Opere Murarie, Cartongesso"
+                              value={sub.lavoro}
+                              onChange={e => updateArrayItem('subappalti', idx, { lavoro: e.target.value })}
+                              className={inputBaseClasses}
+                            />
                           </div>
-                          <div className="space-y-2">
+                        </div>
+
+                        {/* Riga 2: Dati Fiscali e Sede */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-1">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Partita IVA</label>
+                            <input
+                              placeholder="P.IVA"
+                              value={sub.partitaIva || ''}
+                              onChange={e => updateArrayItem('subappalti', idx, { partitaIva: e.target.value })}
+                              className={inputBaseClasses}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Codice Fiscale</label>
+                            <input
+                              placeholder="Codice Fiscale"
+                              value={sub.codiceFiscale || ''}
+                              onChange={e => updateArrayItem('subappalti', idx, { codiceFiscale: e.target.value })}
+                              className={inputBaseClasses}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Sede Legale</label>
+                            <input
+                              placeholder="Indirizzo, Comune"
+                              value={sub.sedeLegale || ''}
+                              onChange={e => updateArrayItem('subappalti', idx, { sedeLegale: e.target.value })}
+                              className={inputBaseClasses}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Riga 3: Referente, Telefono, Email e PEC */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 pt-1">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Legale Rappresentante</label>
+                            <input
+                              placeholder="Nome e Cognome"
+                              value={sub.rappresentanteLegale || ''}
+                              onChange={e => updateArrayItem('subappalti', idx, { rappresentanteLegale: e.target.value })}
+                              className={inputBaseClasses}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Telefono</label>
+                            <input
+                              placeholder="Tel / Cell"
+                              value={sub.telefono || ''}
+                              onChange={e => updateArrayItem('subappalti', idx, { telefono: e.target.value })}
+                              className={inputBaseClasses}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Email Ordinaria</label>
+                            <input
+                              type="email"
+                              placeholder="azienda@email.it"
+                              value={sub.email || ''}
+                              onChange={e => updateArrayItem('subappalti', idx, { email: e.target.value })}
+                              className={inputBaseClasses}
+                            />
+                          </div>
+                          <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase">PEC Impresa</label>
-                            <input type="email" placeholder="azienda@pec.it" value={sub.pec || ''} onChange={e => updateArrayItem('subappalti', idx, { pec: e.target.value })} className={inputBaseClasses} />
+                            <input
+                              type="email"
+                              placeholder="azienda@pec.it"
+                              value={sub.pec || ''}
+                              onChange={e => updateArrayItem('subappalti', idx, { pec: e.target.value })}
+                              className={inputBaseClasses}
+                            />
                           </div>
                         </div>
+
+                        {/* Riga 4: Prezzi e Maggiorazione */}
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-4 border-t border-slate-50 items-end">
-                          <div className="space-y-2">
-                            <label className="text-[10px] font-black text-slate-400 uppercase">Prezzo Originale (€)</label>
-                            <input type="number" step="0.01" value={sub.prezzoOriginale} onChange={e => updateArrayItem('subappalti', idx, { prezzoOriginale: parseFloat(e.target.value) })} className={inputBaseClasses} />
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-slate-400 uppercase">Prezzo Netto (€)</label>
+                            <input
+                              type="number"
+                              step="0.01"
+                              value={sub.prezzoOriginale}
+                              onChange={e => updateArrayItem('subappalti', idx, { prezzoOriginale: parseFloat(e.target.value) || 0 })}
+                              className={inputBaseClasses}
+                            />
                           </div>
-                          <div className="space-y-2">
+                          <div className="space-y-1.5">
                             <label className="text-[10px] font-black text-slate-400 uppercase">Maggiorazione (%)</label>
-                            <input type="number" step="0.1" value={sub.maggiorazione} onChange={e => updateArrayItem('subappalti', idx, { maggiorazione: parseFloat(e.target.value) })} className={inputBaseClasses} />
+                            <input
+                              type="number"
+                              step="0.1"
+                              value={sub.maggiorazione}
+                              onChange={e => updateArrayItem('subappalti', idx, { maggiorazione: parseFloat(e.target.value) || 0 })}
+                              className={inputBaseClasses}
+                            />
                           </div>
                           <div className="bg-slate-900 text-white p-4 rounded-2xl flex flex-col justify-center">
                             <span className="text-[10px] font-black uppercase text-blue-400 tracking-widest">Totale Ivato/Maggiorato</span>
                             <span className="text-lg font-black tracking-tight">{prezzoFinale.toLocaleString('it-IT', { style: 'currency', currency: 'EUR' })}</span>
                           </div>
                         </div>
-                        <div className="flex justify-end">
-                          <button type="button" onClick={() => removeArrayItem('subappalti', sub.id)} className="text-xs font-black text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl transition-all">ELIMINA SUBAPPALTO</button>
+
+                        <div className="flex justify-end pt-2 border-t border-slate-50">
+                          <button
+                            type="button"
+                            onClick={() => removeArrayItem('subappalti', sub.id)}
+                            className="text-xs font-black text-red-500 hover:bg-red-50 px-4 py-2 rounded-xl transition-all"
+                          >
+                            ELIMINA SUBAPPALTO
+                          </button>
                         </div>
                       </div>
                     );
@@ -712,6 +1003,134 @@ const EditCantiereModal: React.FC<EditCantiereModalProps> = ({ isOpen, cantiere,
             <button form="edit-cantiere-form" type="submit" className="flex-[2] md:px-12 py-5 bg-blue-600 text-white font-black rounded-[1.5rem] shadow-2xl shadow-blue-600/30 hover:bg-blue-700 transition-all hover:scale-[1.02] active:scale-95">AGGIORNA PROGETTO</button>
           </div>
         </div>
+
+        {/* Toast Notifiche */}
+        {toastNotice && (
+          <div className="fixed bottom-6 right-6 z-[70] bg-slate-900 text-white px-5 py-3 rounded-2xl shadow-2xl border border-slate-700 text-xs font-bold flex items-center gap-3 animate-in slide-in-from-bottom-5">
+            <span>{toastNotice}</span>
+            <button type="button" onClick={() => setToastNotice(null)} className="text-slate-400 hover:text-white">✕</button>
+          </div>
+        )}
+
+        {/* MODALE SELEZIONATORE RUBRICA SUBAPPALTATORI */}
+        {showRubricaPicker && (
+          <div className="fixed inset-0 z-[70] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+            <div className="bg-white rounded-[2.5rem] w-full max-w-2xl max-h-[85vh] shadow-2xl border border-slate-100 p-6 md:p-8 flex flex-col space-y-4 animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className="p-3 bg-blue-50 text-blue-600 rounded-2xl text-xl font-black">
+                    📋
+                  </span>
+                  <div>
+                    <h3 className="text-lg font-black text-slate-900 uppercase tracking-tight">
+                      Scegli Subappaltatore da Rubrica
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      {pickerTargetIdx === null ? 'Aggiungi un nuovo subappalto autocompilando i dati' : 'Sostituisci i dati del subappalto selezionato'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowRubricaPicker(false)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              {/* Ricerca */}
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Cerca per Ragione Sociale, Settore, Città, P.IVA..."
+                  value={pickerSearch}
+                  onChange={e => setPickerSearch(e.target.value)}
+                  className="w-full pl-4 pr-10 py-3 bg-slate-50 border-2 border-slate-100 rounded-2xl text-xs font-bold text-slate-900 outline-none focus:border-blue-500"
+                  autoFocus
+                />
+                {pickerSearch && (
+                  <button
+                    type="button"
+                    onClick={() => setPickerSearch('')}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-slate-600 font-bold"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
+
+              {/* Lista Ditte */}
+              <div className="flex-1 overflow-y-auto space-y-2.5 max-h-[50vh] pr-1">
+                {subappaltatoriRubrica
+                  .filter(item => {
+                    if (!pickerSearch.trim()) return true;
+                    const q = pickerSearch.toLowerCase();
+                    return (
+                      item.ragioneSociale.toLowerCase().includes(q) ||
+                      item.settore.toLowerCase().includes(q) ||
+                      item.partitaIva?.toLowerCase().includes(q) ||
+                      item.citta?.toLowerCase().includes(q)
+                    );
+                  })
+                  .map(subItem => {
+                    const durc = getDurcStatus(subItem.durcScadenza);
+                    return (
+                      <div
+                        key={subItem.id}
+                        onClick={() => handleSelectFromRubrica(subItem)}
+                        className="p-4 bg-slate-50 hover:bg-blue-50/70 border-2 border-slate-100 hover:border-blue-300 rounded-2xl cursor-pointer transition-all flex items-center justify-between gap-4 group"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-xl bg-blue-600 text-white font-black flex items-center justify-center text-xs shrink-0 group-hover:scale-105 transition-transform">
+                            {subItem.ragioneSociale.substring(0, 2).toUpperCase()}
+                          </div>
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-black text-slate-900 group-hover:text-blue-600 transition-colors truncate">
+                              {subItem.ragioneSociale}
+                            </h4>
+                            <div className="flex items-center gap-2 text-[10px] text-slate-500 mt-0.5">
+                              <span className="font-bold text-blue-700 bg-blue-100/70 px-2 py-0.2 rounded-md">
+                                {subItem.settore}
+                              </span>
+                              {subItem.citta && <span>📍 {subItem.citta}</span>}
+                              {subItem.partitaIva && <span>P.IVA: {subItem.partitaIva}</span>}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className={`px-2 py-1 rounded-lg text-[9px] font-bold border ${durc.badgeClass}`}>
+                            {durc.label}
+                          </span>
+                          <span className="px-3 py-1.5 bg-blue-600 text-white text-[10px] font-black uppercase rounded-xl group-hover:bg-blue-700 shadow-xs">
+                            Seleziona ⚡
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                {subappaltatoriRubrica.length === 0 && (
+                  <div className="p-8 text-center text-slate-400 space-y-2">
+                    <p className="text-sm font-bold text-slate-700">Nessun subappaltatore registrato in Rubrica</p>
+                    <p className="text-xs">Puoi aggiungere subappaltatori dalla sezione "Rubrica Subappalti" nella barra laterale.</p>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-2 border-t border-slate-100 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowRubricaPicker(false)}
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-100"
+                >
+                  Chiudi
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

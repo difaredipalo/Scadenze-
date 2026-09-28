@@ -31,6 +31,32 @@ export interface ExtraCantiere {
   stato?: 'approvato' | 'in attesa' | 'fatturato';
 }
 
+export interface SubappaltatoreRubrica {
+  id: string;
+  ragioneSociale: string;
+  settore: string; // es: 'Opere Murarie', 'Impianti Elettrici', 'Termoidraulica & Clima', 'Cartongesso & Pitture', 'Serramenti & Infissi', 'Ponteggi & Sicurezza', 'Carpenteria Metallica', 'Scavi & Movimento Terra', 'Impermeabilizzazioni', 'Pavimenti & Finiture', 'Altro'
+  partitaIva?: string;
+  codiceFiscale?: string;
+  sedeLegale?: string;
+  citta?: string;
+  cap?: string;
+  provincia?: string;
+  rappresentanteLegale?: string;
+  referenteContatto?: string;
+  telefono?: string;
+  email?: string;
+  pec?: string;
+  iban?: string;
+  banca?: string;
+  maggiorazioneDefault?: number; // % maggiorazione standard
+  durcScadenza?: string; // YYYY-MM-DD
+  visuraScadenza?: string; // YYYY-MM-DD
+  rcTerziScadenza?: string; // YYYY-MM-DD
+  note?: string;
+  rating?: number; // 1-5
+  dataCreazione?: string;
+}
+
 export interface Subappalto {
   id: string;
   azienda: string;
@@ -45,6 +71,9 @@ export interface Subappalto {
   codiceFiscale?: string;
   oneriSicurezza?: number;
   telefono?: string;
+  subappaltatoreId?: string; // ID collegamento con la Rubrica Subappaltatori
+  durcScadenza?: string;
+  iban?: string;
 }
 
 export interface ModelloContratto {
@@ -524,6 +553,7 @@ export type AppData = {
   personale: Personale[];
   mezzi: Mezzo[];
   documenti: Documento[];
+  subappaltatoriRubrica?: SubappaltatoreRubrica[];
   settings: AppSettings;
   posList?: PosDocument[];
   posTemplates?: PosAttivitaTemplate[];

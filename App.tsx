@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { AppData, EntityType, Cantiere, Personale, Mezzo, Documento, CantiereStato, MezzoStato, AppSettings } from './types';
+import { AppData, EntityType, Cantiere, Personale, Mezzo, Documento, CantiereStato, MezzoStato, AppSettings, SubappaltatoreRubrica, Subappalto } from './types';
 import { Icons, COLORS } from './constants';
 import StatCard from './components/StatCard';
 import AddModal from './components/AddModal';
@@ -12,6 +12,8 @@ import { BadgeGeneratorModal } from './components/BadgeGeneratorModal';
 import GaraCalculator from './components/GaraCalculator';
 import ContrattiDnlSection from './components/ContrattiDnlSection';
 import { PosSection } from './components/pos/PosSection';
+import { RubricaSubappaltatoriSection } from './components/RubricaSubappaltatoriSection';
+import { DEFAULT_SUBAPPALTATORI, extractSubappaltatoriFromCantieri, getDurcStatus } from './data/defaultSubappaltatori';
 import Login from './components/Login';
 import { getInsights, getGeminiApiKey, saveGeminiApiKey, testGeminiApiKey } from './services/geminiService';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -35,7 +37,7 @@ const INITIAL_DATA: AppData = {
       tecnici: [{ nome: 'Ing. Rossi', ruolo: 'Sicurezza', contatto: '333 1234567' }],
       checklistDocumenti: [{ id: '1', titolo: 'DURC', completato: true }, { id: '2', titolo: 'POS', completato: false }],
       salList: [{ id: '1', titolo: 'Finiture Esterne', data: '2025-09-10', importo: 97500 }],
-      subappalti: [{ id: '1', azienda: 'PosaInfissi SRL', lavoro: 'Serramenti', prezzoOriginale: 12000, maggiorazione: 10 }]
+      subappalti: [{ id: '1', azienda: 'PosaInfissi SRL', lavoro: 'Serramenti', prezzoOriginale: 12000, maggiorazione: 10, subappaltatoreId: 'sub-posainfissi-1', durcScadenza: '2026-04-30' }]
     },
     { id: '2', nome: 'Riqualificazione Centro', cliente: 'Comune Milano', scadenza: '2026-03-20', stato: 'in apertura', progresso: 10, importoTotale: 500000, indirizzo: 'Piazza Duomo, Milano', tecnici: [], checklistDocumenti: [], salList: [], subappalti: [] },
   ],
@@ -51,6 +53,7 @@ const INITIAL_DATA: AppData = {
     { id: 'd1', titolo: 'DURC Regolare', categoria: 'Aziendale', scadenza: '2025-10-30', ente: 'INPS', priorita: 'alta' },
     { id: 'd2', titolo: 'POS Cantiere A', categoria: 'Sicurezza', scadenza: '2025-12-15', ente: 'ASL', priorita: 'media' },
   ],
+  subappaltatoriRubrica: DEFAULT_SUBAPPALTATORI,
   posList: [],
   posTemplates: [],
   settings: {
@@ -109,6 +112,13 @@ const App: React.FC = () => {
           });
         }
         if (!parsed.posTemplates) parsed.posTemplates = [];
+        if (!parsed.subappaltatoriRubrica || parsed.subappaltatoriRubrica.length === 0) {
+          parsed.subappaltatoriRubrica = INITIAL_DATA.subappaltatoriRubrica || [];
+        }
+        // Auto-sincronizzazione automatica: carica e salva nella rubrica eventuali subappaltatori già definiti nei cantieri
+        const { updatedRubrica } = extractSubappaltatoriFromCantieri(parsed.cantieri || [], parsed.subappaltatoriRubrica);
+        parsed.subappaltatoriRubrica = updatedRubrica;
+
         return parsed;
       } catch (e) {
         return INITIAL_DATA;
@@ -129,7 +139,8 @@ const App: React.FC = () => {
       return false;
     }
   });
-  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'contratti_dnl' | 'pos' | 'impostazioni'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | EntityType | 'calcolatore' | 'contratti_dnl' | 'pos' | 'impostazioni' | 'subappaltatori'>('dashboard');
+  const [contractTargetSubappaltoId, setContractTargetSubappaltoId] = useState<string | undefined>(undefined);
   const [showOnlyActivePersonale, setShowOnlyActivePersonale] = useState(true);
   const [hideClosedCantieri, setHideClosedCantieri] = useState(false);
   const [hideNotInUseMezzi, setHideNotInUseMezzi] = useState(false);
@@ -483,6 +494,11 @@ const App: React.FC = () => {
       if (!d) return;
       check(d.scadenza, 'Documento', d.titolo);
     });
+    (data.subappaltatoriRubrica || []).forEach(s => {
+      if (!s) return;
+      if (s.durcScadenza) check(s.durcScadenza, 'DURC Subappalto', s.ragioneSociale);
+      if (s.rcTerziScadenza) check(s.rcTerziScadenza, 'Polizza RCT Subappalto', s.ragioneSociale);
+    });
     return list.sort((a, b) => (new Date(a.date).getTime() || 0) - (new Date(b.date).getTime() || 0));
   }, [data]);
 
@@ -676,6 +692,59 @@ const App: React.FC = () => {
   const updateEntity = (type: EntityType, updated: any) => {
     const key = getPluralKey(type);
     setData(prev => ({ ...prev, [key]: (prev[key] as any[]).map(i => i.id === updated.id ? updated : i) }));
+  };
+
+  const handleAddSubappaltatore = (newSub: SubappaltatoreRubrica) => {
+    setData(prev => {
+      const current = prev.subappaltatoriRubrica || [];
+      const exists = current.some(s => s.id === newSub.id || (s.ragioneSociale.trim().toLowerCase() === newSub.ragioneSociale.trim().toLowerCase()));
+      if (exists) {
+        return {
+          ...prev,
+          subappaltatoriRubrica: current.map(s => (s.id === newSub.id || s.ragioneSociale.trim().toLowerCase() === newSub.ragioneSociale.trim().toLowerCase()) ? { ...s, ...newSub } : s)
+        };
+      }
+      return {
+        ...prev,
+        subappaltatoriRubrica: [newSub, ...current]
+      };
+    });
+  };
+
+  const handleUpdateSubappaltatore = (updated: SubappaltatoreRubrica) => {
+    setData(prev => ({
+      ...prev,
+      subappaltatoriRubrica: (prev.subappaltatoriRubrica || []).map(s => s.id === updated.id ? updated : s)
+    }));
+  };
+
+  const handleDeleteSubappaltatore = (id: string) => {
+    setData(prev => ({
+      ...prev,
+      subappaltatoriRubrica: (prev.subappaltatoriRubrica || []).filter(s => s.id !== id)
+    }));
+  };
+
+  const handleBatchUpdateRubrica = (updatedList: SubappaltatoreRubrica[]) => {
+    setData(prev => ({
+      ...prev,
+      subappaltatoriRubrica: updatedList
+    }));
+  };
+
+  const handleAssignSubappaltoToCantiere = (cantiereId: string, subappalto: Subappalto) => {
+    setData(prev => ({
+      ...prev,
+      cantieri: prev.cantieri.map(c => {
+        if (c.id === cantiereId) {
+          return {
+            ...c,
+            subappalti: [...(c.subappalti || []), subappalto]
+          };
+        }
+        return c;
+      })
+    }));
   };
 
   const renderDashboard = () => {
@@ -2390,6 +2459,7 @@ const App: React.FC = () => {
           {[
             { id: 'dashboard', label: 'Dashboard', icon: <Icons.Dashboard /> },
             { id: 'cantiere', label: 'Cantieri', icon: <Icons.Cantiere /> },
+            { id: 'subappaltatori', label: 'Rubrica Subappalti', icon: <Icons.AddressBook /> },
             { id: 'contratti_dnl', label: 'Contratti & DNL', icon: <Icons.Contract /> },
             { id: 'pos', label: 'Modulo POS', icon: <Icons.Shield /> },
             { id: 'personale', label: 'Personale', icon: <Icons.Personale /> },
@@ -2398,9 +2468,16 @@ const App: React.FC = () => {
             { id: 'calcolatore', label: 'Calcolatore', icon: <Icons.Calculator /> },
             { id: 'impostazioni', label: 'Setup', icon: <Icons.Settings /> },
           ].map(item => (
-            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center gap-4 p-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-              {item.icon}
-              <span className="hidden md:block font-black text-[10px] uppercase tracking-widest">{item.label}</span>
+            <button key={item.id} onClick={() => setActiveTab(item.id as any)} className={`w-full flex items-center justify-between p-4 rounded-2xl transition-all ${activeTab === item.id ? 'bg-blue-600 text-white shadow-xl shadow-blue-600/20' : 'text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+              <div className="flex items-center gap-4">
+                {item.icon}
+                <span className="hidden md:block font-black text-[10px] uppercase tracking-widest">{item.label}</span>
+              </div>
+              {item.id === 'subappaltatori' && (data.subappaltatoriRubrica?.length || 0) > 0 && (
+                <span className={`hidden md:inline px-2 py-0.5 rounded-full text-[9px] font-black ${activeTab === item.id ? 'bg-white text-blue-600' : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'}`}>
+                  {data.subappaltatoriRubrica?.length}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -2657,11 +2734,30 @@ const App: React.FC = () => {
           {activeTab === 'dashboard' ? renderDashboard() : 
            activeTab === 'impostazioni' ? renderSettings() : 
            activeTab === 'calcolatore' ? <GaraCalculator /> :
+           activeTab === 'subappaltatori' ? (
+             <RubricaSubappaltatoriSection
+               rubrica={data.subappaltatoriRubrica || []}
+               cantieri={data.cantieri}
+               onAddSubappaltatore={handleAddSubappaltatore}
+               onUpdateSubappaltatore={handleUpdateSubappaltatore}
+               onDeleteSubappaltatore={handleDeleteSubappaltatore}
+               onBatchUpdateRubrica={handleBatchUpdateRubrica}
+               onAssignToCantiere={handleAssignSubappaltoToCantiere}
+               onNavigateToContratti={(_cantiereId, subappaltoId) => {
+                 if (subappaltoId) {
+                   setContractTargetSubappaltoId(subappaltoId);
+                 }
+                 setActiveTab('contratti_dnl');
+               }}
+             />
+           ) :
            activeTab === 'contratti_dnl' ? (
              <ContrattiDnlSection
                cantieri={data.cantieri}
                settings={data.settings}
                personaleList={data.personale}
+               subappaltatoriRubrica={data.subappaltatoriRubrica || []}
+               initialSubappaltoId={contractTargetSubappaltoId}
                onUpdateCantiere={(u) => updateEntity('cantiere', u)}
                onUpdateSettings={(s) => setData(prev => ({ ...prev, settings: s }))}
                onShowToast={(type, msg) => showCloudToast(type, msg)}
@@ -2709,9 +2805,16 @@ const App: React.FC = () => {
           const key = getPluralKey(t);
           setData(prev => ({ ...prev, [key]: [...(prev[key] as any[]), d] }));
         }} 
-        defaultType={activeTab !== 'dashboard' && activeTab !== 'impostazioni' ? activeTab as EntityType : 'cantiere'} 
+        defaultType={activeTab !== 'dashboard' && activeTab !== 'impostazioni' && activeTab !== 'subappaltatori' ? activeTab as EntityType : 'cantiere'} 
       />
-      <EditCantiereModal isOpen={!!selectedCantiere} cantiere={selectedCantiere} onClose={()=>setSelectedCantiere(null)} onSave={(u)=>updateEntity('cantiere', u)} />
+      <EditCantiereModal
+        isOpen={!!selectedCantiere}
+        cantiere={selectedCantiere}
+        onClose={() => setSelectedCantiere(null)}
+        onSave={(u) => updateEntity('cantiere', u)}
+        subappaltatoriRubrica={data.subappaltatoriRubrica || []}
+        onSaveToRubrica={handleAddSubappaltatore}
+      />
       <EditPersonaleModal 
         isOpen={!!selectedPersonale} 
         personale={selectedPersonale} 

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Cantiere, AppSettings, Personale, DnlData, CustomContractVariable, Subappalto, ModelloContratto } from '../types';
+import { Cantiere, AppSettings, Personale, DnlData, CustomContractVariable, Subappalto, ModelloContratto, SubappaltatoreRubrica } from '../types';
 import { Icons } from '../constants';
 import {
   CONTRACT_VARIABLES,
@@ -25,6 +25,8 @@ interface ContrattiDnlSectionProps {
   cantieri: Cantiere[];
   settings: AppSettings;
   personaleList: Personale[];
+  subappaltatoriRubrica?: SubappaltatoreRubrica[];
+  initialSubappaltoId?: string;
   onUpdateCantiere: (updatedCantiere: Cantiere) => void;
   onUpdateSettings: (newSettings: AppSettings) => void;
   onShowToast?: (type: 'success' | 'error' | 'info', message: string) => void;
@@ -34,6 +36,8 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
   cantieri,
   settings,
   personaleList,
+  subappaltatoriRubrica = [],
+  initialSubappaltoId,
   onUpdateCantiere,
   onUpdateSettings,
   onShowToast,
@@ -110,12 +114,18 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
   const [contractViewMode, setContractViewMode] = useState<'edit' | 'preview'>('preview');
 
   // ================= SUBAPPALTO SELEZIONATO PER AUTOCOMPILAZIONE =================
-  const [selectedSubappaltoId, setSelectedSubappaltoId] = useState<string | null>(null);
+  const [selectedSubappaltoId, setSelectedSubappaltoId] = useState<string | null>(() => {
+    return initialSubappaltoId || null;
+  });
 
-  // Reset al cambio cantiere
+  // Reset o sincronizza al cambio cantiere o initialSubappaltoId
   useEffect(() => {
-    setSelectedSubappaltoId(null);
-  }, [selectedCantiereId]);
+    if (initialSubappaltoId) {
+      setSelectedSubappaltoId(initialSubappaltoId);
+    } else {
+      setSelectedSubappaltoId(null);
+    }
+  }, [selectedCantiereId, initialSubappaltoId]);
 
   const selectedSubappalto = useMemo(() => {
     if (!selectedSubappaltoId || !selectedCantiere?.subappalti) return null;
@@ -2785,6 +2795,47 @@ export const ContrattiDnlSection: React.FC<ContrattiDnlSectionProps> = ({
             </div>
 
             <form onSubmit={handleSaveNewSubappalto} className="space-y-4">
+              {/* Selezione rapida da Rubrica */}
+              {subappaltatoriRubrica && subappaltatoriRubrica.length > 0 && (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-2xl space-y-1.5">
+                  <label className="text-[10px] font-black text-blue-900 dark:text-blue-200 uppercase tracking-wider flex items-center gap-1.5">
+                    <span>📋 Importa velocemente da Rubrica Subappaltatori:</span>
+                  </label>
+                  <select
+                    onChange={(e) => {
+                      const picked = subappaltatoriRubrica.find(r => r.id === e.target.value);
+                      if (picked) {
+                        setNewSubForm(prev => ({
+                          ...prev,
+                          azienda: picked.ragioneSociale,
+                          lavoro: picked.settore || prev.lavoro,
+                          partitaIva: picked.partitaIva || '',
+                          codiceFiscale: picked.codiceFiscale || '',
+                          email: picked.email || '',
+                          pec: picked.pec || '',
+                          sedeLegale: picked.sedeLegale || '',
+                          rappresentanteLegale: picked.rappresentanteLegale || '',
+                          telefono: picked.telefono || '',
+                          maggiorazione: picked.maggiorazioneDefault !== undefined ? picked.maggiorazioneDefault : (prev.maggiorazione || 10),
+                          subappaltatoreId: picked.id,
+                          durcScadenza: picked.durcScadenza || '',
+                          iban: picked.iban || '',
+                        }));
+                      }
+                    }}
+                    defaultValue=""
+                    className="w-full p-2.5 bg-white dark:bg-slate-800 border-2 border-blue-200 dark:border-blue-700 rounded-xl text-xs font-bold text-slate-900 dark:text-white outline-none cursor-pointer"
+                  >
+                    <option value="" disabled>-- Seleziona una ditta dalla Rubrica per autocompilare tutti i dati --</option>
+                    {subappaltatoriRubrica.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.ragioneSociale} ({r.settore}) - {r.citta || 'Italia'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider">
