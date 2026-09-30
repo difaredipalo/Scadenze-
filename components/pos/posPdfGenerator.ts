@@ -330,7 +330,7 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
       ['CAPITOLO 6', 'CRITERI E METODOLOGIA DI VALUTAZIONE DEI RISCHI (4x4)', 'Art. 28 e All. XV'],
       ['CAPITOLO 7', 'CONTESTO AMBIENTALE E CONDIZIONI AL CONTORNO', 'All. XV punto 2.1 lett. h'],
       ['CAPITOLO 8', 'PROGRAMMAZIONE, TURNI DI LAVORO E GESTIONE PRESENZE', 'Art. 26 c. 8 e All. XV'],
-      ['CAPITOLO 9', 'SCHEDE DELLE LAVORAZIONI E SMART LINKING', 'All. XV punto 2.1 lett. i'],
+      ['CAPITOLO 9', 'SCHEDE DELLE LAVORAZIONI E FASI OPERATIVE', 'All. XV punto 2.1 lett. i'],
       ['CAPITOLO 10', 'SCHEDE ATTREZZATURE, MACCHINE E UTENSILI', 'Titolo III, All. V e VI'],
       ['CAPITOLO 11', 'OPERE PROVVISIONALI E LAVORI IN QUOTA (Ponteggi, Trabattelli)', 'Titolo IV Capo II'],
       ['CAPITOLO 12', 'SOSTANZE CHIMICHE E PREPARATI PERICOLOSI (Schede SDS)', 'Titolo IX Capo I'],
@@ -563,9 +563,9 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
   });
 
   // ==========================================
-  // CAPITOLO 9: SCHEDE LAVORAZIONI E SMART LINKING
+  // CAPITOLO 9: SCHEDE LAVORAZIONI E FASI OPERATIVE
   // ==========================================
-  addChapterHeader(9, 'Schede delle Lavorazioni (Smart Linking)');
+  addChapterHeader(9, 'Schede delle Lavorazioni');
 
   let currentY = margin + 11;
   let activitiesCount = 0;
@@ -596,7 +596,7 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
 
   attivitaList.forEach((att, idx) => {
     if (activitiesCount >= 2 || currentY > pageHeight - 95) {
-      addChapterHeader(9, 'Schede delle Lavorazioni (Smart Linking)');
+      addChapterHeader(9, 'Schede delle Lavorazioni');
       currentY = margin + 11;
       activitiesCount = 0;
     }
@@ -615,7 +615,7 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
       head: [[`SCHEDA FASE ${idx + 1}: ${att.nome.toUpperCase()}`, `Categoria: ${att.faseLavoro || (att as any).categoria || 'Generale'}`]],
       body: [
         [{ content: `Modalità Operative & Sequenza: ${att.descrizione}`, colSpan: 2 }],
-        [{ content: `Collegamenti di Sicurezza (Smart Linking): ${smartLinkingSummary}`, colSpan: 2, styles: { fontStyle: 'bold', textColor: [30, 58, 138] } }],
+        [{ content: `Collegamenti di Sicurezza: ${smartLinkingSummary}`, colSpan: 2, styles: { fontStyle: 'bold', textColor: [30, 58, 138] } }],
         [{ content: `Prescrizione DPI Obbligatori: ${dpiFormatted}`, colSpan: 2, styles: { fontStyle: 'bold', textColor: [15, 23, 42], fillColor: [241, 245, 249] } }],
       ],
       theme: 'grid',

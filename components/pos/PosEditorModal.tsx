@@ -106,7 +106,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
     { key: 'cap6', label: 'Cap. 6: Metodologia Rischi (4×4)', icon: '📊' },
     { key: 'cap7', label: 'Cap. 7: Contesto Ambientale', icon: '🌍' },
     { key: 'cap8', label: 'Cap. 8: Turni & Presenze', icon: '⏱️' },
-    { key: 'cap9', label: 'Cap. 9: Lavorazioni (Smart Linking)', icon: '🔨' },
+    { key: 'cap9', label: 'Cap. 9: Schede Lavorazioni', icon: '🔨' },
     { key: 'cap10', label: 'Cap. 10: Schede Attrezzature', icon: '🚜' },
     { key: 'cap11', label: 'Cap. 11: Opere Provvisionali', icon: '🪜' },
     { key: 'cap12', label: 'Cap. 12: Sostanze Chimiche (SDS)', icon: '🧪' },
@@ -114,6 +114,10 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
     { key: 'cap14', label: 'Cap. 14: Allegati & Firme', icon: '📎' },
     { key: 'controllo', label: 'Audit di Conformità', icon: '✅' },
   ];
+
+  const currentTabIndex = tabs.findIndex(t => t.key === activeTab);
+  const prevTab = currentTabIndex > 0 ? tabs[currentTabIndex - 1] : null;
+  const nextTab = currentTabIndex >= 0 && currentTabIndex < tabs.length - 1 ? tabs[currentTabIndex + 1] : null;
 
   const renderBadgeMissing = (val?: string | number) => {
     if (!val || (typeof val === 'string' && !val.trim())) {
@@ -1194,7 +1198,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
             />
           )}
 
-          {/* CAPITOLO 9: SCHEDE LAVORAZIONI CON SMART LINKING */}
+          {/* CAPITOLO 9: SCHEDE LAVORAZIONI E FASI OPERATIVE */}
           {activeTab === 'cap9' && (
             <PosSmartLinkingEditor
               attivita={formData.attivita}
@@ -1448,25 +1452,72 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
           )}
         </div>
 
-        {/* Footer Bar */}
-        <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
-          <div className="text-xs text-slate-500">
-            Ultima modifica: {new Date(formData.updatedAt).toLocaleDateString('it-IT')}
+        {/* Footer Bar con Navigazione Scheda Precedente / Successiva */}
+        <div className="p-3.5 sm:p-4 border-t border-slate-200 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-slate-50/70 dark:bg-slate-900/70 shrink-0">
+          {/* Pulsanti Scheda Precedente / Successiva */}
+          <div className="flex items-center gap-2 w-full sm:w-auto justify-between sm:justify-start">
+            <button
+              type="button"
+              onClick={() => {
+                if (prevTab) {
+                  setActiveTab(prevTab.key);
+                }
+              }}
+              disabled={!prevTab}
+              className="px-3.5 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
+              title={prevTab ? `Torna alla scheda: ${prevTab.label}` : 'Sei sulla prima scheda'}
+            >
+              <span>←</span>
+              <span>Scheda Precedente</span>
+              {prevTab && (
+                <span className="hidden md:inline text-[10px] text-slate-400 font-normal">
+                  ({prevTab.icon} {prevTab.label.split(':')[0]})
+                </span>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                if (nextTab) {
+                  setActiveTab(nextTab.key);
+                }
+              }}
+              disabled={!nextTab}
+              className="px-3.5 py-2 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 disabled:opacity-40 disabled:cursor-not-allowed font-bold text-xs flex items-center gap-1.5 transition-all shadow-xs"
+              title={nextTab ? `Vai alla scheda: ${nextTab.label}` : 'Sei sull\'ultima scheda'}
+            >
+              <span>Scheda Successiva</span>
+              {nextTab && (
+                <span className="hidden md:inline text-[10px] text-blue-500 font-normal">
+                  ({nextTab.icon} {nextTab.label.split(':')[0]})
+                </span>
+              )}
+              <span>→</span>
+            </button>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white font-bold text-xs uppercase tracking-wider"
-            >
-              Chiudi
-            </button>
-            <button
-              onClick={handleSave}
-              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-blue-600/20 transition-all"
-            >
-              💾 Salva Piano Operativo
-            </button>
+          <div className="flex items-center justify-between sm:justify-end gap-3 w-full sm:w-auto">
+            <div className="text-[11px] text-slate-500 hidden xl:block">
+              Ultima modifica: {new Date(formData.updatedAt).toLocaleDateString('it-IT')}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={onClose}
+                className="px-4 py-2 rounded-xl text-slate-500 hover:text-slate-900 dark:hover:text-white font-bold text-xs uppercase tracking-wider transition-colors"
+              >
+                Chiudi
+              </button>
+              <button
+                type="button"
+                onClick={handleSave}
+                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase tracking-wider shadow-md shadow-blue-600/20 transition-all flex items-center gap-1.5"
+              >
+                <span>💾</span> <span>Salva POS</span>
+              </button>
+            </div>
           </div>
         </div>
       </div>

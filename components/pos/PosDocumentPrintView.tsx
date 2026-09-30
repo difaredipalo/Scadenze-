@@ -392,7 +392,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             <div><strong>CAPITOLO 1:</strong> DATI IDENTIFICATIVI</div>
             <div><strong>CAPITOLO 8:</strong> PROGRAMMAZIONE, TURNI E PRESENZE</div>
             <div><strong>CAPITOLO 2:</strong> DESCRIZIONE DELL'OPERA E DEI LAVORI</div>
-            <div><strong>CAPITOLO 9:</strong> SCHEDE DELLE LAVORAZIONI (SMART LINKING)</div>
+            <div><strong>CAPITOLO 9:</strong> SCHEDE DELLE LAVORAZIONI E FASI OPERATIVE</div>
             <div><strong>CAPITOLO 3:</strong> PERSONALE, MANSIONI E ORGANIZZAZIONE</div>
             <div><strong>CAPITOLO 10:</strong> SCHEDE ATTREZZATURE, MACCHINE E UTENSILI</div>
             <div><strong>CAPITOLO 4:</strong> RIFERIMENTI NORMATIVI E DEFINIZIONI</div>
@@ -764,7 +764,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
           <div className="flex items-center gap-2 border-b-2 border-slate-900 pb-1 mb-3">
             <span className="px-2 py-0.5 bg-slate-900 text-white text-[10px] font-black">CAP. 9</span>
             <h2 className="text-xs font-black text-slate-900 uppercase">
-              SCHEDE DELLE LAVORAZIONI E SMART LINKING (LAVORAZIONE - ATTREZZATURE - SOSTANZE - OPERE PROVVISIONALI - RISCHI P x D - MISURE - DPI)
+              SCHEDE DELLE LAVORAZIONI E FASI OPERATIVE (LAVORAZIONE - ATTREZZATURE - SOSTANZE - OPERE PROVVISIONALI - RISCHI P x D - MISURE - DPI)
             </h2>
           </div>
 
@@ -806,7 +806,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                   <span>{att.descrizione}</span>
                 </div>
 
-                {/* Catena Smart Linking: Attrezzature, Sostanze e Opere */}
+                {/* Collegamenti di Sicurezza: Attrezzature, Sostanze e Opere */}
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[10px] mb-3 bg-slate-50 p-2.5 border border-slate-300 rounded">
                   <div>
                     <strong className="block text-slate-900 uppercase mb-0.5 font-black">🚜 Attrezzature Utilizzate:</strong>

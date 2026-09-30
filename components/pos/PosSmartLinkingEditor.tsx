@@ -47,13 +47,58 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
 }) => {
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
   const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
+  const [librarySearch, setLibrarySearch] = useState<string>('');
+  const [libraryCategory, setLibraryCategory] = useState<string>('Tutte');
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [isLogoPickerOpen, setIsLogoPickerOpen] = useState<boolean>(false);
   const [customDpiText, setCustomDpiText] = useState<string>('');
 
   const currentAttivita = attivita[selectedIdx] || null;
 
-  // Applicazione della proposta automatica da catalogo (Smart Linking)
+  // Aggiunta diretta di una nuova scheda dalla libreria al documento POS
+  const handleAddActivityFromTemplate = (tpl: PosAttivitaTemplate) => {
+    const nuova: PosAttivitaItem = {
+      id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      nome: tpl.nome,
+      categoria: tpl.categoria,
+      icona: tpl.icona,
+      descrizione: tpl.descrizione,
+      faseLavoro: tpl.faseLavoro,
+      personaleCoinvolto: (lavoratori || []).map(l => `${l.nome} ${l.cognome}`),
+      attrezzatureUtilizzate: [...tpl.attrezzatureTipiche],
+      materialiUtilizzati: [...tpl.materialiTipici],
+      sostanzeUtilizzate: [...(tpl.sostanzeTipiche || [])],
+      opereProvvisionaliUtilizzate: [...(tpl.opereProvvisionaliTipiche || [])],
+      rischi: (tpl.rischi || []).map(r => ({
+        ...r,
+        id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+        probabilita: r.probabilita || 2,
+        danno: r.danno || 2,
+        livelloRischio: (r.probabilita || 2) * (r.danno || 2),
+        classeRischio: CALCOLA_RISCHIO(r.probabilita || 2, r.danno || 2).classe,
+      })),
+      misurePrevenzione: [...tpl.misurePrevenzione],
+      dpiNecessari: [...tpl.dpiRaccomandati],
+      interferenze: tpl.interferenze || 'Verificare l’assenza di interferenze operative prima dell’avvio dei lavori.',
+      note: tpl.note,
+    };
+
+    const updatedList = [...attivita, nuova];
+    onChangeAttivita(updatedList);
+    setSelectedIdx(updatedList.length - 1);
+
+    // Registra gli elementi utilizzati nei capitoli globali (Attrezzature, Sostanze, Opere)
+    onSyncGlobalCatalog({
+      attrezzature: nuova.attrezzatureUtilizzate,
+      sostanze: nuova.sostanzeUtilizzate,
+      opere: nuova.opereProvvisionaliUtilizzate,
+    });
+
+    setSyncNotice(`✓ Scheda "${tpl.nome}" aggiunta direttamente alle lavorazioni del POS!`);
+    setTimeout(() => setSyncNotice(null), 4000);
+  };
+
+  // Applicazione della proposta da catalogo alla scheda selezionata
   const handleApplySmartProposal = (tpl: PosAttivitaTemplate) => {
     if (!currentAttivita) return;
 
@@ -88,8 +133,14 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
     const newAttivitaList = attivita.map((a, i) => (i === selectedIdx ? updated : a));
     onChangeAttivita(newAttivitaList);
 
-    // Notifica
-    setSyncNotice(`✓ Proposta Smart Linking applicata per "${tpl.nome}" (Attrezzature, Sostanze, Opere, Rischi PxD, Misure e DPI collegati)`);
+    // Registra elementi nei capitoli globali
+    onSyncGlobalCatalog({
+      attrezzature: updated.attrezzatureUtilizzate,
+      sostanze: updated.sostanzeUtilizzate,
+      opere: updated.opereProvvisionaliUtilizzate,
+    });
+
+    setSyncNotice(`✓ Dati del modello applicati alla scheda "${tpl.nome}" (Attrezzature, Sostanze, Opere, Rischi PxD, Misure e DPI collegati)`);
     setTimeout(() => setSyncNotice(null), 4000);
   };
 
@@ -208,9 +259,25 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
     return found ? found.icona : '🛡️';
   };
 
+  // Filtro template libreria
+  const allTemplates = [...DEFAULT_POS_TEMPLATES, ...customTemplates];
+  const allCategories = ['Tutte', ...Array.from(new Set(allTemplates.map(t => t.categoria || 'Generale')))];
+
+  const filteredTemplates = allTemplates.filter(t => {
+    const matchesCat = libraryCategory === 'Tutte' || t.categoria === libraryCategory;
+    const q = librarySearch.toLowerCase().trim();
+    if (!q) return matchesCat;
+    const matchesQuery =
+      t.nome.toLowerCase().includes(q) ||
+      t.descrizione.toLowerCase().includes(q) ||
+      (t.categoria && t.categoria.toLowerCase().includes(q)) ||
+      t.faseLavoro.toLowerCase().includes(q);
+    return matchesCat && matchesQuery;
+  });
+
   return (
     <div className="space-y-6">
-      {/* Banner Informativo Smart Linking */}
+      {/* Banner Informativo Lavorazioni */}
       <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-slate-800 dark:to-slate-800/60 border border-blue-200 dark:border-blue-900/50 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -219,10 +286,10 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
                 CAPITOLO 9
               </span>
               <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tight text-sm">
-                SCHEDE DELLE LAVORAZIONI & MOTORE SMART LINKING
+                SCHEDE DELLE LAVORAZIONI E FASI OPERATIVE
               </h3>
             </div>
-            {/* Diagramma del flusso Smart Linking */}
+            {/* Diagramma del flusso operativo */}
             <div className="flex flex-wrap items-center gap-1 text-[11px] font-bold text-slate-600 dark:text-slate-300 mt-2">
               <span className="px-2 py-0.5 bg-white dark:bg-slate-700 rounded-md border border-slate-200 dark:border-slate-600 text-blue-700 dark:text-blue-300">LAVORAZIONE</span>
               <span>↓</span>
@@ -244,16 +311,16 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
             <button
               type="button"
               onClick={handleAddNewActivity}
-              className="px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5"
             >
-              <span>+</span> <span>Nuova Lavorazione</span>
+              <span>+</span> <span>Nuova Scheda Vuota</span>
             </button>
             <button
               type="button"
               onClick={() => setIsLibraryOpen(true)}
-              className="px-3 py-2 bg-white dark:bg-slate-700 hover:bg-slate-100 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl text-xs font-black uppercase tracking-wider border border-slate-200 dark:border-slate-600 shadow-sm transition-all flex items-center gap-1.5"
+              className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5"
             >
-              <span>📚</span> <span>Importa da Libreria</span>
+              <span>📚</span> <span>Aggiungi da Libreria</span>
             </button>
           </div>
         </div>
@@ -265,52 +332,142 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
         )}
       </div>
 
-      {/* Modal Libreria Attività */}
+      {/* Modal Libreria Attività con inserimento diretto e filtri */}
       {isLibraryOpen && (
-        <div className="p-4 rounded-2xl bg-white dark:bg-slate-800 border-2 border-blue-500 shadow-xl space-y-4">
-          <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-2">
+        <div className="p-4 sm:p-5 rounded-2xl bg-white dark:bg-slate-800 border-2 border-emerald-500 shadow-2xl space-y-4 animate-in fade-in-50">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-3 gap-3">
             <div>
-              <h4 className="font-black text-sm uppercase text-slate-900 dark:text-white">
-                Libreria Lavorazioni con Smart Linking Completo
-              </h4>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Seleziona un modello: verranno proposti automaticamente attrezzature, sostanze, opere provvisionali, rischi con matrice PxD, misure e DPI.
+              <div className="flex items-center gap-2">
+                <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300 rounded font-black text-[10px] uppercase">
+                  Catalogo Completo
+                </span>
+                <h4 className="font-black text-sm uppercase text-slate-900 dark:text-white">
+                  Libreria Schede Lavorazioni
+                </h4>
+              </div>
+              <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-0.5">
+                Aggiungi direttamente le schede al tuo POS con tutte le attrezzature, sostanze, opere, rischi PxD, misure e DPI già compilati.
               </p>
             </div>
             <button
               type="button"
               onClick={() => setIsLibraryOpen(false)}
-              className="px-3 py-1 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold"
+              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold self-start sm:self-center"
             >
-              Chiudi
+              ✕ Chiudi Libreria
             </button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-72 overflow-y-auto pr-1">
-            {[...DEFAULT_POS_TEMPLATES, ...customTemplates].map(tpl => (
-              <div
-                key={tpl.id}
-                onClick={() => {
-                  handleApplySmartProposal(tpl);
-                  setIsLibraryOpen(false);
-                }}
-                className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50/50 dark:hover:bg-slate-700/50 cursor-pointer transition-all space-y-1.5"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">{tpl.icona}</span>
-                  <span className="font-black text-xs text-slate-900 dark:text-white leading-tight">{tpl.nome}</span>
-                </div>
-                <p className="text-[10px] text-slate-500 dark:text-slate-400 line-clamp-2">{tpl.descrizione}</p>
-                <div className="flex flex-wrap gap-1 text-[9px]">
-                  <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 rounded text-slate-600 dark:text-slate-300 font-bold">
-                    {tpl.attrezzatureTipiche.length} Attrezzature
-                  </span>
-                  <span className="px-1.5 py-0.5 bg-rose-50 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300 rounded font-bold">
-                    {tpl.rischi.length} Rischi PxD
-                  </span>
-                </div>
+          {/* Barra di ricerca e filtri per categoria */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div className="relative flex-1">
+              <input
+                type="text"
+                value={librarySearch}
+                onChange={e => setLibrarySearch(e.target.value)}
+                placeholder="Cerca lavorazione (es. cartongesso, scavi, intonaco, demolizione, ponteggi)..."
+                className="w-full pl-9 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500/30"
+              />
+              <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
+              {librarySearch && (
+                <button
+                  type="button"
+                  onClick={() => setLibrarySearch('')}
+                  className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1 overflow-x-auto max-h-12 py-1">
+              {allCategories.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setLibraryCategory(cat)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition-all shrink-0 ${
+                    libraryCategory === cat
+                      ? 'bg-emerald-600 text-white shadow-xs'
+                      : 'bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-600'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Griglia Modelli */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 max-h-96 overflow-y-auto pr-1">
+            {filteredTemplates.length === 0 ? (
+              <div className="col-span-full py-8 text-center text-slate-400 text-xs font-bold">
+                Nessun modello trovato per "{librarySearch}". Prova con un altro termine o categoria.
               </div>
-            ))}
+            ) : (
+              filteredTemplates.map(tpl => (
+                <div
+                  key={tpl.id}
+                  className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/40 hover:border-emerald-500 hover:bg-emerald-50/20 dark:hover:bg-slate-800 transition-all flex flex-col justify-between space-y-2.5"
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-2xl">{tpl.icona}</span>
+                        <div>
+                          <span className="font-black text-xs text-slate-900 dark:text-white leading-tight block">
+                            {tpl.nome}
+                          </span>
+                          <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">
+                            {tpl.categoria}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-slate-600 dark:text-slate-400 line-clamp-2 mt-1.5">
+                      {tpl.descrizione}
+                    </p>
+
+                    <div className="flex flex-wrap gap-1 text-[9px] mt-2">
+                      <span className="px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded text-slate-600 dark:text-slate-300 font-bold">
+                        🚜 {tpl.attrezzatureTipiche.length} Mezzi/Attrezzi
+                      </span>
+                      <span className="px-1.5 py-0.5 bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded text-rose-700 dark:text-rose-300 font-bold">
+                        ⚠️ {tpl.rischi.length} Rischi PxD
+                      </span>
+                      <span className="px-1.5 py-0.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-900 rounded text-blue-700 dark:text-blue-300 font-bold">
+                        🛡️ {tpl.dpiRaccomandati.length} DPI
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Pulsanti Azione: Aggiunta Diretta o Applicazione */}
+                  <div className="pt-2 border-t border-slate-200/80 dark:border-slate-700/80 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleAddActivityFromTemplate(tpl)}
+                      className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-black uppercase tracking-wider transition-all flex items-center justify-center gap-1 shadow-xs active:scale-95"
+                      title="Aggiunge una nuova scheda lavorazione completa direttamente a questo POS"
+                    >
+                      <span>➕</span> <span>Aggiungi al POS</span>
+                    </button>
+                    {currentAttivita && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          handleApplySmartProposal(tpl);
+                          setIsLibraryOpen(false);
+                        }}
+                        className="py-1.5 px-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg text-[10px] font-bold transition-all"
+                        title="Sovrascrive la scheda lavorazione attualmente aperta"
+                      >
+                        Applica a questa
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
@@ -319,9 +476,21 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Colonna Sinistra: Elenco Lavorazioni */}
         <div className="space-y-2">
-          <h4 className="font-black text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
-            Lavorazioni nel POS ({attivita.length})
-          </h4>
+          <div className="flex items-center justify-between">
+            <h4 className="font-black text-slate-700 dark:text-slate-300 text-xs uppercase tracking-wider">
+              Lavorazioni ({attivita.length})
+            </h4>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setIsLibraryOpen(true)}
+                className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 hover:underline flex items-center gap-0.5"
+                title="Sfoglia libreria lavorazioni"
+              >
+                <span>+ Libreria</span>
+              </button>
+            </div>
+          </div>
           <div className="space-y-1.5 max-h-[70vh] overflow-y-auto pr-1">
             {attivita.map((att, idx) => {
               const isSelected = selectedIdx === idx;
@@ -361,7 +530,7 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
           </div>
         </div>
 
-        {/* Colonna Destra: Dettaglio Lavorazione & Catena Smart Linking */}
+        {/* Colonna Destra: Dettaglio Lavorazione & Misure di Sicurezza */}
         {currentAttivita && (
           <div className="lg:col-span-3 space-y-5 bg-white dark:bg-slate-800/40 p-6 rounded-2xl border border-slate-200 dark:border-slate-800">
             {/* Riga 1: Nome, Categoria, Fase e Logo della Scheda */}
@@ -432,12 +601,19 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
               />
             </div>
 
-            {/* Pulsanti Rapidi Smart Linking per questa lavorazione */}
+            {/* Modelli e Strumenti di Sicurezza per questa lavorazione */}
             <div className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/70 border border-slate-200 dark:border-slate-700">
               <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                ⚡ Proposte Automatiche Smart Linking:
+                💡 Modelli e Strumenti per la Fase Operativa:
               </span>
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsLibraryOpen(true)}
+                  className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all flex items-center gap-1 shadow-xs"
+                >
+                  <span>📚</span> <span>Sfoglia Libreria</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -447,9 +623,10 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
                     ) || DEFAULT_POS_TEMPLATES[0];
                     handleApplySmartProposal(match);
                   }}
-                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all"
+                  className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[11px] font-black uppercase tracking-wider transition-all"
+                  title="Applica i rischi e le misure del modello suggerito a questa scheda"
                 >
-                  ⚡ Applica Proposta Catalogo
+                  📋 Applica Dati Modello Suggerito
                 </button>
                 <button
                   type="button"

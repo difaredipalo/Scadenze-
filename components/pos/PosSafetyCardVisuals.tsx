@@ -115,10 +115,17 @@ export const DPI_VISUAL_REGISTRY: Record<string, DpiVisualMeta> = {
 };
 
 /**
- * Recupera i metadati visivi e la norma del DPI a partire da qualunque stringa
+ * Recupera i metadati visivi e la norma del DPI a partire da qualunque stringa o oggetto
  */
-export function getDpiVisualMeta(nameOrId: string): DpiVisualMeta {
-  const clean = (nameOrId || '').toLowerCase().trim();
+export function getDpiVisualMeta(nameOrId: any): DpiVisualMeta {
+  const safeStr = typeof nameOrId === 'string'
+    ? nameOrId
+    : (nameOrId && typeof nameOrId === 'object' && nameOrId.nome)
+    ? String(nameOrId.nome)
+    : (nameOrId && typeof nameOrId === 'object' && nameOrId.id)
+    ? String(nameOrId.id)
+    : String(nameOrId || '');
+  const clean = safeStr.toLowerCase().trim();
 
   // 1. Ricerca diretta per chiave ID
   if (DPI_VISUAL_REGISTRY[clean]) {
@@ -166,7 +173,7 @@ export function getDpiVisualMeta(nameOrId: string): DpiVisualMeta {
   // Fallback generico
   return {
     id: 'dpi_generico',
-    nome: nameOrId,
+    nome: safeStr || 'DPI di Sicurezza',
     norma: 'UNI EN D.Lgs. 81/08 All. VIII',
     categoria: 'Speciale',
     descrizione: 'Dispositivo di Protezione Individuale prescritto per la mansione.',
@@ -334,15 +341,18 @@ export const GHS_PICTOGRAMS_REGISTRY: Record<string, GhsHazardMeta> = {
 export const GHS_PICTOGRAM_CODES = Object.keys(GHS_PICTOGRAMS_REGISTRY);
 
 export const GhsHazardDiamond: React.FC<{
-  codeOrText: string;
+  codeOrText?: string;
+  code?: string;
   size?: 'sm' | 'md' | 'lg';
-}> = ({ codeOrText, size = 'md' }) => {
-  // Trova il codice GHS
-  const found = Object.values(GHS_PICTOGRAMS_REGISTRY).find(
-    g => codeOrText.includes(g.codice) || codeOrText.toLowerCase().includes(g.nome.toLowerCase())
-  ) || {
-    codice: 'GHS',
-    nome: codeOrText,
+}> = ({ codeOrText, code, size = 'md' }) => {
+  const safeText = String(codeOrText || code || '').trim();
+
+  // Trova il codice GHS in modo sicuro
+  const found = (safeText && Object.values(GHS_PICTOGRAMS_REGISTRY).find(
+    g => safeText.includes(g.codice) || safeText.toLowerCase().includes(g.nome.toLowerCase())
+  )) || {
+    codice: safeText || 'GHS',
+    nome: safeText || 'Sostanza Pericolosa',
     significato: 'Pittogramma di pericolo conforme Regolamento CLP (CE 1272/2008)',
     simbolo: '⚠️',
   };
@@ -486,21 +496,24 @@ export const PosSchedaLogo: React.FC<PosSchedaLogoProps> = ({
 
 interface PosSchedaLogoPickerModalProps {
   tipo: PosSchedaTipo;
-  title: string;
+  title?: string;
+  currentTitle?: string;
   currentLogoUrl?: string;
   currentIcona?: string;
-  onSave: (data: { logoUrl?: string; icona?: string }) => void;
+  onSave: (data: { logoUrl?: string; icona?: string; immagineUrl?: string }) => void;
   onClose: () => void;
 }
 
 export const PosSchedaLogoPickerModal: React.FC<PosSchedaLogoPickerModalProps> = ({
   tipo,
   title,
+  currentTitle,
   currentLogoUrl = '',
   currentIcona = '',
   onSave,
   onClose,
 }) => {
+  const displayTitle = title || currentTitle || 'Personalizza Scheda';
   const [logoUrl, setLogoUrl] = useState(currentLogoUrl);
   const [icona, setIcona] = useState(currentIcona);
   const [previewError, setPreviewError] = useState(false);
@@ -605,14 +618,14 @@ export const PosSchedaLogoPickerModal: React.FC<PosSchedaLogoPickerModalProps> =
         <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700 flex items-center gap-4">
           <PosSchedaLogo
             tipo={tipo}
-            title={title}
+            title={displayTitle}
             iconaEmoji={icona}
             logoUrl={logoUrl}
             size="lg"
           />
           <div className="flex-1 min-w-0">
             <strong className="block text-sm font-black text-slate-900 dark:text-white truncate">
-              {title}
+              {displayTitle}
             </strong>
             <span className="text-xs text-slate-500 dark:text-slate-400 block mt-0.5">
               {logoUrl ? 'Immagine personalizzata impostata' : `Icona identificativa: ${icona || 'Predefinita'}`}
@@ -703,7 +716,7 @@ export const PosSchedaLogoPickerModal: React.FC<PosSchedaLogoPickerModalProps> =
           <button
             type="button"
             onClick={() => {
-              onSave({ logoUrl, icona });
+              onSave({ logoUrl, icona, immagineUrl: logoUrl });
               onClose();
             }}
             className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider rounded-xl shadow-md transition-colors"

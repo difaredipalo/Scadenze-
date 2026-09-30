@@ -507,10 +507,11 @@ export const PosCapitolo10View: React.FC<PosCapitolo10Props> = ({ attrezzature, 
       {activeLogoModalIdx !== null && currentModalItem && (
         <PosSchedaLogoPickerModal
           tipo="attrezzatura"
-          currentTitle={currentModalItem.nome}
+          title={currentModalItem.nome || 'Attrezzatura'}
+          currentTitle={currentModalItem.nome || 'Attrezzatura'}
           currentLogoUrl={currentModalItem.logoUrl || currentModalItem.immagineUrl}
           onSave={({ logoUrl, immagineUrl }) => {
-            handleUpdate(activeLogoModalIdx, { logoUrl, immagineUrl });
+            handleUpdate(activeLogoModalIdx, { logoUrl: logoUrl || immagineUrl, immagineUrl: immagineUrl || logoUrl });
             setActiveLogoModalIdx(null);
           }}
           onClose={() => setActiveLogoModalIdx(null)}
@@ -854,10 +855,11 @@ export const PosCapitolo11View: React.FC<PosCapitolo11Props> = ({ opere, onChang
       {activeLogoModalIdx !== null && currentModalItem && (
         <PosSchedaLogoPickerModal
           tipo="opera"
-          currentTitle={currentModalItem.tipo}
+          title={currentModalItem.tipo || 'Opera Provvisionale'}
+          currentTitle={currentModalItem.tipo || 'Opera Provvisionale'}
           currentLogoUrl={currentModalItem.logoUrl || currentModalItem.immagineUrl}
           onSave={({ logoUrl, immagineUrl }) => {
-            handleUpdate(activeLogoModalIdx, { logoUrl, immagineUrl });
+            handleUpdate(activeLogoModalIdx, { logoUrl: logoUrl || immagineUrl, immagineUrl: immagineUrl || logoUrl });
             setActiveLogoModalIdx(null);
           }}
           onClose={() => setActiveLogoModalIdx(null)}
@@ -871,48 +873,107 @@ export const PosCapitolo11View: React.FC<PosCapitolo11Props> = ({ opere, onChang
 // CAPITOLO 12: SOSTANZE CHIMICHE E SDS
 // ==========================================
 interface PosCapitolo12Props {
-  sostanze: PosSostanzaItem[];
+  sostanze?: PosSostanzaItem[];
   onChange: (updated: PosSostanzaItem[]) => void;
 }
 
-export const PosCapitolo12View: React.FC<PosCapitolo12Props> = ({ sostanze, onChange }) => {
+export const PosCapitolo12View: React.FC<PosCapitolo12Props> = ({ sostanze = [], onChange }) => {
   const [activeLogoModalIdx, setActiveLogoModalIdx] = useState<number | null>(null);
   const [customDpiText, setCustomDpiText] = useState<{ [key: number]: string }>({});
+  const [notice, setNotice] = useState<string | null>(null);
+
+  // Normalizza array sostanze per prevenire crash su dati vecchi, nulli o stringhe
+  const safeSostanze: PosSostanzaItem[] = (Array.isArray(sostanze) ? sostanze : []).map((s, idx) => {
+    if (typeof s === 'string') {
+      return {
+        id: `sost-${idx}-${Date.now()}`,
+        nomeCommerciale: s,
+        utilizzoFase: 'Fasi operative correlate di cantiere',
+        schedaSicurezzaPresente: true,
+        pittogrammiPericolo: ['GHS07'],
+        dpiSpecifici: ['Guanti rischio chimico', 'Occhiali di protezione a mascherina', 'Respiratore FFP2 antipolvere'],
+        dpiObbligatori: ['Guanti rischio chimico', 'Occhiali di protezione a mascherina'],
+        frasiRischio: 'Consultare Scheda Dati di Sicurezza (SDS) allegata al prodotto.',
+        produttoreFornitore: 'Fornitore qualificato di cantiere',
+        prescrizioniManipolazione: 'Stoccare in luogo asciutto e ventilato.',
+      };
+    }
+    const rawObj = s || {};
+    return {
+      id: rawObj.id || `sost-${idx}-${Date.now()}`,
+      nomeCommerciale: rawObj.nomeCommerciale || 'Sostanza o Preparato Chimico',
+      utilizzoFase: rawObj.utilizzoFase || 'Fasi operative correlate',
+      produttoreFornitore: rawObj.produttoreFornitore || (rawObj as any).produttore || '',
+      schedaSicurezzaPresente: rawObj.schedaSicurezzaPresente !== undefined ? Boolean(rawObj.schedaSicurezzaPresente) : true,
+      pittogrammiPericolo: Array.isArray(rawObj.pittogrammiPericolo)
+        ? rawObj.pittogrammiPericolo
+        : (typeof rawObj.pittogrammiPericolo === 'string' ? [rawObj.pittogrammiPericolo] : ['GHS07']),
+      frasiRischio: rawObj.frasiRischio || (rawObj as any).frasiH || 'Consultare SDS di sicurezza allegata.',
+      prescrizioniManipolazione: rawObj.prescrizioniManipolazione || (rawObj as any).prescrizioniSicurezza || '',
+      dpiSpecifici: Array.isArray(rawObj.dpiSpecifici)
+        ? rawObj.dpiSpecifici
+        : (Array.isArray(rawObj.dpiObbligatori) ? rawObj.dpiObbligatori : ['Guanti rischio chimico', 'Occhiali di protezione']),
+      dpiObbligatori: Array.isArray(rawObj.dpiObbligatori) ? rawObj.dpiObbligatori : [],
+      logoUrl: rawObj.logoUrl || rawObj.immagineUrl || '',
+      immagineUrl: rawObj.immagineUrl || '',
+      descrizione: rawObj.descrizione || '',
+      rischi: Array.isArray(rawObj.rischi) ? rawObj.rischi : [],
+      misurePrevenzione: Array.isArray(rawObj.misurePrevenzione) ? rawObj.misurePrevenzione : [],
+    };
+  });
 
   const handleAddDefaultFromCatalog = (templateItem: PosSostanzaItem) => {
-    const exists = sostanze.some(s => s.nomeCommerciale.toLowerCase() === templateItem.nomeCommerciale.toLowerCase());
+    const targetName = (templateItem.nomeCommerciale || '').toLowerCase().trim();
+    const exists = safeSostanze.some(s => (s?.nomeCommerciale || '').toLowerCase().trim() === targetName);
     if (exists) {
-      alert(`La sostanza chimica "${templateItem.nomeCommerciale}" è già presente.`);
+      setNotice(`ℹ️ La sostanza "${templateItem.nomeCommerciale}" è già presente nell'elenco delle sostanze chimiche del POS.`);
+      setTimeout(() => setNotice(null), 3500);
       return;
     }
-    onChange([...sostanze, { ...templateItem, id: Math.random().toString() }]);
+    const nuova: PosSostanzaItem = {
+      ...templateItem,
+      id: `sost-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      produttoreFornitore: templateItem.produttoreFornitore || (templateItem as any).produttore || '',
+      frasiRischio: templateItem.frasiRischio || (templateItem as any).frasiH || 'Consultare SDS allegata.',
+      prescrizioniManipolazione: templateItem.prescrizioniManipolazione || (templateItem as any).prescrizioniSicurezza || '',
+      pittogrammiPericolo: Array.isArray(templateItem.pittogrammiPericolo) ? templateItem.pittogrammiPericolo : ['GHS07'],
+      dpiSpecifici: Array.isArray(templateItem.dpiSpecifici) ? templateItem.dpiSpecifici : ['Guanti rischio chimico', 'Occhiali di protezione'],
+      dpiObbligatori: Array.isArray(templateItem.dpiObbligatori) ? templateItem.dpiObbligatori : ['Guanti rischio chimico'],
+    };
+    onChange([...safeSostanze, nuova]);
+    setNotice(`✓ Sostanza "${templateItem.nomeCommerciale}" aggiunta alle schede del POS!`);
+    setTimeout(() => setNotice(null), 3500);
   };
 
   const handleAddNewCustom = () => {
     const nuova: PosSostanzaItem = {
-      id: Math.random().toString(),
+      id: `sost-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
       nomeCommerciale: 'Nuovo Preparato Chimico',
       utilizzoFase: 'Fasi operative correlate di posa o finitura',
       produttoreFornitore: 'Fornitore qualificato con SDS allegata',
       schedaSicurezzaPresente: true,
       pittogrammiPericolo: ['GHS07'],
       frasiRischio: 'H315 Provoca irritazione cutanea. H318 Provoca gravi lesioni oculari.',
-      dpiSpecifici: ['Guanti per rischio chimico', 'Occhiali di protezione a mascherina', 'Mascherina antipolvere / FFP2'],
+      dpiSpecifici: ['Guanti per rischio chimico', 'Occhiali di protezione a mascherina', 'Respiratore FFP2 antipolvere'],
       dpiObbligatori: ['Guanti per rischio chimico', 'Occhiali di protezione a mascherina'],
       prescrizioniManipolazione: 'Stoccare in luogo asciutto e ventilato. Non inalare le polveri. Lavare accuratamente dopo l’uso.',
     };
-    onChange([...sostanze, nuova]);
+    onChange([...safeSostanze, nuova]);
+    setNotice(`✓ Nuova scheda sostanza chimica creata.`);
+    setTimeout(() => setNotice(null), 3000);
   };
 
   const handleRemove = (idx: number) => {
-    onChange(sostanze.filter((_, i) => i !== idx));
+    onChange(safeSostanze.filter((_, i) => i !== idx));
+    setNotice(`🗑️ Scheda sostanza rimossa.`);
+    setTimeout(() => setNotice(null), 3000);
   };
 
   const handleUpdate = (idx: number, patch: Partial<PosSostanzaItem>) => {
-    onChange(sostanze.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+    onChange(safeSostanze.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
   };
 
-  const currentModalItem = activeLogoModalIdx !== null ? sostanze[activeLogoModalIdx] : null;
+  const currentModalItem = activeLogoModalIdx !== null ? safeSostanze[activeLogoModalIdx] : null;
 
   return (
     <div className="space-y-5 max-w-5xl mx-auto">
@@ -941,6 +1002,12 @@ export const PosCapitolo12View: React.FC<PosCapitolo12Props> = ({ sostanze, onCh
           </button>
         </div>
 
+        {notice && (
+          <div className="mt-3 p-2.5 rounded-xl bg-blue-600/10 dark:bg-blue-500/20 border border-blue-300 dark:border-blue-700 text-blue-900 dark:text-blue-200 text-xs font-bold animate-in fade-in">
+            {notice}
+          </div>
+        )}
+
         {/* Selezione rapida da catalogo chimico */}
         <div className="mt-3 pt-3 border-t border-blue-200 dark:border-slate-700 flex flex-wrap items-center gap-2">
           <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">Aggiungi rapidamente da catalogo SDS:</span>
@@ -959,281 +1026,318 @@ export const PosCapitolo12View: React.FC<PosCapitolo12Props> = ({ sostanze, onCh
 
       {/* Lista Schede Sostanze */}
       <div className="space-y-4">
-        {sostanze.map((sost, idx) => {
-          const effectiveDpis = sost.dpiSpecifici || sost.dpiObbligatori || [];
-          return (
-            <div
-              key={sost.id || idx}
-              className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-4 shadow-xs"
+        {safeSostanze.length === 0 ? (
+          <div className="p-8 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-3">
+            <span className="text-3xl">🧪</span>
+            <h4 className="font-black text-sm text-slate-700 dark:text-slate-300 uppercase">
+              Nessuna Sostanza Chimica inserita
+            </h4>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              Aggiungi rapidamente i preparati impiegati in cantiere (cemento, intonaco, rasante, pitture, collanti) selezionandoli dal catalogo in alto o creane una personalizzata.
+            </p>
+            <button
+              type="button"
+              onClick={handleAddNewCustom}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold uppercase tracking-wider"
             >
-              {/* Header Scheda con Logo e Titolo */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
-                <div className="flex items-center gap-3 flex-1 min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => setActiveLogoModalIdx(idx)}
-                    title="Clicca per personalizzare logo o caricare immagine"
-                    className="shrink-0 group relative focus:outline-none"
-                  >
-                    <PosSchedaLogo
-                      tipo="sostanza"
-                      title={sost.nomeCommerciale}
-                      logoUrl={sost.logoUrl || sost.immagineUrl}
-                      size="md"
-                    />
-                    <span className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[8px] rounded-full px-1 font-black shadow-xs group-hover:scale-110 transition-transform">
-                      ✎
-                    </span>
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400">
-                        Scheda Sostanza Chimica (SDS) #{idx + 1}
+              + Aggiungi Sostanza Chimica
+            </button>
+          </div>
+        ) : (
+          safeSostanze.map((sost, idx) => {
+            const rawDpis = Array.isArray(sost.dpiSpecifici) && sost.dpiSpecifici.length > 0
+              ? sost.dpiSpecifici
+              : Array.isArray(sost.dpiObbligatori)
+              ? sost.dpiObbligatori
+              : [];
+            const effectiveDpis: string[] = rawDpis.map(d =>
+              typeof d === 'string' ? d : (d as any)?.nome || String(d || '')
+            ).filter(Boolean);
+
+            return (
+              <div
+                key={sost.id || idx}
+                className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-4 shadow-xs"
+              >
+                {/* Header Scheda con Logo e Titolo */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700/60">
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => setActiveLogoModalIdx(idx)}
+                      title="Clicca per personalizzare logo o caricare immagine"
+                      className="shrink-0 group relative focus:outline-none"
+                    >
+                      <PosSchedaLogo
+                        tipo="sostanza"
+                        title={sost.nomeCommerciale || 'Sostanza Chimica'}
+                        logoUrl={sost.logoUrl || sost.immagineUrl}
+                        size="md"
+                      />
+                      <span className="absolute -bottom-1 -right-1 bg-blue-600 text-white text-[8px] rounded-full px-1 font-black shadow-xs group-hover:scale-110 transition-transform">
+                        ✎
                       </span>
-                      <button
-                        type="button"
-                        onClick={() => setActiveLogoModalIdx(idx)}
-                        className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
-                      >
-                        <span>🖼️</span> <span>Cambia Logo/Immagine</span>
-                      </button>
-                    </div>
-                    <input
-                      type="text"
-                      value={sost.nomeCommerciale}
-                      onChange={e => handleUpdate(idx, { nomeCommerciale: e.target.value })}
-                      className="w-full font-black text-sm p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                    />
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(idx)}
-                  className="text-slate-400 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 text-xs font-bold self-start sm:self-center"
-                >
-                  ✕ Rimuovi Scheda
-                </button>
-              </div>
-
-              {/* Dati impiego, fornitore e SDS */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
-                    Fase d'Impiego Lavorativa
-                  </label>
-                  <input
-                    type="text"
-                    value={sost.utilizzoFase}
-                    onChange={e => handleUpdate(idx, { utilizzoFase: e.target.value })}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
-                    Produttore / Fornitore
-                  </label>
-                  <input
-                    type="text"
-                    value={sost.produttoreFornitore || ''}
-                    onChange={e => handleUpdate(idx, { produttoreFornitore: e.target.value })}
-                    placeholder="Nome produttore o distributore..."
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-
-                <div className="flex items-center gap-2 pt-3 sm:pt-4">
-                  <input
-                    type="checkbox"
-                    id={`sds_${idx}`}
-                    checked={sost.schedaSicurezzaPresente}
-                    onChange={e => handleUpdate(idx, { schedaSicurezzaPresente: e.target.checked })}
-                    className="w-4 h-4 rounded text-blue-600 focus:ring-0"
-                  />
-                  <label htmlFor={`sds_${idx}`} className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
-                    Scheda SDS a 16 Punti Presente in Cantiere
-                  </label>
-                </div>
-              </div>
-
-              {/* PITTOGRAMMI DI PERICOLO GHS / CLP INTERATTIVI */}
-              <div className="p-3.5 rounded-xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase text-amber-950 dark:text-amber-300 flex items-center gap-1.5">
-                    <span>⚠️</span> <span>Pittogrammi di Pericolo GHS / CLP (Clicca per selezionare)</span>
-                  </span>
-                  <span className="text-[9px] font-mono font-bold text-amber-800 dark:text-amber-400">
-                    Regolamento CE 1272/2008
-                  </span>
-                </div>
-                <div className="flex flex-wrap items-center gap-3">
-                  {GHS_PICTOGRAM_CODES.map(code => {
-                    const isSelected = (sost.pittogrammiPericolo || []).includes(code);
-                    return (
-                      <button
-                        key={code}
-                        type="button"
-                        onClick={() => {
-                          const currentCodes = sost.pittogrammiPericolo || [];
-                          const updated = isSelected
-                            ? currentCodes.filter(c => c !== code)
-                            : [...currentCodes, code];
-                          handleUpdate(idx, { pittogrammiPericolo: updated });
-                        }}
-                        className={`p-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${
-                          isSelected
-                            ? 'bg-white dark:bg-slate-800 border-red-500 shadow-xs ring-2 ring-red-400/40'
-                            : 'bg-white/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-40 hover:opacity-100'
-                        }`}
-                      >
-                        <GhsHazardDiamond code={code} size="sm" />
-                        <span className="text-[10px] font-black text-slate-800 dark:text-slate-200">{code}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Frasi H e prescrizioni */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
-                    Indicazioni di Pericolo (Frasi H)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={sost.frasiRischio}
-                    onChange={e => handleUpdate(idx, { frasiRischio: e.target.value })}
-                    placeholder="es. H315 Provoca irritazione cutanea..."
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
-                    Istruzioni di Manipolazione & Stoccaggio
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={sost.prescrizioniManipolazione || ''}
-                    onChange={e => handleUpdate(idx, { prescrizioniManipolazione: e.target.value })}
-                    placeholder="Conservare nel contenitore originale in luogo asciutto e ventilato..."
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
-                </div>
-              </div>
-
-              {/* SEZIONE DPI RISCHIO CHIMICO CON IMMAGINETTE ISO 7010 */}
-              <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-700 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-[#005ea6]" />
-                    <span>DPI Specifici di Protezione Chimica (Simboli ISO 7010)</span>
-                  </span>
-                  <span className="text-[9px] font-bold uppercase text-slate-400">All. VIII D.Lgs. 81/08</span>
-                </div>
-
-                {/* Badge DPI attivi */}
-                {effectiveDpis.length > 0 && (
-                  <div className="flex flex-wrap items-center gap-2">
-                    {effectiveDpis.map((dpiName, dIdx) => (
-                      <div key={dIdx} className="relative group">
-                        <PosDpiBadge name={dpiName} size="md" showNorma={true} />
+                    </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <span className="text-[10px] font-black uppercase text-blue-600 dark:text-blue-400">
+                          Scheda Sostanza Chimica (SDS) #{idx + 1}
+                        </span>
                         <button
                           type="button"
-                          onClick={() => {
-                            const updated = effectiveDpis.filter((_, i) => i !== dIdx);
-                            handleUpdate(idx, {
-                              dpiSpecifici: updated,
-                              dpiObbligatori: updated,
-                            });
-                          }}
-                          className="ml-1 text-slate-400 hover:text-rose-600 font-bold text-xs p-0.5"
-                          title="Rimuovi DPI"
+                          onClick={() => setActiveLogoModalIdx(idx)}
+                          className="text-[10px] font-bold text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 flex items-center gap-1"
                         >
-                          ✕
+                          <span>🖼️</span> <span>Cambia Logo/Immagine</span>
                         </button>
                       </div>
-                    ))}
+                      <input
+                        type="text"
+                        value={sost.nomeCommerciale || ''}
+                        onChange={e => handleUpdate(idx, { nomeCommerciale: e.target.value })}
+                        className="w-full font-black text-sm p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                      />
+                    </div>
                   </div>
-                )}
-
-                {/* Selezione rapida DPI tramite pittogrammi blu */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-1.5 pt-1">
-                  {POS_DPI_LIST.slice(0, 8).map(dpi => {
-                    const isChecked = effectiveDpis.some(
-                      d => d.toLowerCase().includes(dpi.nome.toLowerCase()) || dpi.nome.toLowerCase().includes(d.toLowerCase())
-                    );
-                    return (
-                      <button
-                        key={dpi.id}
-                        type="button"
-                        onClick={() => {
-                          const updated = isChecked
-                            ? effectiveDpis.filter(
-                                d => !d.toLowerCase().includes(dpi.nome.toLowerCase()) && !dpi.nome.toLowerCase().includes(d.toLowerCase())
-                              )
-                            : [...effectiveDpis, dpi.nome];
-                          handleUpdate(idx, { dpiSpecifici: updated, dpiObbligatori: updated });
-                        }}
-                        className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-left transition-all ${
-                          isChecked
-                            ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 font-bold text-blue-900 dark:text-blue-200'
-                            : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
-                        }`}
-                      >
-                        <DpiPictogram name={dpi.nome} size="sm" />
-                        <span className="text-[10px] font-bold truncate leading-tight">{dpi.nome}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {/* Aggiunta DPI personalizzato per la sostanza chimica */}
-                <div className="flex items-center gap-2 pt-1">
-                  <input
-                    type="text"
-                    value={customDpiText[idx] || ''}
-                    onChange={e => setCustomDpiText({ ...customDpiText, [idx]: e.target.value })}
-                    onKeyDown={e => {
-                      if (e.key === 'Enter' && customDpiText[idx]?.trim()) {
-                        e.preventDefault();
-                        const updated = [...effectiveDpis, customDpiText[idx].trim()];
-                        handleUpdate(idx, { dpiSpecifici: updated, dpiObbligatori: updated });
-                        setCustomDpiText({ ...customDpiText, [idx]: '' });
-                      }
-                    }}
-                    placeholder="Aggiungi DPI chimico (es. Respiratore semi-facciale filtri A1P2)..."
-                    className="flex-1 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                  />
                   <button
                     type="button"
-                    onClick={() => {
-                      if (customDpiText[idx]?.trim()) {
-                        const updated = [...effectiveDpis, customDpiText[idx].trim()];
-                        handleUpdate(idx, { dpiSpecifici: updated, dpiObbligatori: updated });
-                        setCustomDpiText({ ...customDpiText, [idx]: '' });
-                      }
-                    }}
-                    className="px-2.5 py-1.5 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shrink-0"
+                    onClick={() => handleRemove(idx)}
+                    className="text-slate-400 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1.5 text-xs font-bold self-start sm:self-center"
                   >
-                    + Aggiungi
+                    ✕ Rimuovi Scheda
                   </button>
                 </div>
+
+                {/* Dati impiego, fornitore e SDS */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
+                      Fase d'Impiego Lavorativa
+                    </label>
+                    <input
+                      type="text"
+                      value={sost.utilizzoFase || ''}
+                      onChange={e => handleUpdate(idx, { utilizzoFase: e.target.value })}
+                      placeholder="es. Posa pavimenti, getti calcestruzzo..."
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
+                      Produttore / Fornitore
+                    </label>
+                    <input
+                      type="text"
+                      value={sost.produttoreFornitore || ''}
+                      onChange={e => handleUpdate(idx, { produttoreFornitore: e.target.value })}
+                      placeholder="Nome produttore o distributore..."
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-3 sm:pt-4">
+                    <input
+                      type="checkbox"
+                      id={`sds_${idx}`}
+                      checked={Boolean(sost.schedaSicurezzaPresente)}
+                      onChange={e => handleUpdate(idx, { schedaSicurezzaPresente: e.target.checked })}
+                      className="w-4 h-4 rounded text-blue-600 focus:ring-0"
+                    />
+                    <label htmlFor={`sds_${idx}`} className="text-xs font-bold text-slate-700 dark:text-slate-300 cursor-pointer">
+                      Scheda SDS a 16 Punti Presente in Cantiere
+                    </label>
+                  </div>
+                </div>
+
+                {/* PITTOGRAMMI DI PERICOLO GHS / CLP INTERATTIVI */}
+                <div className="p-3.5 rounded-xl bg-amber-50/40 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase text-amber-950 dark:text-amber-300 flex items-center gap-1.5">
+                      <span>⚠️</span> <span>Pittogrammi di Pericolo GHS / CLP (Clicca per selezionare)</span>
+                    </span>
+                    <span className="text-[9px] font-mono font-bold text-amber-800 dark:text-amber-400">
+                      Regolamento CE 1272/2008
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {GHS_PICTOGRAM_CODES.map(code => {
+                      const currentCodes = Array.isArray(sost.pittogrammiPericolo) ? sost.pittogrammiPericolo : [];
+                      const isSelected = currentCodes.some(c =>
+                        String(c).toLowerCase().includes(code.toLowerCase()) || code.toLowerCase().includes(String(c).toLowerCase())
+                      );
+                      return (
+                        <button
+                          key={code}
+                          type="button"
+                          onClick={() => {
+                            const updated = isSelected
+                              ? currentCodes.filter(c => !String(c).toLowerCase().includes(code.toLowerCase()))
+                              : [...currentCodes, code];
+                            handleUpdate(idx, { pittogrammiPericolo: updated });
+                          }}
+                          className={`p-1.5 rounded-xl border transition-all flex items-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-white dark:bg-slate-800 border-red-500 shadow-xs ring-2 ring-red-400/40'
+                              : 'bg-white/60 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700 opacity-40 hover:opacity-100'
+                          }`}
+                        >
+                          <GhsHazardDiamond code={code} size="sm" />
+                          <span className="text-[10px] font-black text-slate-800 dark:text-slate-200">{code}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Frasi H e prescrizioni */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
+                      Indicazioni di Pericolo (Frasi H)
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sost.frasiRischio || ''}
+                      onChange={e => handleUpdate(idx, { frasiRischio: e.target.value })}
+                      placeholder="es. H315 Provoca irritazione cutanea, H318 Provoca lesioni oculari..."
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 mb-0.5">
+                      Istruzioni di Manipolazione & Stoccaggio
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={sost.prescrizioniManipolazione || ''}
+                      onChange={e => handleUpdate(idx, { prescrizioniManipolazione: e.target.value })}
+                      placeholder="Conservare nel contenitore originale in luogo asciutto e ventilato..."
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                  </div>
+                </div>
+
+                {/* SEZIONE DPI RISCHIO CHIMICO CON IMMAGINETTE ISO 7010 */}
+                <div className="p-3.5 rounded-xl bg-slate-50 dark:bg-slate-700/30 border border-slate-200 dark:border-slate-700 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black uppercase text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#005ea6]" />
+                      <span>DPI Specifici di Protezione Chimica (Simboli ISO 7010)</span>
+                    </span>
+                    <span className="text-[9px] font-bold uppercase text-slate-400">All. VIII D.Lgs. 81/08</span>
+                  </div>
+
+                  {/* Badge DPI attivi */}
+                  {effectiveDpis.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2">
+                      {effectiveDpis.map((dpiName, dIdx) => (
+                        <div key={dIdx} className="relative group">
+                          <PosDpiBadge name={dpiName} size="md" showNorma={true} />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = effectiveDpis.filter((_, i) => i !== dIdx);
+                              handleUpdate(idx, {
+                                dpiSpecifici: updated,
+                                dpiObbligatori: updated,
+                              });
+                            }}
+                            className="ml-1 text-slate-400 hover:text-rose-600 font-bold text-xs p-0.5"
+                            title="Rimuovi DPI"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Selezione rapida DPI tramite pittogrammi blu */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-1.5 pt-1">
+                    {POS_DPI_LIST.slice(0, 8).map(dpi => {
+                      const dpiTarget = String(dpi.nome || '').toLowerCase();
+                      const isChecked = effectiveDpis.some(d => {
+                        const str = String(d || '').toLowerCase();
+                        return str.includes(dpiTarget) || dpiTarget.includes(str);
+                      });
+
+                      return (
+                        <button
+                          key={dpi.id}
+                          type="button"
+                          onClick={() => {
+                            const updated = isChecked
+                              ? effectiveDpis.filter(d => {
+                                  const str = String(d || '').toLowerCase();
+                                  return !str.includes(dpiTarget) && !dpiTarget.includes(str);
+                                })
+                              : [...effectiveDpis, dpi.nome];
+                            handleUpdate(idx, { dpiSpecifici: updated, dpiObbligatori: updated });
+                          }}
+                          className={`flex items-center gap-1.5 p-1.5 rounded-lg border text-left transition-all ${
+                            isChecked
+                              ? 'bg-blue-50 dark:bg-blue-950/40 border-blue-500 font-bold text-blue-900 dark:text-blue-200'
+                              : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:border-slate-300'
+                          }`}
+                        >
+                          <DpiPictogram name={dpi.nome} size="sm" />
+                          <span className="text-[10px] font-bold truncate leading-tight">{dpi.nome}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Aggiunta DPI personalizzato per la sostanza chimica */}
+                  <div className="flex items-center gap-2 pt-1">
+                    <input
+                      type="text"
+                      value={customDpiText[idx] || ''}
+                      onChange={e => setCustomDpiText({ ...customDpiText, [idx]: e.target.value })}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' && customDpiText[idx]?.trim()) {
+                          e.preventDefault();
+                          const val = customDpiText[idx].trim();
+                          const updated = [...effectiveDpis, val];
+                          handleUpdate(idx, { dpiSpecifici: updated, dpiObbligatori: updated });
+                          setCustomDpiText({ ...customDpiText, [idx]: '' });
+                        }
+                      }}
+                      placeholder="Aggiungi DPI chimico (es. Respiratore semi-facciale filtri A1P2)..."
+                      className="flex-1 p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (customDpiText[idx]?.trim()) {
+                          const val = customDpiText[idx].trim();
+                          const updated = [...effectiveDpis, val];
+                          handleUpdate(idx, { dpiSpecifici: updated, dpiObbligatori: updated });
+                          setCustomDpiText({ ...customDpiText, [idx]: '' });
+                        }
+                      }}
+                      className="px-2.5 py-1.5 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 text-white rounded-lg text-xs font-bold shrink-0"
+                    >
+                      + Aggiungi
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       {/* Modal Personalizzazione Logo Sostanza Chimica */}
       {activeLogoModalIdx !== null && currentModalItem && (
         <PosSchedaLogoPickerModal
           tipo="sostanza"
-          currentTitle={currentModalItem.nomeCommerciale}
+          title={currentModalItem.nomeCommerciale || 'Sostanza Chimica'}
+          currentTitle={currentModalItem.nomeCommerciale || 'Sostanza Chimica'}
           currentLogoUrl={currentModalItem.logoUrl || currentModalItem.immagineUrl}
           onSave={({ logoUrl, immagineUrl }) => {
-            handleUpdate(activeLogoModalIdx, { logoUrl, immagineUrl });
+            handleUpdate(activeLogoModalIdx, { logoUrl: logoUrl || immagineUrl, immagineUrl: immagineUrl || logoUrl });
             setActiveLogoModalIdx(null);
           }}
           onClose={() => setActiveLogoModalIdx(null)}
