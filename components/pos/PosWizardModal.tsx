@@ -15,6 +15,7 @@ import {
   POS_DPI_LIST,
   DEFAULT_ORGANIZZAZIONE_CANTIERE,
   DEFAULT_PIANO_EMERGENZA,
+  CALCOLA_RISCHIO_TECNICO,
 } from '../../data/posDefaultData';
 import { auditPosDocument } from './posAuditHelper';
 import { Icons } from '../../constants';
@@ -71,8 +72,13 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
     return createNewPosFromCantiere(dummyCantiere, settings, personale);
   });
 
-  // Available activity templates
-  const allTemplates = [...DEFAULT_POS_TEMPLATES, ...customTemplates];
+  // Available activity templates (custom templates override default with same ID)
+  const allTemplates = React.useMemo(() => {
+    const map = new Map<string, PosAttivitaTemplate>();
+    DEFAULT_POS_TEMPLATES.forEach(t => map.set(t.id, t));
+    (customTemplates || []).forEach(t => map.set(t.id, t));
+    return Array.from(map.values());
+  }, [customTemplates]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>(
     draftPos.attivita.map(a => a.templateId || a.id).filter(Boolean)
   );
@@ -179,21 +185,44 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
     } else {
       newTemplateIds = [...selectedTemplateIds, tpl.id];
       const newAttivitaItem: PosAttivitaItem = {
-        id: Math.random().toString(),
+        id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
         templateId: tpl.id,
-        nome: tpl.nome,
-        categoria: tpl.categoria,
-        icona: tpl.icona,
-        descrizione: tpl.descrizione,
-        faseLavoro: tpl.faseLavoro,
+        nome: tpl.nome || 'Lavorazione',
+        categoria: tpl.categoria || 'Opere Generali',
+        icona: tpl.icona || '🔨',
+        logoUrl: (tpl as any).logoUrl || tpl.immagineUrl,
+        immagineUrl: tpl.immagineUrl || (tpl as any).logoUrl,
+        descrizione: tpl.descrizione || 'Fasi operative eseguite secondo buone prassi D.Lgs. 81/08.',
+        faseLavoro: tpl.faseLavoro || 'Fase Esecutiva',
         personaleCoinvolto: draftPos.lavoratori.map(l => `${l.nome} ${l.cognome}`),
-        attrezzatureUtilizzate: tpl.attrezzatureTipiche,
-        materialiUtilizzati: tpl.materialiTipici,
-        sostanzeUtilizzate: [],
-        rischi: tpl.rischi,
-        misurePrevenzione: tpl.misurePrevenzione,
-        dpiNecessari: tpl.dpiRaccomandati,
-        interferenze: tpl.interferenze,
+        attrezzatureUtilizzate: [...(tpl.attrezzatureTipiche || [])],
+        materialiUtilizzati: [...(tpl.materialiTipici || [])],
+        sostanzeUtilizzate: [...(tpl.sostanzeTipiche || [])],
+        opereProvvisionaliUtilizzate: [...(tpl.opereProvvisionaliTipiche || [])],
+        rischi: (tpl.rischi || []).map(r => {
+          const tec = CALCOLA_RISCHIO_TECNICO(r);
+          return {
+            ...r,
+            id: r.id || `r-${Math.random().toString(36).substr(2, 6)}`,
+            probabilitaIniziale: tec.pIniziale,
+            dannoIniziale: tec.dIniziale,
+            rischioIniziale: tec.rIniziale,
+            classeRischioIniziale: tec.classeIniziale,
+            probabilitaResidua: tec.pResiduo,
+            dannoResiduo: tec.dResiduo,
+            rischioResiduo: tec.rResiduo,
+            classeRischioResiduo: tec.classeResidua,
+            probabilita: tec.pResiduo,
+            danno: tec.dResiduo,
+            livelloRischio: tec.rResiduo,
+            classeRischio: tec.classeResidua,
+            misureProtezioneCollettiva: r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC,
+            misurePreventive: r.misurePreventive || tec.misuraOrganizzativa,
+          };
+        }),
+        misurePrevenzione: [...(tpl.misurePrevenzione || [])],
+        dpiNecessari: [...(tpl.dpiRaccomandati || [])],
+        interferenze: tpl.interferenze || 'Verificare l’assenza di interferenze operative prima dell’avvio dei lavori.',
         note: tpl.note,
       };
       updatedAttivita = [...draftPos.attivita, newAttivitaItem];
@@ -709,8 +738,13 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
                         <span className="px-2 py-0.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded font-bold uppercase">
                           {tpl.categoria}
                         </span>
+                        {tpl.isCustom && (
+                          <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 rounded font-black text-[9px] uppercase">
+                            ⭐ Libreria Utente
+                          </span>
+                        )}
                         <span className="text-slate-400 font-bold">
-                          ⚠️ {tpl.rischi.length} rischi analizzati
+                          ⚠️ {(tpl.rischi || []).length} rischi analizzati
                         </span>
                       </div>
                     </div>

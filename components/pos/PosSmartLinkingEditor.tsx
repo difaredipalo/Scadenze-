@@ -15,6 +15,7 @@ import {
   DEFAULT_OPERE_PROVVISIONALI_LIST,
   POS_DPI_LIST,
   CALCOLA_RISCHIO,
+  CALCOLA_RISCHIO_TECNICO,
 } from '../../data/posDefaultData';
 import {
   PosSchedaLogo,
@@ -22,6 +23,7 @@ import {
   DpiPictogram,
   PosDpiBadge,
 } from './PosSafetyCardVisuals';
+import { PosTemplateLibraryModal } from './PosTemplateLibraryModal';
 
 interface PosSmartLinkingEditorProps {
   attivita: PosAttivitaItem[];
@@ -30,23 +32,38 @@ interface PosSmartLinkingEditorProps {
   sostanzeGlobali: PosSostanzaItem[];
   opereGlobali: PosOperaProvvisionaleItem[];
   customTemplates?: PosAttivitaTemplate[];
+  customAttrezzature?: PosAttrezzaturaItem[];
+  customOpere?: PosOperaProvvisionaleItem[];
+  customSostanze?: PosSostanzaItem[];
   onChangeAttivita: (updated: PosAttivitaItem[]) => void;
   onSyncGlobalCatalog: (items: {
     attrezzature?: string[];
     sostanze?: string[];
     opere?: string[];
   }) => void;
+  onUpdateCustomTemplates?: (templates: PosAttivitaTemplate[]) => void;
+  onUpdateCustomAttrezzature?: (items: PosAttrezzaturaItem[]) => void;
+  onUpdateCustomOpere?: (items: PosOperaProvvisionaleItem[]) => void;
+  onUpdateCustomSostanze?: (items: PosSostanzaItem[]) => void;
 }
 
 export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
   attivita,
   lavoratori,
   customTemplates = [],
+  customAttrezzature = [],
+  customOpere = [],
+  customSostanze = [],
   onChangeAttivita,
   onSyncGlobalCatalog,
+  onUpdateCustomTemplates,
+  onUpdateCustomAttrezzature,
+  onUpdateCustomOpere,
+  onUpdateCustomSostanze,
 }) => {
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
   const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
+  const [isFullLibraryModalOpen, setIsFullLibraryModalOpen] = useState<boolean>(false);
   const [librarySearch, setLibrarySearch] = useState<string>('');
   const [libraryCategory, setLibraryCategory] = useState<string>('Tutte');
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
@@ -59,26 +76,42 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
   const handleAddActivityFromTemplate = (tpl: PosAttivitaTemplate) => {
     const nuova: PosAttivitaItem = {
       id: `att-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-      nome: tpl.nome,
-      categoria: tpl.categoria,
-      icona: tpl.icona,
-      descrizione: tpl.descrizione,
-      faseLavoro: tpl.faseLavoro,
+      templateId: tpl.id,
+      nome: tpl.nome || 'Nuova Lavorazione da Libreria',
+      categoria: tpl.categoria || 'Opere Generali',
+      icona: tpl.icona || '🔨',
+      logoUrl: (tpl as any).logoUrl || tpl.immagineUrl,
+      immagineUrl: tpl.immagineUrl || (tpl as any).logoUrl,
+      descrizione: tpl.descrizione || 'Fasi operative eseguite secondo buone prassi e conformità D.Lgs. 81/08.',
+      faseLavoro: tpl.faseLavoro || 'Fase Esecutiva',
       personaleCoinvolto: (lavoratori || []).map(l => `${l.nome} ${l.cognome}`),
-      attrezzatureUtilizzate: [...tpl.attrezzatureTipiche],
-      materialiUtilizzati: [...tpl.materialiTipici],
+      attrezzatureUtilizzate: [...(tpl.attrezzatureTipiche || [])],
+      materialiUtilizzati: [...(tpl.materialiTipici || [])],
       sostanzeUtilizzate: [...(tpl.sostanzeTipiche || [])],
       opereProvvisionaliUtilizzate: [...(tpl.opereProvvisionaliTipiche || [])],
-      rischi: (tpl.rischi || []).map(r => ({
-        ...r,
-        id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
-        probabilita: r.probabilita || 2,
-        danno: r.danno || 2,
-        livelloRischio: (r.probabilita || 2) * (r.danno || 2),
-        classeRischio: CALCOLA_RISCHIO(r.probabilita || 2, r.danno || 2).classe,
-      })),
-      misurePrevenzione: [...tpl.misurePrevenzione],
-      dpiNecessari: [...tpl.dpiRaccomandati],
+      rischi: (tpl.rischi || []).map(r => {
+        const tec = CALCOLA_RISCHIO_TECNICO(r);
+        return {
+          ...r,
+          id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          probabilitaIniziale: tec.pIniziale,
+          dannoIniziale: tec.dIniziale,
+          rischioIniziale: tec.rIniziale,
+          classeRischioIniziale: tec.classeIniziale,
+          probabilitaResidua: tec.pResiduo,
+          dannoResiduo: tec.dResiduo,
+          rischioResiduo: tec.rResiduo,
+          classeRischioResiduo: tec.classeResidua,
+          probabilita: tec.pResiduo,
+          danno: tec.dResiduo,
+          livelloRischio: tec.rResiduo,
+          classeRischio: tec.classeResidua,
+          misureProtezioneCollettiva: r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC,
+          misurePreventive: r.misurePreventive || tec.misuraOrganizzativa,
+        };
+      }),
+      misurePrevenzione: [...(tpl.misurePrevenzione || [])],
+      dpiNecessari: [...(tpl.dpiRaccomandati || [])],
       interferenze: tpl.interferenze || 'Verificare l’assenza di interferenze operative prima dell’avvio dei lavori.',
       note: tpl.note,
     };
@@ -94,7 +127,7 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
       opere: nuova.opereProvvisionaliUtilizzate,
     });
 
-    setSyncNotice(`✓ Scheda "${tpl.nome}" aggiunta direttamente alle lavorazioni del POS!`);
+    setSyncNotice(`✓ Scheda "${tpl.nome}" aggiunta con successo alle lavorazioni del POS!`);
     setTimeout(() => setSyncNotice(null), 4000);
   };
 
@@ -102,38 +135,51 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
   const handleApplySmartProposal = (tpl: PosAttivitaTemplate) => {
     if (!currentAttivita) return;
 
-    // Recupera sostanze e opere tipiche
     const sostanzeTipiche = tpl.sostanzeTipiche || [];
     const opereTipiche = tpl.opereProvvisionaliTipiche || [];
 
     const updated: PosAttivitaItem = {
       ...currentAttivita,
       nome: currentAttivita.nome || tpl.nome,
-      categoria: tpl.categoria,
-      icona: tpl.icona,
+      categoria: tpl.categoria || currentAttivita.categoria,
+      icona: tpl.icona || currentAttivita.icona,
+      logoUrl: (tpl as any).logoUrl || tpl.immagineUrl || currentAttivita.logoUrl,
+      immagineUrl: tpl.immagineUrl || (tpl as any).logoUrl || currentAttivita.immagineUrl,
       descrizione: currentAttivita.descrizione || tpl.descrizione,
       faseLavoro: currentAttivita.faseLavoro || tpl.faseLavoro,
-      attrezzatureUtilizzate: Array.from(new Set([...(currentAttivita.attrezzatureUtilizzate || []), ...tpl.attrezzatureTipiche])),
-      materialiUtilizzati: Array.from(new Set([...(currentAttivita.materialiUtilizzati || []), ...tpl.materialiTipici])),
+      attrezzatureUtilizzate: Array.from(new Set([...(currentAttivita.attrezzatureUtilizzate || []), ...(tpl.attrezzatureTipiche || [])])),
+      materialiUtilizzati: Array.from(new Set([...(currentAttivita.materialiUtilizzati || []), ...(tpl.materialiTipici || [])])),
       sostanzeUtilizzate: Array.from(new Set([...(currentAttivita.sostanzeUtilizzate || []), ...sostanzeTipiche])),
       opereProvvisionaliUtilizzate: Array.from(new Set([...(currentAttivita.opereProvvisionaliUtilizzate || []), ...opereTipiche])),
-      rischi: tpl.rischi.map(r => ({
-        ...r,
-        id: Math.random().toString(),
-        probabilita: r.probabilita || 2,
-        danno: r.danno || 2,
-        livelloRischio: (r.probabilita || 2) * (r.danno || 2),
-        classeRischio: CALCOLA_RISCHIO(r.probabilita || 2, r.danno || 2).classe,
-      })),
-      misurePrevenzione: Array.from(new Set([...(currentAttivita.misurePrevenzione || []), ...tpl.misurePrevenzione])),
-      dpiNecessari: Array.from(new Set([...(currentAttivita.dpiNecessari || []), ...tpl.dpiRaccomandati])),
-      interferenze: tpl.interferenze,
+      rischi: (tpl.rischi || []).map(r => {
+        const tec = CALCOLA_RISCHIO_TECNICO(r);
+        return {
+          ...r,
+          id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+          probabilitaIniziale: tec.pIniziale,
+          dannoIniziale: tec.dIniziale,
+          rischioIniziale: tec.rIniziale,
+          classeRischioIniziale: tec.classeIniziale,
+          probabilitaResidua: tec.pResiduo,
+          dannoResiduo: tec.dResiduo,
+          rischioResiduo: tec.rResiduo,
+          classeRischioResiduo: tec.classeResidua,
+          probabilita: tec.pResiduo,
+          danno: tec.dResiduo,
+          livelloRischio: tec.rResiduo,
+          classeRischio: tec.classeResidua,
+          misureProtezioneCollettiva: r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC,
+          misurePreventive: r.misurePreventive || tec.misuraOrganizzativa,
+        };
+      }),
+      misurePrevenzione: Array.from(new Set([...(currentAttivita.misurePrevenzione || []), ...(tpl.misurePrevenzione || [])])),
+      dpiNecessari: Array.from(new Set([...(currentAttivita.dpiNecessari || []), ...(tpl.dpiRaccomandati || [])])),
+      interferenze: tpl.interferenze || currentAttivita.interferenze,
     };
 
     const newAttivitaList = attivita.map((a, i) => (i === selectedIdx ? updated : a));
     onChangeAttivita(newAttivitaList);
 
-    // Registra elementi nei capitoli globali
     onSyncGlobalCatalog({
       attrezzature: updated.attrezzatureUtilizzate,
       sostanze: updated.sostanzeUtilizzate,
@@ -141,6 +187,73 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
     });
 
     setSyncNotice(`✓ Dati del modello applicati alla scheda "${tpl.nome}" (Attrezzature, Sostanze, Opere, Rischi PxD, Misure e DPI collegati)`);
+    setTimeout(() => setSyncNotice(null), 4000);
+  };
+
+  // Salvataggio della lavorazione corrente del POS direttamente nella Libreria Schede
+  const handleSaveCurrentActivityToLibrary = () => {
+    if (!currentAttivita) return;
+    const templateId = currentAttivita.templateId && currentAttivita.templateId.startsWith('custom_')
+      ? currentAttivita.templateId
+      : `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
+
+    const newTpl: PosAttivitaTemplate = {
+      id: templateId,
+      nome: currentAttivita.nome?.trim() || 'Lavorazione Personalizzata',
+      categoria: currentAttivita.categoria?.trim() || 'Opere Generali',
+      icona: currentAttivita.icona || '🔨',
+      logoUrl: currentAttivita.logoUrl,
+      immagineUrl: currentAttivita.immagineUrl,
+      descrizione: currentAttivita.descrizione?.trim() || 'Fasi operative eseguite secondo buone prassi D.Lgs. 81/08.',
+      faseLavoro: currentAttivita.faseLavoro?.trim() || 'Fase Esecutiva',
+      attrezzatureTipiche: [...(currentAttivita.attrezzatureUtilizzate || [])],
+      materialiTipici: [...(currentAttivita.materialiUtilizzati || [])],
+      sostanzeTipiche: [...(currentAttivita.sostanzeUtilizzate || [])],
+      opereProvvisionaliTipiche: [...(currentAttivita.opereProvvisionaliUtilizzate || [])],
+      rischi: (currentAttivita.rischi || []).map(r => {
+        const tec = CALCOLA_RISCHIO_TECNICO(r);
+        return {
+          ...r,
+          id: r.id || `r-${Math.random().toString(36).substr(2, 6)}`,
+          probabilitaIniziale: tec.pIniziale,
+          dannoIniziale: tec.dIniziale,
+          rischioIniziale: tec.rIniziale,
+          classeRischioIniziale: tec.classeIniziale,
+          probabilitaResidua: tec.pResiduo,
+          dannoResiduo: tec.dResiduo,
+          rischioResiduo: tec.rResiduo,
+          classeRischioResiduo: tec.classeResidua,
+          probabilita: tec.pResiduo,
+          danno: tec.dResiduo,
+          livelloRischio: tec.rResiduo,
+          classeRischio: tec.classeResidua,
+          misureProtezioneCollettiva: r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC,
+          misurePreventive: r.misurePreventive || tec.misuraOrganizzativa,
+        };
+      }),
+      misurePrevenzione: [...(currentAttivita.misurePrevenzione || [])],
+      dpiRaccomandati: [...(currentAttivita.dpiNecessari || [])],
+      interferenze: currentAttivita.interferenze,
+      note: currentAttivita.note,
+      isCustom: true,
+    };
+
+    if (onUpdateCustomTemplates) {
+      const exists = (customTemplates || []).findIndex(t => t.id === templateId);
+      let updatedList: PosAttivitaTemplate[];
+      if (exists >= 0) {
+        updatedList = customTemplates.map((t, i) => (i === exists ? newTpl : t));
+      } else {
+        updatedList = [...(customTemplates || []), newTpl];
+      }
+      onUpdateCustomTemplates(updatedList);
+    }
+
+    if (!currentAttivita.templateId) {
+      updateCurrentActivity({ templateId });
+    }
+
+    setSyncNotice(`✓ Lavorazione "${newTpl.nome}" salvata con successo nella Libreria Schede del software!`);
     setTimeout(() => setSyncNotice(null), 4000);
   };
 
@@ -307,7 +420,7 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <button
               type="button"
               onClick={handleAddNewActivity}
@@ -321,6 +434,14 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
               className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5"
             >
               <span>📚</span> <span>Aggiungi da Libreria</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsFullLibraryModalOpen(true)}
+              className="px-3.5 py-2 bg-slate-800 hover:bg-slate-900 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition-all flex items-center gap-1.5"
+              title="Gestione completa di tutti i cataloghi e modelli personalizzati"
+            >
+              <span>🗂️</span> <span>Gestione Cataloghi</span>
             </button>
           </div>
         </div>
@@ -349,13 +470,26 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
                 Aggiungi direttamente le schede al tuo POS con tutte le attrezzature, sostanze, opere, rischi PxD, misure e DPI già compilati.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsLibraryOpen(false)}
-              className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold self-start sm:self-center"
-            >
-              ✕ Chiudi Libreria
-            </button>
+            <div className="flex items-center gap-2 self-start sm:self-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsLibraryOpen(false);
+                  setIsFullLibraryModalOpen(true);
+                }}
+                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold flex items-center gap-1 shadow-xs"
+                title="Apri l'editor avanzato di schede e cataloghi"
+              >
+                <span>🗂️</span> <span>Gestione Completa & Nuove Schede</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsLibraryOpen(false)}
+                className="px-3 py-1.5 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-bold"
+              >
+                ✕ Chiudi
+              </button>
+            </div>
           </div>
 
           {/* Barra di ricerca e filtri per categoria */}
@@ -540,13 +674,23 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
                   <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400">
                     1. Nome Lavorazione & Logo Scheda
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => setIsLogoPickerOpen(true)}
-                    className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
-                  >
-                    <span>🖼️</span> <span>Personalizza Logo/Immagine Scheda</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleSaveCurrentActivityToLibrary}
+                      className="px-2.5 py-1 bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-200 border border-emerald-300 dark:border-emerald-800 rounded-lg text-[10.5px] font-bold flex items-center gap-1 transition-colors shadow-xs"
+                      title="Salva questa lavorazione configurata (rischi, misure, DPI, attrezzature) nella libreria per riutilizzarla in tutti i POS"
+                    >
+                      <span>💾</span> <span>Salva come Modello in Libreria</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsLogoPickerOpen(true)}
+                      className="text-[10px] font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                    >
+                      <span>🖼️</span> <span>Personalizza Logo</span>
+                    </button>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2.5">
                   <button
@@ -1053,6 +1197,33 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
             setIsLogoPickerOpen(false);
           }}
           onClose={() => setIsLogoPickerOpen(false)}
+        />
+      )}
+
+      {/* Modal Gestione Completa Libreria Schede e Tutti i Cataloghi */}
+      {isFullLibraryModalOpen && (
+        <PosTemplateLibraryModal
+          customTemplates={customTemplates}
+          onSaveTemplates={updated => {
+            if (onUpdateCustomTemplates) onUpdateCustomTemplates(updated);
+          }}
+          customAttrezzature={customAttrezzature}
+          onSaveAttrezzature={updated => {
+            if (onUpdateCustomAttrezzature) onUpdateCustomAttrezzature(updated);
+          }}
+          customOpere={customOpere}
+          onSaveOpere={updated => {
+            if (onUpdateCustomOpere) onUpdateCustomOpere(updated);
+          }}
+          customSostanze={customSostanze}
+          onSaveSostanze={updated => {
+            if (onUpdateCustomSostanze) onUpdateCustomSostanze(updated);
+          }}
+          onSelectTemplateForPos={tpl => {
+            handleAddActivityFromTemplate(tpl);
+            setIsFullLibraryModalOpen(false);
+          }}
+          onClose={() => setIsFullLibraryModalOpen(false)}
         />
       )}
     </div>

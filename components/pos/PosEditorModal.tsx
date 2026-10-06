@@ -41,11 +41,18 @@ interface PosEditorModalProps {
   personaleList: Personale[];
   settings?: AppSettings;
   customTemplates?: PosAttivitaTemplate[];
+  customAttrezzature?: PosAttrezzaturaItem[];
+  customOpere?: PosOperaProvvisionaleItem[];
+  customSostanze?: PosSostanzaItem[];
   onSave: (updatedPos: PosDocument) => void;
   onClose: () => void;
   onOpenPrint: (pos: PosDocument) => void;
   onSaveAziendaDefaults?: (dati: PosDatiImpresa) => void;
   onUpdatePosLive?: (updatedPos: PosDocument) => void;
+  onUpdateCustomTemplates?: (templates: PosAttivitaTemplate[]) => void;
+  onUpdateCustomAttrezzature?: (items: PosAttrezzaturaItem[]) => void;
+  onUpdateCustomOpere?: (items: PosOperaProvvisionaleItem[]) => void;
+  onUpdateCustomSostanze?: (items: PosSostanzaItem[]) => void;
 }
 
 export const PosEditorModal: React.FC<PosEditorModalProps> = ({
@@ -54,11 +61,18 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
   personaleList,
   settings,
   customTemplates = [],
+  customAttrezzature = [],
+  customOpere = [],
+  customSostanze = [],
   onSave,
   onClose,
   onOpenPrint,
   onSaveAziendaDefaults,
   onUpdatePosLive,
+  onUpdateCustomTemplates,
+  onUpdateCustomAttrezzature,
+  onUpdateCustomOpere,
+  onUpdateCustomSostanze,
 }) => {
   // Inizializza formData garantendo i nuovi campi del POS a 14 capitoli
   const [formData, setFormData] = useState<PosDocument>(() => {
@@ -1207,8 +1221,15 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
               sostanzeGlobali={formData.sostanze}
               opereGlobali={formData.opereProvvisionali || []}
               customTemplates={customTemplates}
+              customAttrezzature={customAttrezzature}
+              customOpere={customOpere}
+              customSostanze={customSostanze}
               onChangeAttivita={updated => setFormData(prev => ({ ...prev, attivita: updated }))}
               onSyncGlobalCatalog={handleSyncGlobalCatalog}
+              onUpdateCustomTemplates={onUpdateCustomTemplates}
+              onUpdateCustomAttrezzature={onUpdateCustomAttrezzature}
+              onUpdateCustomOpere={onUpdateCustomOpere}
+              onUpdateCustomSostanze={onUpdateCustomSostanze}
             />
           )}
 

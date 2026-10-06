@@ -448,11 +448,18 @@ export const PosSection: React.FC<PosSectionProps> = ({
           personaleList={personale}
           settings={settings}
           customTemplates={customTemplates}
+          customAttrezzature={customAttrezzature}
+          customOpere={customOpere}
+          customSostanze={customSostanze}
           onSave={handleSavePos}
           onClose={() => setEditingPos(null)}
           onOpenPrint={p => setPrintingPos(p)}
           onSaveAziendaDefaults={handleSaveAziendaDefaults}
           onUpdatePosLive={handleUpdatePosLive}
+          onUpdateCustomTemplates={onUpdateCustomTemplates}
+          onUpdateCustomAttrezzature={onUpdateCustomAttrezzature}
+          onUpdateCustomOpere={onUpdateCustomOpere}
+          onUpdateCustomSostanze={onUpdateCustomSostanze}
         />
       )}
 
