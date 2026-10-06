@@ -253,12 +253,22 @@ export interface PosRischio {
   conseguenze?: string;
   misurePreventive?: string;
   misureProtettive?: string;
+  misureProtezioneCollettiva?: string;
   dpiRichiesti?: string[];
   // Matrice R = P x D
   probabilita?: number; // 1: Non probabile, 2: Possibile, 3: Probabile, 4: Altamente probabile
   danno?: number; // 1: Lieve, 2: Modesto, 3: Significativo, 4: Grave
   livelloRischio?: number; // P * D (1 - 16)
   classeRischio?: PosClasseRischio;
+  // Valutazione Tecnica Avanzata (Rischio Iniziale non mitigato vs Rischio Residuo controllato)
+  probabilitaIniziale?: number;
+  dannoIniziale?: number;
+  rischioIniziale?: number;
+  classeRischioIniziale?: PosClasseRischio;
+  probabilitaResidua?: number;
+  dannoResiduo?: number;
+  rischioResiduo?: number;
+  classeRischioResiduo?: PosClasseRischio;
 }
 
 export interface PosAttivitaItem {

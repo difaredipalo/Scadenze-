@@ -28,6 +28,155 @@ export const CALCOLA_RISCHIO = (p: number = 2, d: number = 2): { r: number; clas
   return { r, classe, livello: r };
 };
 
+// ==================== VALUTAZIONE TECNICA REALISTICA DEI RISCHI (D.Lgs. 81/08 & All. XV) ====================
+export interface ValutazioneRischioTecnicoResult {
+  pIniziale: number;
+  dIniziale: number;
+  rIniziale: number;
+  classeIniziale: PosClasseRischio;
+  pResiduo: number;
+  dResiduo: number;
+  rResiduo: number;
+  classeResidua: PosClasseRischio;
+  p: number;
+  d: number;
+  r: number;
+  classe: PosClasseRischio;
+  misuraTecnicaPrimaria: string;
+  protezioneCollettivaDPC: string;
+  misuraOrganizzativa: string;
+  dpiNormati: string[];
+}
+
+export const CALCOLA_RISCHIO_TECNICO = (rischio: Partial<PosRischio>): ValutazioneRischioTecnicoResult => {
+  const text = `${rischio.descrizione || ''} ${rischio.fonteRischio || ''} ${rischio.conseguenze || ''}`.toLowerCase();
+
+  let pIn = rischio.probabilitaIniziale || rischio.probabilita || 3;
+  let dIn = rischio.dannoIniziale || rischio.danno || 3;
+  let pRes = rischio.probabilitaResidua || 1;
+  let dRes = rischio.dannoResiduo || dIn;
+  let dpc = rischio.misureProtezioneCollettiva || '';
+  let tec = '';
+  let org = '';
+  let dpi: string[] = rischio.dpiRichiesti && rischio.dpiRichiesti.length > 0 ? rischio.dpiRichiesti : [];
+
+  if (text.includes('caduta') || text.includes('quota') || text.includes('pontegg') || text.includes('solaio') || text.includes('tetto') || text.includes('apertur') || text.includes('botola') || text.includes('trabattell') || text.includes('scala')) {
+    dIn = 4; // Gravissimo: trauma mortale o invalidità permanente
+    pIn = Math.max(pIn, 3);
+    pRes = 1; // Improbabile grazie a DPC e imbracature
+    dRes = 4;
+    tec = 'Pianificazione dei percorsi in quota, chiusura di tutte le aperture a solaio e verifica preliminare di stabilità dei piani';
+    dpc = dpc || 'Parapetti provvisori prefabbricati UNI EN 13374 (h ≥ 1,00 m con fermapiede h ≥ 15 cm), reti anticaduta UNI EN 1263, ponteggio autorizzato con Pi.M.U.S.';
+    org = 'Presenza e sorveglianza continuativa del Preposto; delimitazione dell’area sottostante con cartelli di pericolo caduta materiali';
+    if (dpi.length === 0) dpi = ['Casco di protezione / Elmetto con sottogola (UNI EN 397)', 'Calzature di sicurezza S3 (UNI EN ISO 20345)', 'Imbracatura anticaduta (UNI EN 361) con cordino doppio assorbitore (UNI EN 355) e linea vita (UNI EN 795)'];
+  } else if (text.includes('elettr') || text.includes('tensione') || text.includes('folgorazion') || text.includes('cavi') || text.includes('quadro')) {
+    dIn = 4; // Fibrillazione ventricolare, esito fatale
+    pIn = Math.max(pIn, 3);
+    pRes = 1;
+    dRes = 4;
+    tec = 'Quadro elettrico di cantiere ASC conforme CEI EN 61439-4 con interruttore differenziale ad alta sensibilità Idn ≤ 30 mA';
+    dpc = dpc || 'Impianto generale di messa a terra verificato ex DPR 462/01 con Rt ≤ 20 Ohm; cavi a doppio isolamento tipo H07RN-F protetti da rampe carrabili';
+    org = 'Sezionamento preventivo delle linee prima di qualsiasi scasso; divieto di interventi sotto tensione per personale non abilitato PES/PAV';
+    if (dpi.length === 0) dpi = ['Calzature dielettriche di sicurezza S3 (UNI EN ISO 20345)', 'Guanti isolanti per lavori elettrici (CEI EN 60903)'];
+  } else if (text.includes('scav') || text.includes('seppell') || text.includes('frana') || text.includes('smottament') || text.includes('trincea')) {
+    dIn = 4; // Schiacciamento toracico, asfissia
+    pIn = Math.max(pIn, 3);
+    pRes = 1;
+    dRes = 4;
+    tec = 'Verifica geotecnica e rispetto dell’inclinazione della scarpata secondo l’angolo di declivio naturale del terreno';
+    dpc = dpc || 'Blindature prefabbricate in acciaio per scavi (UNI EN 13331) o sbadacchiature per profondità > 1,50 m; parapetto perimetrale UNI EN 13374';
+    org = 'Distanza minima di sosta per automezzi pesanti dal ciglio dello scavo ≥ 1,50 m; predisposizione di scale di risalita protette ogni 15 m';
+    if (dpi.length === 0) dpi = ['Casco di protezione / Elmetto (UNI EN 397)', 'Calzature di sicurezza S3 antiperforazione', 'Gilet alta visibilità fluorescente Classe 3'];
+  } else if (text.includes('silice') || text.includes('polver') || text.includes('respirabil') || text.includes('amiant') || text.includes('inalazion')) {
+    dIn = 4; // Silicosi polmonare progressiva, neoplasia, bronchite cronica
+    pIn = Math.max(pIn, 3);
+    pRes = 1;
+    dRes = 3;
+    tec = 'Adozione del taglio a umido con erogazione continua d’acqua per l’abbattimento delle polveri fini';
+    dpc = dpc || 'Captazione all’origine con aspiratore industriale in classe M o H (UNI EN 60335-2-69) collegato alla scanalatrice o carotatrice';
+    org = 'Ventilazione meccanica forzata nei locali chiusi; divieto assoluto di spazzatura a secco dei residui di demolizione';
+    if (dpi.length === 0) dpi = ['Facciale filtrante antipolvere FFP3 con valvola di espirazione (UNI EN 149)', 'Occhiali a mascherina a tenuta di polveri (UNI EN 166)'];
+  } else if (text.includes('rumor') || text.includes('vibrazion') || text.includes('ipoacus') || text.includes('martell') || text.includes('demolitor') || text.includes('flessibil')) {
+    dIn = 3; // Ipoacusia bilaterale irreversibile, sindrome delle dita bianche HAVS
+    pIn = Math.max(pIn, 3);
+    pRes = 1;
+    dRes = 3;
+    tec = 'Selezione di elettroutensili dotati di marcatura CE con impugnature ergonomiche antivibranti e bassa emissione sonora';
+    dpc = dpc || 'Schermature fonoisolanti mobili per compartimentare le postazioni di taglio rumorose';
+    org = 'Rotazione programmata degli operatori al martello demolitore (max 90 minuti consecutivi); pause fisiologiche cadenzate';
+    if (dpi.length === 0) dpi = ['Otoprotettori a conchiglia con attenuazione SNR ≥ 30 dB (UNI EN 352-1)', 'Guanti certificati antivibranti (UNI EN ISO 10819)'];
+  } else if (text.includes('investiment') || text.includes('manovr') || text.includes('ribaltament') || text.includes('autocarr') || text.includes('escavator') || text.includes('gru') || text.includes('mezzi')) {
+    dIn = 4; // Schiacciamento politraumatico mortale
+    pIn = Math.max(pIn, 3);
+    pRes = 1;
+    dRes = 4;
+    tec = 'Separazione fisica delle vie di transito pedonale dalle corsie di marcia degli automezzi con barriere rigide o new jersey';
+    dpc = dpc || 'Specchi parabolici agli incroci a scarsa visibilità, avvisatori acustici e lampeggianti di retromarcia su tutti i mezzi semoventi';
+    org = 'Presenza obbligatoria di moviere a terra munito di paletta per manovre in retromarcia; velocità max rigorosa di 10 km/h in cantiere';
+    if (dpi.length === 0) dpi = ['Gilet / Giacca ad alta visibilità certificata Classe 3 (UNI EN ISO 20471)', 'Casco di protezione (UNI EN 397)', 'Calzature di sicurezza S3'];
+  } else if (text.includes('movimentazion') || text.includes('carich') || text.includes('mmc') || text.includes('ergonom') || text.includes('sforz') || text.includes('sollevament')) {
+    dIn = 2; // Lombalgia acuta, ernia discale lombare
+    pIn = Math.max(pIn, 3);
+    pRes = 1;
+    dRes = 2;
+    tec = 'Impiego di ausili meccanici di sollevamento e trasporto (gru a torre, montacarichi, transpallet, carrelli)';
+    dpc = dpc || 'Piani di carico ad altezza ergonomica (tra ginocchio e gomito)';
+    org = 'Frazionamento carichi (peso massimo unitario per operatore maschio adulto ≤ 20 kg ex norma ISO 11228-1); movimentazione a due addetti';
+    if (dpi.length === 0) dpi = ['Guanti rischio meccanico ad alta presa antiscivolo (UNI EN 388)', 'Calzature di sicurezza S3 con suola antiscivolo SRC'];
+  } else if (text.includes('chimic') || text.includes('cement') || text.includes('malta') || text.includes('resina') || text.includes('caustic') || text.includes('ustioni') || text.includes('additiv')) {
+    dIn = 2; // Ustioni chimiche da alcali caustici, dermatiti da contatto, cheratiti oculari
+    pIn = Math.max(pIn, 2);
+    pRes = 1;
+    dRes = 2;
+    tec = 'Sostituzione con prodotti a base d’acqua e miscelazione a ciclo chiuso ove tecnicamente attuabile';
+    dpc = dpc || 'Presenza di punto lavaocchi di emergenza o flaconi di soluzione fisiologica sterile in prossimità del posto di miscelazione';
+    org = 'Consultazione preventiva della scheda di dati di sicurezza (SDS a 16 punti); stoccaggio in bacini di contenimento stagni';
+    if (dpi.length === 0) dpi = ['Guanti impermeabili in gomma nitrilica/neoprene a protezione chimica (UNI EN ISO 374)', 'Occhiali a mascherina a tenuta di liquidi (UNI EN 166)', 'Tuta protettiva da lavoro'];
+  } else {
+    dIn = Math.min(Math.max(rischio.danno || 2, 1), 4);
+    pIn = Math.min(Math.max(rischio.probabilita || 3, 1), 4);
+    pRes = 1;
+    dRes = dIn;
+    tec = 'Manutenzione periodica delle attrezzature e rispetto rigoroso delle istruzioni d’uso del fabbricante';
+    dpc = dpc || 'Misure standard di protezione dell’area operativa conformi al D.Lgs. 81/08';
+    org = 'Vigilanza attiva da parte del Preposto e coordinamento preventivo giornaliero tra le squadre di lavoro';
+    if (dpi.length === 0) dpi = ['Casco di protezione / Elmetto (UNI EN 397)', 'Calzature di sicurezza S3 (UNI EN ISO 20345)', 'Guanti rischio meccanico (UNI EN 388)'];
+  }
+
+  // Se l'utente o il template aveva già configurato valori non-default espliciti
+  if (rischio.probabilita && rischio.danno && (rischio.probabilita !== 2 || rischio.danno !== 2)) {
+    pIn = rischio.probabilitaIniziale || rischio.probabilita;
+    dIn = rischio.dannoIniziale || rischio.danno;
+    pRes = rischio.probabilitaResidua || 1;
+    dRes = rischio.dannoResiduo || dIn;
+  }
+
+  const rIniziale = pIn * dIn;
+  const classeIniziale: PosClasseRischio = rIniziale <= 2 ? 'Basso' : rIniziale <= 4 ? 'Accettabile' : rIniziale <= 8 ? 'Notevole' : 'Elevato';
+
+  const rResiduo = pRes * dRes;
+  const classeResidua: PosClasseRischio = rResiduo <= 2 ? 'Basso' : rResiduo <= 4 ? 'Accettabile' : rResiduo <= 8 ? 'Notevole' : 'Elevato';
+
+  return {
+    pIniziale: pIn,
+    dIniziale: dIn,
+    rIniziale,
+    classeIniziale,
+    pResiduo: pRes,
+    dResiduo: dRes,
+    rResiduo,
+    classeResidua,
+    p: pRes,
+    d: dRes,
+    r: rResiduo,
+    classe: classeResidua,
+    misuraTecnicaPrimaria: tec,
+    protezioneCollettivaDPC: dpc,
+    misuraOrganizzativa: org,
+    dpiNormati: dpi,
+  };
+};
+
 // Helper per identificare ed evidenziare dati non completati o mancanti
 export const formatMissingData = (val: string | undefined | null, fallbackLabel: string = 'DATO'): string => {
   if (!val || typeof val !== 'string' || val.trim().length === 0) {
@@ -345,6 +494,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Urto con mezzi e materiali in movimentazione',
         fonteRischio: 'Scarico baraccamenti e materiali pesanti da autocarro con gru',
         conseguenze: 'Contusioni, schiacciamento arti',
+        probabilita: 2,
+        danno: 3,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Delimitazione dell’area di manovra con coni e transenne; divieto di stazionamento nel raggio d’azione del braccio gru.',
         misureProtettive: 'Presenza di moviere a terra per la guida del camionista.',
         dpiRichiesti: ['Casco di protezione / Elmetto', 'Calzature di sicurezza S3', 'Guanti rischio meccanico', 'Gilet alta visibilità'],
@@ -354,6 +507,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Elettrocuzione e contatto elettrico diretto/indiretto',
         fonteRischio: 'Allaccio quadro elettrico di cantiere e condutture',
         conseguenze: 'Fibrillazione ventricolare, ustioni',
+        probabilita: 2,
+        danno: 4,
+        livelloRischio: 8,
+        classeRischio: 'Notevole',
         misurePreventive: 'Installazione a cura di elettricista abilitato con rilascio DICO ex D.M. 37/08; verifica presenza differenziale con Idn ≤ 30 mA e messa a terra.',
         misureProtettive: 'Cavi con guaina antifiamma tipo H07RN-F protetti da passacavi carrabili.',
         dpiRichiesti: ['Calzature di sicurezza S3', 'Guanti isolanti'],
@@ -383,6 +540,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Caduta di materiale dall’alto e crollo imprevisto di elementi murari',
         fonteRischio: 'Disgaggio di porzioni murarie e tramezzi adiacenti',
         conseguenze: 'Traumi cranici, lesioni da schiacciamento',
+        probabilita: 3,
+        danno: 3,
+        livelloRischio: 9,
+        classeRischio: 'Elevato',
         misurePreventive: 'Demolizione da eseguirsi tassativamente dall’alto verso il basso procedendo per corsi orizzontali; divieto di scalzamento alla base.',
         misureProtettive: 'Puntellamento preventivo delle strutture se sussiste dubbio di cedimento.',
         dpiRichiesti: ['Casco di protezione / Elmetto', 'Calzature di sicurezza S3', 'Guanti rischio meccanico', 'Occhiali di protezione'],
@@ -392,6 +553,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Inalazione di polveri minerali e silice libera cristallina',
         fonteRischio: 'Frantumazione laterizi, malte e intonaci secchi',
         conseguenze: 'Irritazione vie aeree, silicosi polmonare',
+        probabilita: 3,
+        danno: 3,
+        livelloRischio: 9,
+        classeRischio: 'Elevato',
         misurePreventive: 'Bagnatura costante delle superfici con nebulizzatori d’acqua; ventilazione forzata dei locali confinati.',
         misureProtettive: 'Uso di aspiratori industriali portatili collegati agli elettroutensili.',
         dpiRichiesti: ['Respiratore FFP2 antipolvere', 'Occhiali di protezione'],
@@ -401,6 +566,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Esposizione a rumore e vibrazioni meccaniche mano-braccio',
         fonteRischio: 'Impiego prolungato di demolitori elettrici e scalpellatori',
         conseguenze: 'Ipoacusia professionale da rumore, sindrome dito bianco (HAVS)',
+        probabilita: 3,
+        danno: 2,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Alternanza degli operatori alle lavorazioni con martello demolitore; uso di utensili con impugnature antivibranti.',
         misureProtettive: 'Interruzioni programmate ogni 60-90 minuti.',
         dpiRichiesti: ['Otoprotettori (Cuffie / Inserti)', 'Guanti rischio meccanico antivibranti'],
@@ -430,6 +599,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Movimentazione manuale dei carichi (MMC)',
         fonteRischio: 'Sollevamento e posa di bancali di blocchi, mattoni e sacchi di premiscelato da 25 kg',
         conseguenze: 'Lombalgie acute, ernie discali, discopatie',
+        probabilita: 3,
+        danno: 2,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Avvicinare i materiali al punto di posa tramite transpallet o gru; piegare le gambe durante il sollevamento tenendo il carico aderente al tronco.',
         misureProtettive: 'Ripartizione dei pesi tra due operatori per carichi superiori a 25 kg.',
         dpiRichiesti: ['Calzature di sicurezza S3', 'Guanti rischio meccanico'],
@@ -439,6 +612,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Contatto cutaneo con sostanze corrosive e alcaline',
         fonteRischio: 'Manipolazione di malte cementizie fresche a base calce e cemento',
         conseguenze: 'Dermatiti da contatto, ustioni chimiche cutanee',
+        probabilita: 2,
+        danno: 2,
+        livelloRischio: 4,
+        classeRischio: 'Accettabile',
         misurePreventive: 'Evitare il contatto prolungato della pelle con la malta fresca.',
         misureProtettive: 'Lavaggio immediato con acqua corrente in caso di contatto accidentale.',
         dpiRichiesti: ['Guanti rischio meccanico', 'Guanti rischio chimico', 'Occhiali di protezione'],
@@ -467,6 +644,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Caduta dall’alto da quota superiore a 2 metri',
         fonteRischio: 'Operazioni di montaggio/smontaggio elementi e traversi del ponteggio',
         conseguenze: 'Politraumi gravissimi, esito fatale',
+        probabilita: 3,
+        danno: 4,
+        livelloRischio: 12,
+        classeRischio: 'Elevato',
         misurePreventive: 'Operazioni eseguite rigorosamente secondo il Pi.M.U.S. da personale con attestato di abilitazione triennale 28 ore.',
         misureProtettive: 'Uso continuo di imbracatura anticaduta vincolata a linee vita temporanee o punti sicuri con connettori a grande apertura.',
         dpiRichiesti: ['Imbracatura completa anticaduta', 'Casco di protezione / Elmetto con sottogola', 'Calzature di sicurezza S3'],
@@ -476,6 +657,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Caduta di utensili e componenti metallici su passanti',
         fonteRischio: 'Movimentazione di tubi, giunti, telai e tavole metalliche',
         conseguenze: 'Lesioni e traumi al personale a terra o terzi',
+        probabilita: 3,
+        danno: 3,
+        livelloRischio: 9,
+        classeRischio: 'Elevato',
         misurePreventive: 'Delimitazione dell’area a terra sottostante il ponteggio; installazione della mantovana parasassi inclinata.',
         misureProtettive: 'Uso di argani di sollevamento con gancio di sicurezza a scatto.',
         dpiRichiesti: ['Casco di protezione / Elmetto', 'Gilet alta visibilità'],
@@ -506,6 +691,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Caduta dall’alto per sfondamento lucernari o superfici fragili',
         fonteRischio: 'Camminamento su lastre in fibrocemento, onduline o lucernari non portanti',
         conseguenze: 'Precipitazione al piano terra, esito letale',
+        probabilita: 3,
+        danno: 4,
+        livelloRischio: 12,
+        classeRischio: 'Elevato',
         misurePreventive: 'Copertura e protezione perimetrale di tutti i lucernari con griglie rigide ad alta resistenza; uso di passerelle e tavole sopraelevate.',
         misureProtettive: 'Posa preventiva di reti anticaduta sotto la copertura (UNI EN 1263).',
         dpiRichiesti: ['Imbracatura completa anticaduta', 'Casco di protezione / Elmetto con sottogola'],
@@ -515,6 +704,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Caduta dal bordo della copertura per assenza di parapetti',
         fonteRischio: 'Lavori di rifacimento colmo e gronde',
         conseguenze: 'Caduta libera nel vuoto',
+        probabilita: 3,
+        danno: 4,
+        livelloRischio: 12,
+        classeRischio: 'Elevato',
         misurePreventive: 'Installazione di parapetti provvisori certificati UNI EN 13374 (Classe A/B/C) lungo tutto il perimetro della gronda.',
         misureProtettive: 'Collegamento tramite cordino con assorbitore e dispositivo guidato su linea vita rigida o flessibile certificata UNI EN 795.',
         dpiRichiesti: ['Imbracatura completa anticaduta', 'Casco di protezione / Elmetto con sottogola', 'Calzature di sicurezza S3'],
@@ -544,6 +737,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Seppellimento da franamento delle pareti dello scavo',
         fonteRischio: 'Cedimento improvviso del terreno per pendenza inadeguata o vibrazioni',
         conseguenze: 'Asfissia, schiacciamento toracico con esito letale',
+        probabilita: 3,
+        danno: 4,
+        livelloRischio: 12,
+        classeRischio: 'Elevato',
         misurePreventive: 'Per scavi di profondità superiore a 1,50 m, predisporre sbadacchiatura/armatura lignea o metallica continua delle pareti; scarpata con pendenza naturale.',
         misureProtettive: 'Deposito del materiale scavato ad almeno 1,00 m dal ciglio dello scavo per evitare sovraccarichi sul fronte.',
         dpiRichiesti: ['Casco di protezione / Elmetto', 'Calzature di sicurezza S3', 'Gilet alta visibilità'],
@@ -553,6 +750,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Tranciatura di sottoservizi interrati (gas, energia elettrica, fibra)',
         fonteRischio: 'Interferenza della benna dell’escavatore con cavi in tensione o tubazioni gas',
         conseguenze: 'Esplosioni, incendi, folgorazione',
+        probabilita: 2,
+        danno: 4,
+        livelloRischio: 8,
+        classeRischio: 'Notevole',
         misurePreventive: 'Richiesta preventiva mappe dei sottoservizi agli enti gestori; saggi manuali esplorativi a pala prima dell’uso della macchina meccanica.',
         misureProtettive: 'Localizzatore cercaservizi prima di ogni affondo di benna.',
         dpiRichiesti: ['Calzature di sicurezza S3', 'Guanti isolanti'],
@@ -562,6 +763,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Investimento di persone e ribaltamento del mezzo meccanico',
         fonteRischio: 'Manovre in retromarcia dell’escavatore in spazi stretti',
         conseguenze: 'Schiacciamento, lesioni gravi',
+        probabilita: 2,
+        danno: 4,
+        livelloRischio: 8,
+        classeRischio: 'Notevole',
         misurePreventive: 'Dotazione di segnalatore acustico e ottico di retromarcia e specchi retrovisori/telecamera; divieto di stazionamento nel raggio di rotazione torretta.',
         misureProtettive: 'Operatore provvisto di abilitazione specifica (patentino macchine movimento terra).',
         dpiRichiesti: ['Gilet alta visibilità', 'Casco di protezione / Elmetto', 'Calzature di sicurezza S3'],
@@ -590,6 +795,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Ferite da taglio, puntura e abrasione con ferri d’armatura',
         fonteRischio: 'Estremità taglienti delle barre di ferro e staffe verticali sporgenti',
         conseguenze: 'Ferite lacero-contuse, rischio tetano',
+        probabilita: 3,
+        danno: 3,
+        livelloRischio: 9,
+        classeRischio: 'Elevato',
         misurePreventive: 'Applicazione immediata di cappellotti protettivi in plastica a fungo (antifitto) sulle estremità dei ferri di ripresa verticali.',
         misureProtettive: 'Verifica vaccinazione antitetanica in corso di validità di tutto il personale.',
         dpiRichiesti: ['Guanti rischio meccanico alta resistenza al taglio', 'Calzature di sicurezza S3 con lamina antiperforazione'],
@@ -599,6 +808,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Colpo di frusta del terminale di gomma dell’autopompa',
         fonteRischio: 'Occlusione temporanea e sblocco improvviso del tubo di mandata calcestruzzo',
         conseguenze: 'Traumi contusivi gravi, ribaltamento operatore',
+        probabilita: 2,
+        danno: 4,
+        livelloRischio: 8,
+        classeRischio: 'Notevole',
         misurePreventive: 'Manovra affidata a operatore addestrato; divieto di piegare ad angolo acuto il tubo di gomma terminale.',
         misureProtettive: 'Mantenimento distanza di sicurezza degli altri operatori dal getto.',
         dpiRichiesti: ['Casco di protezione / Elmetto', 'Occhiali di protezione / Visiera', 'Stivali di gomma S5'],
@@ -608,6 +821,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Crollo dell’impalcatura di sostegno per cedimento puntelli',
         fonteRischio: 'Sovraccarico improvviso di calcestruzzo fresco non distribuito uniformemente',
         conseguenze: 'Sprofondamento solaio, infortuni multipli gravissimi',
+        probabilita: 2,
+        danno: 4,
+        livelloRischio: 8,
+        classeRischio: 'Notevole',
         misurePreventive: 'Calcolo della portata dei puntelli in acciaio e verifica del perfetto piombo e controventatura prima del getto.',
         misureProtettive: 'Distribuzione del getto per strati omogenei evitando accumuli concentrati.',
         dpiRichiesti: ['Casco di protezione / Elmetto', 'Calzature di sicurezza S3'],
@@ -636,6 +853,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Incendio ed esplosione da fughe di GPL o surriscaldamento materiali',
         fonteRischio: 'Utilizzo del cannello a fiamma viva in adiacenza a isolanti plastici o legname',
         conseguenze: 'Ustioni gravissime, sviluppo di incendi di cantiere',
+        probabilita: 3,
+        danno: 3,
+        livelloRischio: 9,
+        classeRischio: 'Elevato',
         misurePreventive: 'Bombole di gas GPL posizionate in verticale all’aperto e provviste di valvola di sicurezza antiriflusso e riduttore di pressione.',
         misureProtettive: 'Presenza costante a portata di mano di almeno 2 estintori a polvere da 6 kg pronti all’uso.',
         dpiRichiesti: ['Guanti rischio termico / fiamma', 'Calzature di sicurezza S3 con suola resistente al calore', 'Indumenti in cotone 100% non sintetici'],
@@ -645,6 +866,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Inalazione di fumi bituminosi e vapori da solvente (primer)',
         fonteRischio: 'Combustione del bitume e applicazione primer a rullo in aree poco areate',
         conseguenze: 'Cefalea, intossicazione acuta, irritazione mucose',
+        probabilita: 3,
+        danno: 2,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Applicazione solo all’aperto o con estrazione forzata; divieto assoluto di fumo durante la stesura.',
         misureProtettive: 'Maschera con filtro combinato per vapori organici (A2P3).',
         dpiRichiesti: ['Maschera respiratoria per vapori organici (A2P3)', 'Occhiali di protezione'],
@@ -673,6 +898,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Schizzi negli occhi di malte cementizie basiche (pH elevato)',
         fonteRischio: 'Spruzzo ad alta pressione della lancia intonacatrice',
         conseguenze: 'Lesioni corneali gravi, cheratite chimica',
+        probabilita: 3,
+        danno: 2,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Manutenzione periodica della lancia e dei raccordi tubazioni pressione; divieto di piegare i tubi sotto carico.',
         misureProtettive: 'Uso costante di occhiali a mascherina aderenti o visiera paraschizzi.',
         dpiRichiesti: ['Occhiali di protezione a tenuta', 'Visiera policarbonato / paraschizzi', 'Guanti rischio chimico'],
@@ -682,6 +911,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Caduta da trabattelli o ponti su ruote durante la lavorazione',
         fonteRischio: 'Spostamento del trabattello con persona sopra o assenza parapetti',
         conseguenze: 'Traumi, fratture ossee',
+        probabilita: 2,
+        danno: 3,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Blocco permanente delle ruote con i freni di stazionamento prima di salire; divieto tassativo di spostare il trabattello con persone a bordo.',
         misureProtettive: 'Parapetto completo su 4 lati a quota 1 m con tavola fermapiede di 15 cm.',
         dpiRichiesti: ['Calzature di sicurezza S3', 'Casco di protezione / Elmetto'],
@@ -710,6 +943,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Uso di scanalatrice e smerigliatrice per apertura tracce a muro',
         fonteRischio: 'Rotazione rapida di dischi diamantati e rimbalzo utensile',
         conseguenze: 'Ferite da taglio agli arti, schegge agli occhi, polvere densa',
+        probabilita: 3,
+        danno: 2,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Scanalatrice provvista di carter totale collegata ad aspiratore industriale in classe M/H.',
         misureProtettive: 'Controllo serraggio disco con apposita flangia e chiave; divieto di utilizzo a disco usurato.',
         dpiRichiesti: ['Occhiali di protezione', 'Respiratore FFP2 antipolvere', 'Otoprotettori (Cuffie / Inserti)', 'Guanti rischio meccanico'],
@@ -719,6 +956,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Rischio elettrico da circuiti esistenti in tensione',
         fonteRischio: 'Intercettazione accidentale di cavi sotto tensione durante le forature a parete',
         conseguenze: 'Elettrocuzione, arco elettrico',
+        probabilita: 2,
+        danno: 4,
+        livelloRischio: 8,
+        classeRischio: 'Notevole',
         misurePreventive: 'Rilevatore murale di cavi sotto tensione prima di procedere con la foratura; sezionamento generale quadro elettrico.',
         misureProtettive: 'Attrezzi manuali isolati 1000V conformi EN 60900.',
         dpiRichiesti: ['Calzature di sicurezza S3 dielettriche', 'Guanti isolanti'],
@@ -747,6 +988,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Affaticamento articolare e postura incongrua prolungata (ginocchia/schiena)',
         fonteRischio: 'Posa piastrelle a terra su grandi metrature',
         conseguenze: 'Borsiti prerotulee, lombalgie croniche',
+        probabilita: 3,
+        danno: 2,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Utilizzo di ginocchiere ergonomiche imbottite certificate EN 14404 e sgabelli da posatore con ruote.',
         misureProtettive: 'Pause programmate di distensione muscolare.',
         dpiRichiesti: ['Ginocchiere di protezione EN 14404', 'Calzature di sicurezza S3', 'Guanti rischio meccanico'],
@@ -756,6 +1001,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Taglio e smerigliatura ceramica con formazione di polvere di silice',
         fonteRischio: 'Tagliatrice a disco per piastrelle in gres porcellanato',
         conseguenze: 'Silicosi, tagli da schegge ceramiche taglienti',
+        probabilita: 2,
+        danno: 2,
+        livelloRischio: 4,
+        classeRischio: 'Accettabile',
         misurePreventive: 'Uso prevalente di taglierina a incisione meccanica o banco a disco raffreddato ad acqua a ciclo chiuso.',
         misureProtettive: 'Aspirazione alla fonte in caso di ritocchi con flex.',
         dpiRichiesti: ['Occhiali di protezione', 'Respiratore FFP2 antipolvere', 'Guanti rischio meccanico'],
@@ -784,6 +1033,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Punture e tagli accidentali durante la raccolta di sfridi e chiodi',
         fonteRischio: 'Manipolazione di macerie residue, legname chiodato e imballaggi con regge metalliche',
         conseguenze: 'Ferite da taglio, infezioni',
+        probabilita: 3,
+        danno: 2,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Piegatura immediata o rimozione dei chiodi sporgenti dal legname da disarmo; uso di scope e pale anziché mani nude.',
         misureProtettive: 'Calzature con soletta in acciaio antiperforazione.',
         dpiRichiesti: ['Calzature di sicurezza S3', 'Guanti rischio meccanico alta resistenza'],
@@ -793,6 +1046,10 @@ export const DEFAULT_POS_TEMPLATES: PosAttivitaTemplate[] = [
         descrizione: 'Carico cassoni e movimentazione autocarri di sgombero',
         fonteRischio: 'Manovre di camion e sollevamento cassoni scarrabili',
         conseguenze: 'Urto pedoni, schiacciamento',
+        probabilita: 2,
+        danno: 3,
+        livelloRischio: 6,
+        classeRischio: 'Notevole',
         misurePreventive: 'Moviere a terra durante l’uscita del mezzo dal cantiere; verifica assenza persone nel raggio di carico.',
         misureProtettive: 'Uso di gilet catarifrangente ad alta visibilità.',
         dpiRichiesti: ['Casco di protezione / Elmetto', 'Gilet alta visibilità', 'Calzature di sicurezza S3'],
@@ -1675,7 +1932,26 @@ export function createNewPosFromCantiere(
     attrezzatureUtilizzate: tpl.attrezzatureTipiche,
     materialiUtilizzati: tpl.materialiTipici,
     sostanzeUtilizzate: [],
-    rischi: tpl.rischi,
+    rischi: (tpl.rischi || []).map(r => {
+      const tec = CALCOLA_RISCHIO_TECNICO(r);
+      return {
+        ...r,
+        id: r.id || `r-${Math.random().toString(36).substr(2, 6)}`,
+        probabilitaIniziale: tec.pIniziale,
+        dannoIniziale: tec.dIniziale,
+        rischioIniziale: tec.rIniziale,
+        classeRischioIniziale: tec.classeIniziale,
+        probabilitaResidua: tec.pResiduo,
+        dannoResiduo: tec.dResiduo,
+        rischioResiduo: tec.rResiduo,
+        classeRischioResiduo: tec.classeResidua,
+        probabilita: tec.pResiduo,
+        danno: tec.dResiduo,
+        livelloRischio: tec.rResiduo,
+        classeRischio: tec.classeResidua,
+        misureProtezioneCollettiva: r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC,
+      };
+    }),
     misurePrevenzione: tpl.misurePrevenzione,
     dpiNecessari: tpl.dpiRaccomandati,
     interferenze: tpl.interferenze,

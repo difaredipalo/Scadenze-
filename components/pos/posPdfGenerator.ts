@@ -6,6 +6,7 @@ import {
   MATRICE_RISCHIO_4X4,
   CLASSI_RISCHIO_DEF,
   DEFAULT_ORGANIZZAZIONE_CANTIERE,
+  CALCOLA_RISCHIO_TECNICO,
 } from '../../data/posDefaultData';
 
 const GHS_LABELS: Record<string, string> = {
@@ -628,30 +629,35 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
     currentY = (doc as any).lastAutoTable.finalY + 1.5;
 
     const risksRows = (att.rischi || []).map(r => {
-      const p = r.probabilita || 2;
-      const d = r.danno || 2;
-      const rLev = r.livelloRischio || p * d;
-      const cl = r.classeRischio || (rLev <= 4 ? 'Accettabile' : rLev <= 8 ? 'Notevole' : 'Elevato');
+      const tec = CALCOLA_RISCHIO_TECNICO(r);
+      const fonteText = r.fonteRischio ? `\nFonte: ${r.fonteRischio}` : '';
+      const dannoText = r.conseguenze ? `\nDanno: ${r.conseguenze}` : '';
+      const hazardDesc = `${r.descrizione}${fonteText}${dannoText}`;
+      const dpcText = r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC || tec.misuraTecnicaPrimaria;
+      const orgText = r.misurePreventive || tec.misuraOrganizzativa;
+
       return [
-        r.descrizione,
-        `P:${p} x D:${d} = ${rLev}`,
-        cl,
-        r.misurePreventive || 'Vigilanza continua e rispetto delle istruzioni di sicurezza',
+        hazardDesc,
+        `P${tec.pIniziale}×D${tec.dIniziale}=${tec.rIniziale}\n[${tec.classeIniziale}]`,
+        dpcText,
+        orgText,
+        `P${tec.pResiduo}×D${tec.dResiduo}=${tec.rResiduo}\n[${tec.classeResidua}]`,
       ];
     });
 
     (doc as any).autoTable({
       startY: currentY,
-      head: [['Rischio Rilevato', 'Indice R=PxD', 'Classe', 'Misure di Prevenzione & Protezione']],
-      body: risksRows.length > 0 ? risksRows : [['Nessun rischio specifico indicato', 'R=4', 'Accettabile', 'Misure ordinarie']],
+      head: [['Pericolo / Fonte & Conseguenze', 'R_in (P×D)', 'Protezione Collettiva (DPC)', 'Misure Organizzative & Vigilanza', 'R_res (P×D)']],
+      body: risksRows.length > 0 ? risksRows : [['Nessun rischio specifico indicato', 'P2×D2=4', 'Misure ordinarie', 'Vigilanza preposto', 'P1×D2=2']],
       theme: 'grid',
-      headStyles: { fillColor: [51, 65, 85], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
-      bodyStyles: { fontSize: 6.5, textColor: [15, 23, 42] },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.8 },
+      bodyStyles: { fontSize: 6.2, textColor: [15, 23, 42] },
       columnStyles: {
-        0: { cellWidth: 48, fontStyle: 'bold' },
-        1: { cellWidth: 24, fontStyle: 'bold', textColor: [185, 28, 28], halign: 'center' },
-        2: { cellWidth: 22, fontStyle: 'bold', halign: 'center' },
-        3: { cellWidth: 88 },
+        0: { cellWidth: 46, fontStyle: 'bold' },
+        1: { cellWidth: 20, fontStyle: 'bold', textColor: [185, 28, 28], halign: 'center' },
+        2: { cellWidth: 48 },
+        3: { cellWidth: 48 },
+        4: { cellWidth: 20, fontStyle: 'bold', textColor: [16, 149, 79], halign: 'center' },
       },
       margin: { left: margin, right: margin },
     });
