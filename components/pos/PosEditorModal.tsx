@@ -44,6 +44,10 @@ interface PosEditorModalProps {
   customAttrezzature?: PosAttrezzaturaItem[];
   customOpere?: PosOperaProvvisionaleItem[];
   customSostanze?: PosSostanzaItem[];
+  deletedTemplateIds?: string[];
+  deletedAttrezzatureIds?: string[];
+  deletedOpereIds?: string[];
+  deletedSostanzeIds?: string[];
   onSave: (updatedPos: PosDocument) => void;
   onClose: () => void;
   onOpenPrint: (pos: PosDocument) => void;
@@ -53,6 +57,10 @@ interface PosEditorModalProps {
   onUpdateCustomAttrezzature?: (items: PosAttrezzaturaItem[]) => void;
   onUpdateCustomOpere?: (items: PosOperaProvvisionaleItem[]) => void;
   onUpdateCustomSostanze?: (items: PosSostanzaItem[]) => void;
+  onUpdateDeletedTemplateIds?: (ids: string[]) => void;
+  onUpdateDeletedAttrezzatureIds?: (ids: string[]) => void;
+  onUpdateDeletedOpereIds?: (ids: string[]) => void;
+  onUpdateDeletedSostanzeIds?: (ids: string[]) => void;
 }
 
 export const PosEditorModal: React.FC<PosEditorModalProps> = ({
@@ -64,6 +72,10 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
   customAttrezzature = [],
   customOpere = [],
   customSostanze = [],
+  deletedTemplateIds = [],
+  deletedAttrezzatureIds = [],
+  deletedOpereIds = [],
+  deletedSostanzeIds = [],
   onSave,
   onClose,
   onOpenPrint,
@@ -73,6 +85,10 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
   onUpdateCustomAttrezzature,
   onUpdateCustomOpere,
   onUpdateCustomSostanze,
+  onUpdateDeletedTemplateIds,
+  onUpdateDeletedAttrezzatureIds,
+  onUpdateDeletedOpereIds,
+  onUpdateDeletedSostanzeIds,
 }) => {
   // Inizializza formData garantendo i nuovi campi del POS a 14 capitoli
   const [formData, setFormData] = useState<PosDocument>(() => {
@@ -1224,12 +1240,20 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
               customAttrezzature={customAttrezzature}
               customOpere={customOpere}
               customSostanze={customSostanze}
+              deletedTemplateIds={deletedTemplateIds}
+              deletedAttrezzatureIds={deletedAttrezzatureIds}
+              deletedOpereIds={deletedOpereIds}
+              deletedSostanzeIds={deletedSostanzeIds}
               onChangeAttivita={updated => setFormData(prev => ({ ...prev, attivita: updated }))}
               onSyncGlobalCatalog={handleSyncGlobalCatalog}
               onUpdateCustomTemplates={onUpdateCustomTemplates}
               onUpdateCustomAttrezzature={onUpdateCustomAttrezzature}
               onUpdateCustomOpere={onUpdateCustomOpere}
               onUpdateCustomSostanze={onUpdateCustomSostanze}
+              onUpdateDeletedTemplateIds={onUpdateDeletedTemplateIds}
+              onUpdateDeletedAttrezzatureIds={onUpdateDeletedAttrezzatureIds}
+              onUpdateDeletedOpereIds={onUpdateDeletedOpereIds}
+              onUpdateDeletedSostanzeIds={onUpdateDeletedSostanzeIds}
             />
           )}
 

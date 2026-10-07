@@ -56,6 +56,13 @@ const INITIAL_DATA: AppData = {
   subappaltatoriRubrica: DEFAULT_SUBAPPALTATORI,
   posList: [],
   posTemplates: [],
+  posAttrezzatureCatalogo: [],
+  posOpereCatalogo: [],
+  posSostanzeCatalogo: [],
+  posDeletedTemplateIds: [],
+  posDeletedAttrezzatureIds: [],
+  posDeletedOpereIds: [],
+  posDeletedSostanzeIds: [],
   settings: {
     nomeAzienda: 'Edilizia Generale SRL',
     theme: 'light',
@@ -131,6 +138,13 @@ const App: React.FC = () => {
           });
         }
         if (!parsed.posTemplates) parsed.posTemplates = [];
+        if (!parsed.posAttrezzatureCatalogo) parsed.posAttrezzatureCatalogo = [];
+        if (!parsed.posOpereCatalogo) parsed.posOpereCatalogo = [];
+        if (!parsed.posSostanzeCatalogo) parsed.posSostanzeCatalogo = [];
+        if (!parsed.posDeletedTemplateIds) parsed.posDeletedTemplateIds = [];
+        if (!parsed.posDeletedAttrezzatureIds) parsed.posDeletedAttrezzatureIds = [];
+        if (!parsed.posDeletedOpereIds) parsed.posDeletedOpereIds = [];
+        if (!parsed.posDeletedSostanzeIds) parsed.posDeletedSostanzeIds = [];
         if (!parsed.subappaltatoriRubrica || parsed.subappaltatoriRubrica.length === 0) {
           parsed.subappaltatoriRubrica = INITIAL_DATA.subappaltatoriRubrica || [];
         }
@@ -3001,6 +3015,22 @@ const App: React.FC = () => {
                customAttrezzature={data.posAttrezzatureCatalogo || []}
                customOpere={data.posOpereCatalogo || []}
                customSostanze={data.posSostanzeCatalogo || []}
+               deletedTemplateIds={data.posDeletedTemplateIds || []}
+               deletedAttrezzatureIds={data.posDeletedAttrezzatureIds || []}
+               deletedOpereIds={data.posDeletedOpereIds || []}
+               deletedSostanzeIds={data.posDeletedSostanzeIds || []}
+               onUpdateDeletedTemplateIds={(ids) => {
+                 setData(prev => ({ ...prev, posDeletedTemplateIds: ids }));
+               }}
+               onUpdateDeletedAttrezzatureIds={(ids) => {
+                 setData(prev => ({ ...prev, posDeletedAttrezzatureIds: ids }));
+               }}
+               onUpdateDeletedOpereIds={(ids) => {
+                 setData(prev => ({ ...prev, posDeletedOpereIds: ids }));
+               }}
+               onUpdateDeletedSostanzeIds={(ids) => {
+                 setData(prev => ({ ...prev, posDeletedSostanzeIds: ids }));
+               }}
                onUpdatePosList={(updatedList) => {
                  setData(prev => ({ ...prev, posList: updatedList }));
                }}

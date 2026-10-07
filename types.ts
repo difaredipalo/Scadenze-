@@ -572,4 +572,8 @@ export type AppData = {
   posAttrezzatureCatalogo?: PosAttrezzaturaItem[];
   posOpereCatalogo?: PosOperaProvvisionaleItem[];
   posSostanzeCatalogo?: PosSostanzaItem[];
+  posDeletedTemplateIds?: string[];
+  posDeletedAttrezzatureIds?: string[];
+  posDeletedOpereIds?: string[];
+  posDeletedSostanzeIds?: string[];
 };

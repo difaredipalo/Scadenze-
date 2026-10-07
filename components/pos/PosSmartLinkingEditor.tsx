@@ -35,6 +35,10 @@ interface PosSmartLinkingEditorProps {
   customAttrezzature?: PosAttrezzaturaItem[];
   customOpere?: PosOperaProvvisionaleItem[];
   customSostanze?: PosSostanzaItem[];
+  deletedTemplateIds?: string[];
+  deletedAttrezzatureIds?: string[];
+  deletedOpereIds?: string[];
+  deletedSostanzeIds?: string[];
   onChangeAttivita: (updated: PosAttivitaItem[]) => void;
   onSyncGlobalCatalog: (items: {
     attrezzature?: string[];
@@ -45,6 +49,10 @@ interface PosSmartLinkingEditorProps {
   onUpdateCustomAttrezzature?: (items: PosAttrezzaturaItem[]) => void;
   onUpdateCustomOpere?: (items: PosOperaProvvisionaleItem[]) => void;
   onUpdateCustomSostanze?: (items: PosSostanzaItem[]) => void;
+  onUpdateDeletedTemplateIds?: (ids: string[]) => void;
+  onUpdateDeletedAttrezzatureIds?: (ids: string[]) => void;
+  onUpdateDeletedOpereIds?: (ids: string[]) => void;
+  onUpdateDeletedSostanzeIds?: (ids: string[]) => void;
 }
 
 export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
@@ -54,12 +62,20 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
   customAttrezzature = [],
   customOpere = [],
   customSostanze = [],
+  deletedTemplateIds = [],
+  deletedAttrezzatureIds = [],
+  deletedOpereIds = [],
+  deletedSostanzeIds = [],
   onChangeAttivita,
   onSyncGlobalCatalog,
   onUpdateCustomTemplates,
   onUpdateCustomAttrezzature,
   onUpdateCustomOpere,
   onUpdateCustomSostanze,
+  onUpdateDeletedTemplateIds,
+  onUpdateDeletedAttrezzatureIds,
+  onUpdateDeletedOpereIds,
+  onUpdateDeletedSostanzeIds,
 }) => {
   const [selectedIdx, setSelectedIdx] = useState<number>(0);
   const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
@@ -372,8 +388,32 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
     return found ? found.icona : '🛡️';
   };
 
-  // Filtro template libreria
-  const allTemplates = [...DEFAULT_POS_TEMPLATES, ...customTemplates];
+  // Filtro template libreria (esclude le schede eliminate, supporta override per ID)
+  const allTemplates = React.useMemo(() => {
+    const deletedSet = new Set(deletedTemplateIds || []);
+    const customMap = new Map((customTemplates || []).map(t => [t.id, t]));
+    return [
+      ...DEFAULT_POS_TEMPLATES.filter(t => !customMap.has(t.id) && !deletedSet.has(t.id)),
+      ...(customTemplates || []).filter(t => !deletedSet.has(t.id)),
+    ];
+  }, [customTemplates, deletedTemplateIds]);
+
+  const handleDeleteTemplateFromLibrary = (tplId: string) => {
+    const tpl = allTemplates.find(t => t.id === tplId);
+    if (!window.confirm(`Sei sicuro di voler eliminare la scheda "${tpl?.nome || 'selezionata'}" dalla libreria del software?`)) return;
+
+    if (onUpdateCustomTemplates) {
+      onUpdateCustomTemplates((customTemplates || []).filter(t => t.id !== tplId));
+    }
+    const isDefault = DEFAULT_POS_TEMPLATES.some(t => t.id === tplId);
+    if (isDefault || onUpdateDeletedTemplateIds) {
+      const nextDeleted = Array.from(new Set([...(deletedTemplateIds || []), tplId]));
+      if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds(nextDeleted);
+    }
+    setSyncNotice(`✓ Scheda "${tpl?.nome}" eliminata dalla libreria.`);
+    setTimeout(() => setSyncNotice(null), 3500);
+  };
+
   const allCategories = ['Tutte', ...Array.from(new Set(allTemplates.map(t => t.categoria || 'Generale')))];
 
   const filteredTemplates = allTemplates.filter(t => {
@@ -598,6 +638,14 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
                         Applica a questa
                       </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteTemplateFromLibrary(tpl.id)}
+                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors"
+                      title="Elimina questa scheda dalla libreria (anche predisposta)"
+                    >
+                      🗑️
+                    </button>
                   </div>
                 </div>
               ))
@@ -1207,18 +1255,26 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
           onSaveTemplates={updated => {
             if (onUpdateCustomTemplates) onUpdateCustomTemplates(updated);
           }}
+          deletedTemplateIds={deletedTemplateIds}
+          onUpdateDeletedTemplateIds={onUpdateDeletedTemplateIds}
           customAttrezzature={customAttrezzature}
           onSaveAttrezzature={updated => {
             if (onUpdateCustomAttrezzature) onUpdateCustomAttrezzature(updated);
           }}
+          deletedAttrezzatureIds={deletedAttrezzatureIds}
+          onUpdateDeletedAttrezzatureIds={onUpdateDeletedAttrezzatureIds}
           customOpere={customOpere}
           onSaveOpere={updated => {
             if (onUpdateCustomOpere) onUpdateCustomOpere(updated);
           }}
+          deletedOpereIds={deletedOpereIds}
+          onUpdateDeletedOpereIds={onUpdateDeletedOpereIds}
           customSostanze={customSostanze}
           onSaveSostanze={updated => {
             if (onUpdateCustomSostanze) onUpdateCustomSostanze(updated);
           }}
+          deletedSostanzeIds={deletedSostanzeIds}
+          onUpdateDeletedSostanzeIds={onUpdateDeletedSostanzeIds}
           onSelectTemplateForPos={tpl => {
             handleAddActivityFromTemplate(tpl);
             setIsFullLibraryModalOpen(false);

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   PosAttivitaTemplate,
   PosAttrezzaturaItem,
@@ -26,12 +26,20 @@ export type PosLibraryCategory = 'lavorazioni' | 'attrezzature' | 'opere' | 'sos
 export interface PosTemplateLibraryModalProps {
   customTemplates: PosAttivitaTemplate[];
   onSaveTemplates: (templates: PosAttivitaTemplate[]) => void;
+  deletedTemplateIds?: string[];
+  onUpdateDeletedTemplateIds?: (ids: string[]) => void;
   customAttrezzature?: PosAttrezzaturaItem[];
   onSaveAttrezzature?: (items: PosAttrezzaturaItem[]) => void;
+  deletedAttrezzatureIds?: string[];
+  onUpdateDeletedAttrezzatureIds?: (ids: string[]) => void;
   customOpere?: PosOperaProvvisionaleItem[];
   onSaveOpere?: (items: PosOperaProvvisionaleItem[]) => void;
+  deletedOpereIds?: string[];
+  onUpdateDeletedOpereIds?: (ids: string[]) => void;
   customSostanze?: PosSostanzaItem[];
   onSaveSostanze?: (items: PosSostanzaItem[]) => void;
+  deletedSostanzeIds?: string[];
+  onUpdateDeletedSostanzeIds?: (ids: string[]) => void;
   onClose: () => void;
   onSelectTemplateForPos?: (tpl: PosAttivitaTemplate) => void;
 }
@@ -52,12 +60,20 @@ const COMMON_DPI_CHIPS = [
 export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = ({
   customTemplates = [],
   onSaveTemplates,
+  deletedTemplateIds = [],
+  onUpdateDeletedTemplateIds,
   customAttrezzature = [],
   onSaveAttrezzature,
+  deletedAttrezzatureIds = [],
+  onUpdateDeletedAttrezzatureIds,
   customOpere = [],
   onSaveOpere,
+  deletedOpereIds = [],
+  onUpdateDeletedOpereIds,
   customSostanze = [],
   onSaveSostanze,
+  deletedSostanzeIds = [],
+  onUpdateDeletedSostanzeIds,
   onClose,
   onSelectTemplateForPos,
 }) => {
@@ -85,34 +101,78 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
   const [newOperaInput, setNewOperaInput] = useState('');
   const [newMisuraInput, setNewMisuraInput] = useState('');
   const [newCustomDpiInput, setNewCustomDpiInput] = useState('');
+  const [newMaterialeInput, setNewMaterialeInput] = useState('');
 
   // Mobile navigation: se su mobile mostrare la vista dettaglio/edit
   const [showMobileDetail, setShowMobileDetail] = useState<boolean>(false);
 
-  // Cataloghi completi unendo default e custom con override corretto per ID
-  const customLavorazioniMap = new Map((customTemplates || []).map(t => [t.id, t]));
+  // Stato ottimistico sincronizzato per reattività istantanea nei cataloghi
+  const [localCustomTemplates, setLocalCustomTemplates] = useState<PosAttivitaTemplate[]>(customTemplates || []);
+  const [localDeletedTemplateIds, setLocalDeletedTemplateIds] = useState<string[]>(deletedTemplateIds || []);
+  const [localCustomAttrezzature, setLocalCustomAttrezzature] = useState<PosAttrezzaturaItem[]>(customAttrezzature || []);
+  const [localDeletedAttrezzatureIds, setLocalDeletedAttrezzatureIds] = useState<string[]>(deletedAttrezzatureIds || []);
+  const [localCustomOpere, setLocalCustomOpere] = useState<PosOperaProvvisionaleItem[]>(customOpere || []);
+  const [localDeletedOpereIds, setLocalDeletedOpereIds] = useState<string[]>(deletedOpereIds || []);
+  const [localCustomSostanze, setLocalCustomSostanze] = useState<PosSostanzaItem[]>(customSostanze || []);
+  const [localDeletedSostanzeIds, setLocalDeletedSostanzeIds] = useState<string[]>(deletedSostanzeIds || []);
+
+  useEffect(() => { setLocalCustomTemplates(customTemplates || []); }, [customTemplates]);
+  useEffect(() => { setLocalDeletedTemplateIds(deletedTemplateIds || []); }, [deletedTemplateIds]);
+  useEffect(() => { setLocalCustomAttrezzature(customAttrezzature || []); }, [customAttrezzature]);
+  useEffect(() => { setLocalDeletedAttrezzatureIds(deletedAttrezzatureIds || []); }, [deletedAttrezzatureIds]);
+  useEffect(() => { setLocalCustomOpere(customOpere || []); }, [customOpere]);
+  useEffect(() => { setLocalDeletedOpereIds(deletedOpereIds || []); }, [deletedOpereIds]);
+  useEffect(() => { setLocalCustomSostanze(customSostanze || []); }, [customSostanze]);
+  useEffect(() => { setLocalDeletedSostanzeIds(deletedSostanzeIds || []); }, [deletedSostanzeIds]);
+
+  // Cataloghi completi unendo default e custom con override corretto per ID, escludendo quelli eliminati dall'utente
+  const deletedTplSet = new Set(localDeletedTemplateIds);
+  const customLavorazioniMap = new Map(localCustomTemplates.map(t => [t.id, t]));
   const allLavorazioni: PosAttivitaTemplate[] = [
-    ...DEFAULT_POS_TEMPLATES.filter(t => !customLavorazioniMap.has(t.id)),
-    ...(customTemplates || []),
+    ...DEFAULT_POS_TEMPLATES.filter(t => !customLavorazioniMap.has(t.id) && !deletedTplSet.has(t.id)),
+    ...localCustomTemplates.filter(t => !deletedTplSet.has(t.id)),
   ];
 
-  const customAttrezzatureMap = new Map((customAttrezzature || []).map(t => [t.id, t]));
+  const deletedAttSet = new Set(localDeletedAttrezzatureIds);
+  const customAttrezzatureMap = new Map(localCustomAttrezzature.map(t => [t.id, t]));
   const allAttrezzature: PosAttrezzaturaItem[] = [
-    ...DEFAULT_ATTREZZATURE_CATALOGO.filter(t => !customAttrezzatureMap.has(t.id)),
-    ...(customAttrezzature || []),
+    ...DEFAULT_ATTREZZATURE_CATALOGO.filter(t => !customAttrezzatureMap.has(t.id) && !deletedAttSet.has(t.id)),
+    ...localCustomAttrezzature.filter(t => !deletedAttSet.has(t.id)),
   ];
 
-  const customOpereMap = new Map((customOpere || []).map(t => [t.id, t]));
+  const deletedOpSet = new Set(localDeletedOpereIds);
+  const customOpereMap = new Map(localCustomOpere.map(t => [t.id, t]));
   const allOpere: PosOperaProvvisionaleItem[] = [
-    ...DEFAULT_OPERE_PROVVISIONALI_LIST.filter(t => !customOpereMap.has(t.id)),
-    ...(customOpere || []),
+    ...DEFAULT_OPERE_PROVVISIONALI_LIST.filter(t => !customOpereMap.has(t.id) && !deletedOpSet.has(t.id)),
+    ...localCustomOpere.filter(t => !deletedOpSet.has(t.id)),
   ];
 
-  const customSostanzeMap = new Map((customSostanze || []).map(t => [t.id, t]));
+  const deletedSostSet = new Set(localDeletedSostanzeIds);
+  const customSostanzeMap = new Map(localCustomSostanze.map(t => [t.id, t]));
   const allSostanze: PosSostanzaItem[] = [
-    ...DEFAULT_SOSTANZE_CATALOGO.filter(t => !customSostanzeMap.has(t.id)),
-    ...(customSostanze || []),
+    ...DEFAULT_SOSTANZE_CATALOGO.filter(t => !customSostanzeMap.has(t.id) && !deletedSostSet.has(t.id)),
+    ...localCustomSostanze.filter(t => !deletedSostSet.has(t.id)),
   ];
+
+  // Helper per verificare se sono presenti schede predisposte eliminate nella categoria attiva
+  const hasDeletedDefaultsInCurrentTab = 
+    activeTab === 'lavorazioni' ? localDeletedTemplateIds.length > 0 :
+    activeTab === 'attrezzature' ? localDeletedAttrezzatureIds.length > 0 :
+    activeTab === 'opere' ? localDeletedOpereIds.length > 0 :
+    localDeletedSostanzeIds.length > 0;
+
+  const currentTabTotalCount = 
+    activeTab === 'lavorazioni' ? allLavorazioni.length :
+    activeTab === 'attrezzature' ? allAttrezzature.length :
+    activeTab === 'opere' ? allOpere.length :
+    allSostanze.length;
+
+  const totalCardsAcrossAllCatalogs = allLavorazioni.length + allAttrezzature.length + allOpere.length + allSostanze.length;
+  const hasAnyDeletedDefaults = 
+    localDeletedTemplateIds.length > 0 ||
+    localDeletedAttrezzatureIds.length > 0 ||
+    localDeletedOpereIds.length > 0 ||
+    localDeletedSostanzeIds.length > 0;
 
   // Helper categorie correnti
   const getCategoriesForCurrentTab = () => {
@@ -148,6 +208,7 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
   // CREAZIONE NUOVA SCHEDA NELLA LIBRERIA
   // ==========================================
   const handleAddNew = () => {
+    setSearchTerm('');
     const newId = `custom_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`;
     if (activeTab === 'lavorazioni') {
       const newTpl: PosAttivitaTemplate = {
@@ -310,18 +371,101 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
       isCustom: true,
     };
 
-    const exists = customTemplates.findIndex(t => t.id === cleanTpl.id);
+    const exists = localCustomTemplates.findIndex(t => t.id === cleanTpl.id);
     let updated: PosAttivitaTemplate[];
     if (exists >= 0) {
-      updated = customTemplates.map((t, i) => (i === exists ? cleanTpl : t));
+      updated = localCustomTemplates.map((t, i) => (i === exists ? cleanTpl : t));
     } else {
-      updated = [...customTemplates, cleanTpl];
+      updated = [...localCustomTemplates, cleanTpl];
     }
 
+    setLocalCustomTemplates(updated);
     onSaveTemplates(updated);
+
+    // Rimuovi sempre dagli ID eliminati se era presente
+    if (localDeletedTemplateIds.includes(cleanTpl.id)) {
+      const filtered = localDeletedTemplateIds.filter(id => id !== cleanTpl.id);
+      setLocalDeletedTemplateIds(filtered);
+      if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds(filtered);
+    }
+
     setActiveId(cleanTpl.id);
     setIsEditing(false);
+    setSearchTerm('');
+    setSelectedSubCat('Tutte');
     showToast(`✓ Lavorazione "${cleanTpl.nome}" salvata con successo nella libreria!`);
+  };
+
+  // Salvataggio e inserimento immediato nel POS
+  const handleSaveLavorazioneAndInsertIntoPos = () => {
+    if (!editLavorazione) return;
+    if (!editLavorazione.nome || !editLavorazione.nome.trim()) {
+      alert('Inserire il nome della lavorazione per procedere.');
+      return;
+    }
+
+    const cleanTpl: PosAttivitaTemplate = {
+      ...editLavorazione,
+      nome: editLavorazione.nome.trim(),
+      categoria: editLavorazione.categoria?.trim() || 'Opere Generali',
+      faseLavoro: editLavorazione.faseLavoro?.trim() || 'Fase Esecutiva',
+      descrizione: editLavorazione.descrizione?.trim() || 'Descrizione delle lavorazioni conformi alle buone prassi.',
+      attrezzatureTipiche: editLavorazione.attrezzatureTipiche || [],
+      materialiTipici: editLavorazione.materialiTipici || [],
+      sostanzeTipiche: editLavorazione.sostanzeTipiche || [],
+      opereProvvisionaliTipiche: editLavorazione.opereProvvisionaliTipiche || [],
+      misurePrevenzione: editLavorazione.misurePrevenzione || [],
+      dpiRaccomandati: editLavorazione.dpiRaccomandati || [],
+      rischi: (editLavorazione.rischi || []).map(r => {
+        const tec = CALCOLA_RISCHIO_TECNICO(r);
+        return {
+          ...r,
+          id: r.id || `r-${Math.random().toString(36).substr(2, 6)}`,
+          probabilitaIniziale: tec.pIniziale,
+          dannoIniziale: tec.dIniziale,
+          rischioIniziale: tec.rIniziale,
+          classeRischioIniziale: tec.classeIniziale,
+          probabilitaResidua: tec.pResiduo,
+          dannoResiduo: tec.dResiduo,
+          rischioResiduo: tec.rResiduo,
+          classeRischioResiduo: tec.classeResidua,
+          probabilita: tec.pResiduo,
+          danno: tec.dResiduo,
+          livelloRischio: tec.rResiduo,
+          classeRischio: tec.classeResidua,
+          misureProtezioneCollettiva: r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC,
+          misurePreventive: r.misurePreventive || tec.misuraOrganizzativa,
+        };
+      }),
+      isCustom: true,
+    };
+
+    const exists = localCustomTemplates.findIndex(t => t.id === cleanTpl.id);
+    let updated: PosAttivitaTemplate[];
+    if (exists >= 0) {
+      updated = localCustomTemplates.map((t, i) => (i === exists ? cleanTpl : t));
+    } else {
+      updated = [...localCustomTemplates, cleanTpl];
+    }
+
+    setLocalCustomTemplates(updated);
+    onSaveTemplates(updated);
+
+    if (localDeletedTemplateIds.includes(cleanTpl.id)) {
+      const filtered = localDeletedTemplateIds.filter(id => id !== cleanTpl.id);
+      setLocalDeletedTemplateIds(filtered);
+      if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds(filtered);
+    }
+
+    if (onSelectTemplateForPos) {
+      onSelectTemplateForPos(cleanTpl);
+    }
+
+    setActiveId(cleanTpl.id);
+    setIsEditing(false);
+    setSearchTerm('');
+    setSelectedSubCat('Tutte');
+    showToast(`✓ Scheda "${cleanTpl.nome}" salvata in libreria e inserita nel POS!`);
   };
 
   const handleSaveAttrezzatura = () => {
@@ -336,16 +480,23 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
       categoria: editAttrezzatura.categoria?.trim() || 'Macchine di Cantiere',
       dpiObbligatori: editAttrezzatura.dpiObbligatori || [],
     };
-    const exists = customAttrezzature.findIndex(t => t.id === cleanItem.id);
+    const exists = localCustomAttrezzature.findIndex(t => t.id === cleanItem.id);
     let updated: PosAttrezzaturaItem[];
     if (exists >= 0) {
-      updated = customAttrezzature.map((t, i) => (i === exists ? cleanItem : t));
+      updated = localCustomAttrezzature.map((t, i) => (i === exists ? cleanItem : t));
     } else {
-      updated = [...customAttrezzature, cleanItem];
+      updated = [...localCustomAttrezzature, cleanItem];
     }
+    setLocalCustomAttrezzature(updated);
     onSaveAttrezzature(updated);
+    if (localDeletedAttrezzatureIds.includes(cleanItem.id)) {
+      const filtered = localDeletedAttrezzatureIds.filter(id => id !== cleanItem.id);
+      setLocalDeletedAttrezzatureIds(filtered);
+      if (onUpdateDeletedAttrezzatureIds) onUpdateDeletedAttrezzatureIds(filtered);
+    }
     setActiveId(cleanItem.id);
     setIsEditing(false);
+    setSelectedSubCat('Tutte');
     showToast(`✓ Attrezzatura "${cleanItem.nome}" salvata con successo nella libreria!`);
   };
 
@@ -361,16 +512,23 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
       categoria: editOpera.categoria?.trim() || 'Opere Quota',
       dpiNecessari: editOpera.dpiNecessari || [],
     };
-    const exists = customOpere.findIndex(t => t.id === cleanItem.id);
+    const exists = localCustomOpere.findIndex(t => t.id === cleanItem.id);
     let updated: PosOperaProvvisionaleItem[];
     if (exists >= 0) {
-      updated = customOpere.map((t, i) => (i === exists ? cleanItem : t));
+      updated = localCustomOpere.map((t, i) => (i === exists ? cleanItem : t));
     } else {
-      updated = [...customOpere, cleanItem];
+      updated = [...localCustomOpere, cleanItem];
     }
+    setLocalCustomOpere(updated);
     onSaveOpere(updated);
+    if (localDeletedOpereIds.includes(cleanItem.id)) {
+      const filtered = localDeletedOpereIds.filter(id => id !== cleanItem.id);
+      setLocalDeletedOpereIds(filtered);
+      if (onUpdateDeletedOpereIds) onUpdateDeletedOpereIds(filtered);
+    }
     setActiveId(cleanItem.id);
     setIsEditing(false);
+    setSelectedSubCat('Tutte');
     showToast(`✓ Opera provvisionale "${cleanItem.tipo}" salvata con successo!`);
   };
 
@@ -386,46 +544,235 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
       pittogrammiPericolo: editSostanza.pittogrammiPericolo || ['GHS07'],
       dpiSpecifici: editSostanza.dpiSpecifici || [],
     };
-    const exists = customSostanze.findIndex(t => t.id === cleanItem.id);
+    const exists = localCustomSostanze.findIndex(t => t.id === cleanItem.id);
     let updated: PosSostanzaItem[];
     if (exists >= 0) {
-      updated = customSostanze.map((t, i) => (i === exists ? cleanItem : t));
+      updated = localCustomSostanze.map((t, i) => (i === exists ? cleanItem : t));
     } else {
-      updated = [...customSostanze, cleanItem];
+      updated = [...localCustomSostanze, cleanItem];
     }
+    setLocalCustomSostanze(updated);
     onSaveSostanze(updated);
+    if (localDeletedSostanzeIds.includes(cleanItem.id)) {
+      const filtered = localDeletedSostanzeIds.filter(id => id !== cleanItem.id);
+      setLocalDeletedSostanzeIds(filtered);
+      if (onUpdateDeletedSostanzeIds) onUpdateDeletedSostanzeIds(filtered);
+    }
     setActiveId(cleanItem.id);
     setIsEditing(false);
+    setSelectedSubCat('Tutte');
     showToast(`✓ Sostanza chimica "${cleanItem.nomeCommerciale}" salvata con successo!`);
   };
 
   // ==========================================
-  // ELIMINAZIONE SCHEDA CUSTOM
+  // ELIMINAZIONE SCHEDE (PREDISPOSTE E CUSTOM)
   // ==========================================
   const handleDeleteItem = (id: string) => {
-    if (!window.confirm('Sei sicuro di voler eliminare questa scheda dalla libreria?')) return;
+    const itemTitle = activeTab === 'lavorazioni' 
+      ? allLavorazioni.find(x => x.id === id)?.nome 
+      : activeTab === 'attrezzature'
+      ? allAttrezzature.find(x => x.id === id)?.nome
+      : activeTab === 'opere'
+      ? allOpere.find(x => x.id === id)?.tipo
+      : allSostanze.find(x => x.id === id)?.nomeCommerciale;
+
+    const isDefault = 
+      activeTab === 'lavorazioni' ? DEFAULT_POS_TEMPLATES.some(t => t.id === id) :
+      activeTab === 'attrezzature' ? DEFAULT_ATTREZZATURE_CATALOGO.some(t => t.id === id) :
+      activeTab === 'opere' ? DEFAULT_OPERE_PROVVISIONALI_LIST.some(t => t.id === id) :
+      DEFAULT_SOSTANZE_CATALOGO.some(t => t.id === id);
+
+    const msg = isDefault
+      ? `Sei sicuro di voler eliminare la scheda predisposta "${itemTitle || 'selezionata'}" dalla libreria?\nPotrai ripristinarla in qualunque momento con il pulsante "Ripristina predisposte".`
+      : `Sei sicuro di voler eliminare definitivamente la scheda "${itemTitle || 'selezionata'}" dalla libreria?`;
+
+    if (!window.confirm(msg)) return;
+
     if (activeTab === 'lavorazioni') {
-      const updated = customTemplates.filter(t => t.id !== id);
-      onSaveTemplates(updated);
-      showToast('Scheda eliminata dalla libreria.');
-    } else if (activeTab === 'attrezzature' && onSaveAttrezzature) {
-      const updated = customAttrezzature.filter(t => t.id !== id);
-      onSaveAttrezzature(updated);
-      showToast('Attrezzatura eliminata dalla libreria.');
-    } else if (activeTab === 'opere' && onSaveOpere) {
-      const updated = customOpere.filter(t => t.id !== id);
-      onSaveOpere(updated);
-      showToast('Opera provvisionale eliminata.');
-    } else if (activeTab === 'sostanze' && onSaveSostanze) {
-      const updated = customSostanze.filter(t => t.id !== id);
-      onSaveSostanze(updated);
-      showToast('Sostanza eliminata dalla libreria.');
+      const updatedCustom = localCustomTemplates.filter(t => t.id !== id);
+      setLocalCustomTemplates(updatedCustom);
+      onSaveTemplates(updatedCustom);
+      if (isDefault) {
+        const nextDeleted = Array.from(new Set([...localDeletedTemplateIds, id]));
+        setLocalDeletedTemplateIds(nextDeleted);
+        if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds(nextDeleted);
+      }
+      showToast('✓ Scheda lavorazione eliminata dalla libreria.');
+    } else if (activeTab === 'attrezzature') {
+      const updatedCustom = localCustomAttrezzature.filter(t => t.id !== id);
+      setLocalCustomAttrezzature(updatedCustom);
+      if (onSaveAttrezzature) onSaveAttrezzature(updatedCustom);
+      if (isDefault) {
+        const nextDeleted = Array.from(new Set([...localDeletedAttrezzatureIds, id]));
+        setLocalDeletedAttrezzatureIds(nextDeleted);
+        if (onUpdateDeletedAttrezzatureIds) onUpdateDeletedAttrezzatureIds(nextDeleted);
+      }
+      showToast('✓ Scheda attrezzatura eliminata dalla libreria.');
+    } else if (activeTab === 'opere') {
+      const updatedCustom = localCustomOpere.filter(t => t.id !== id);
+      setLocalCustomOpere(updatedCustom);
+      if (onSaveOpere) onSaveOpere(updatedCustom);
+      if (isDefault) {
+        const nextDeleted = Array.from(new Set([...localDeletedOpereIds, id]));
+        setLocalDeletedOpereIds(nextDeleted);
+        if (onUpdateDeletedOpereIds) onUpdateDeletedOpereIds(nextDeleted);
+      }
+      showToast('✓ Scheda opera provvisionale eliminata dalla libreria.');
+    } else if (activeTab === 'sostanze') {
+      const updatedCustom = localCustomSostanze.filter(t => t.id !== id);
+      setLocalCustomSostanze(updatedCustom);
+      if (onSaveSostanze) onSaveSostanze(updatedCustom);
+      if (isDefault) {
+        const nextDeleted = Array.from(new Set([...localDeletedSostanzeIds, id]));
+        setLocalDeletedSostanzeIds(nextDeleted);
+        if (onUpdateDeletedSostanzeIds) onUpdateDeletedSostanzeIds(nextDeleted);
+      }
+      showToast('✓ Scheda sostanza eliminata dalla libreria.');
     }
+
     if (activeId === id) {
       setActiveId(null);
       setIsEditing(false);
       setShowMobileDetail(false);
     }
+  };
+
+  // Eliminazione massiva: elimina tutte le schede del catalogo attivo (comprese quelle predisposte)
+  const handleDeleteAllInCurrentTab = () => {
+    if (currentTabTotalCount === 0) {
+      alert('Il catalogo è già vuoto.');
+      return;
+    }
+
+    const tabName = 
+      activeTab === 'lavorazioni' ? 'le schede lavorazioni' :
+      activeTab === 'attrezzature' ? 'le schede attrezzature e mezzi' :
+      activeTab === 'opere' ? 'le schede opere provvisionali' :
+      'le schede sostanze chimiche';
+
+    if (!window.confirm(`⚠️ ATTENZIONE: Sei sicuro di voler eliminare TUTTE ${tabName} (${currentTabTotalCount} schede in totale, comprese tutte quelle predisposte dal sistema)?\n\nIl catalogo verrà completamente svuotato. Potrai ripristinare le predisposte in qualsiasi momento.`)) {
+      return;
+    }
+
+    if (activeTab === 'lavorazioni') {
+      setLocalCustomTemplates([]);
+      onSaveTemplates([]);
+      const allDefaultIds = Array.from(new Set([...localDeletedTemplateIds, ...DEFAULT_POS_TEMPLATES.map(t => t.id)]));
+      setLocalDeletedTemplateIds(allDefaultIds);
+      if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds(allDefaultIds);
+      showToast('✓ Tutte le schede lavorazioni eliminate (comprese predisposte). Catalogo svuotato.');
+    } else if (activeTab === 'attrezzature') {
+      setLocalCustomAttrezzature([]);
+      if (onSaveAttrezzature) onSaveAttrezzature([]);
+      const allDefaultIds = Array.from(new Set([...localDeletedAttrezzatureIds, ...DEFAULT_ATTREZZATURE_CATALOGO.map(t => t.id)]));
+      setLocalDeletedAttrezzatureIds(allDefaultIds);
+      if (onUpdateDeletedAttrezzatureIds) onUpdateDeletedAttrezzatureIds(allDefaultIds);
+      showToast('✓ Tutte le schede attrezzature eliminate (comprese predisposte).');
+    } else if (activeTab === 'opere') {
+      setLocalCustomOpere([]);
+      if (onSaveOpere) onSaveOpere([]);
+      const allDefaultIds = Array.from(new Set([...localDeletedOpereIds, ...DEFAULT_OPERE_PROVVISIONALI_LIST.map(t => t.id)]));
+      setLocalDeletedOpereIds(allDefaultIds);
+      if (onUpdateDeletedOpereIds) onUpdateDeletedOpereIds(allDefaultIds);
+      showToast('✓ Tutte le schede opere provvisionali eliminate (comprese predisposte).');
+    } else if (activeTab === 'sostanze') {
+      setLocalCustomSostanze([]);
+      if (onSaveSostanze) onSaveSostanze([]);
+      const allDefaultIds = Array.from(new Set([...localDeletedSostanzeIds, ...DEFAULT_SOSTANZE_CATALOGO.map(t => t.id)]));
+      setLocalDeletedSostanzeIds(allDefaultIds);
+      if (onUpdateDeletedSostanzeIds) onUpdateDeletedSostanzeIds(allDefaultIds);
+      showToast('✓ Tutte le schede sostanze eliminate (comprese predisposte).');
+    }
+
+    setActiveId(null);
+    setIsEditing(false);
+    setShowMobileDetail(false);
+  };
+
+  // Ripristino delle schede predisposte per il catalogo attivo
+  const handleRestoreDefaultsInCurrentTab = () => {
+    const tabName = 
+      activeTab === 'lavorazioni' ? 'delle lavorazioni' :
+      activeTab === 'attrezzature' ? 'delle attrezzature' :
+      activeTab === 'opere' ? 'delle opere provvisionali' :
+      'delle sostanze chimiche';
+
+    if (!window.confirm(`Vuoi ripristinare le schede predisposte predefinite ${tabName}? Le schede di sistema originali torneranno disponibili nel catalogo.`)) {
+      return;
+    }
+
+    if (activeTab === 'lavorazioni') {
+      setLocalDeletedTemplateIds([]);
+      if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds([]);
+      showToast('✓ Schede lavorazioni predisposte ripristinate con successo!');
+    } else if (activeTab === 'attrezzature') {
+      setLocalDeletedAttrezzatureIds([]);
+      if (onUpdateDeletedAttrezzatureIds) onUpdateDeletedAttrezzatureIds([]);
+      showToast('✓ Schede attrezzature predisposte ripristinate con successo!');
+    } else if (activeTab === 'opere') {
+      setLocalDeletedOpereIds([]);
+      if (onUpdateDeletedOpereIds) onUpdateDeletedOpereIds([]);
+      showToast('✓ Schede opere provvisionali predisposte ripristinate con successo!');
+    } else if (activeTab === 'sostanze') {
+      setLocalDeletedSostanzeIds([]);
+      if (onUpdateDeletedSostanzeIds) onUpdateDeletedSostanzeIds([]);
+      showToast('✓ Schede sostanze predisposte ripristinate con successo!');
+    }
+  };
+
+  // Eliminazione massiva globale di TUTTI i 4 cataloghi
+  const handleDeleteAllAcrossAllCatalogs = () => {
+    if (totalCardsAcrossAllCatalogs === 0) {
+      alert('Tutti i cataloghi sono già vuoti.');
+      return;
+    }
+
+    if (!window.confirm(`⚠️ ATTENZIONE ESTREMA: Vuoi eliminare TUTTE le schede di TUTTI i 4 cataloghi (${totalCardsAcrossAllCatalogs} schede complessive)?\n\nVerranno eliminate tutte le schede (sia personalizzate che predisposte di fabbrica) di:\n- Lavorazioni\n- Attrezzature e Mezzi\n- Opere Provvisionali\n- Sostanze Chimiche\n\nTutti i cataloghi risulteranno completamente vuoti. Potrai ripristinare le predisposte originali in qualsiasi momento.`)) {
+      return;
+    }
+
+    setLocalCustomTemplates([]);
+    onSaveTemplates([]);
+    const allDefLavorazioni = Array.from(new Set([...localDeletedTemplateIds, ...DEFAULT_POS_TEMPLATES.map(t => t.id)]));
+    setLocalDeletedTemplateIds(allDefLavorazioni);
+    if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds(allDefLavorazioni);
+
+    setLocalCustomAttrezzature([]);
+    if (onSaveAttrezzature) onSaveAttrezzature([]);
+    const allDefAtt = Array.from(new Set([...localDeletedAttrezzatureIds, ...DEFAULT_ATTREZZATURE_CATALOGO.map(t => t.id)]));
+    setLocalDeletedAttrezzatureIds(allDefAtt);
+    if (onUpdateDeletedAttrezzatureIds) onUpdateDeletedAttrezzatureIds(allDefAtt);
+
+    setLocalCustomOpere([]);
+    if (onSaveOpere) onSaveOpere([]);
+    const allDefOp = Array.from(new Set([...localDeletedOpereIds, ...DEFAULT_OPERE_PROVVISIONALI_LIST.map(t => t.id)]));
+    setLocalDeletedOpereIds(allDefOp);
+    if (onUpdateDeletedOpereIds) onUpdateDeletedOpereIds(allDefOp);
+
+    setLocalCustomSostanze([]);
+    if (onSaveSostanze) onSaveSostanze([]);
+    const allDefSost = Array.from(new Set([...localDeletedSostanzeIds, ...DEFAULT_SOSTANZE_CATALOGO.map(t => t.id)]));
+    setLocalDeletedSostanzeIds(allDefSost);
+    if (onUpdateDeletedSostanzeIds) onUpdateDeletedSostanzeIds(allDefSost);
+
+    setActiveId(null);
+    setIsEditing(false);
+    setShowMobileDetail(false);
+    showToast('✓ Tutti i 4 cataloghi della libreria sono stati completamente svuotati.');
+  };
+
+  // Ripristino globale di tutte le schede predisposte per tutti i cataloghi
+  const handleRestoreAllDefaults = () => {
+    if (!window.confirm('Vuoi ripristinare tutte le schede predisposte originali in tutti i 4 cataloghi?')) return;
+    setLocalDeletedTemplateIds([]);
+    if (onUpdateDeletedTemplateIds) onUpdateDeletedTemplateIds([]);
+    setLocalDeletedAttrezzatureIds([]);
+    if (onUpdateDeletedAttrezzatureIds) onUpdateDeletedAttrezzatureIds([]);
+    setLocalDeletedOpereIds([]);
+    if (onUpdateDeletedOpereIds) onUpdateDeletedOpereIds([]);
+    setLocalDeletedSostanzeIds([]);
+    if (onUpdateDeletedSostanzeIds) onUpdateDeletedSostanzeIds([]);
+    showToast('✓ Tutte le schede predisposte ripristinate con successo in tutti i cataloghi!');
   };
 
   // Selezione per modifica
@@ -698,31 +1045,81 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
           </button>
         </div>
 
-        {/* FILTRI DI RICERCA E SOTTOCATEGORIE */}
+        {/* FILTRI DI RICERCA, SOTTOCATEGORIE E PULSANTI MASSIVI */}
         <div className="p-3 sm:p-4 border-b border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between gap-3 bg-slate-50/40 dark:bg-slate-900/40 shrink-0">
-          <input
-            type="text"
-            placeholder={`Cerca tra ${activeTab}...`}
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-            className="p-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs w-64 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-          />
+          <div className="flex items-center gap-2.5 flex-wrap flex-1">
+            <input
+              type="text"
+              placeholder={`Cerca tra ${activeTab}...`}
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="p-2 px-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 text-xs w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+            />
 
-          <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] font-bold custom-scrollbar">
-            {currentCategories.map(cat => (
+            <div className="flex items-center gap-1.5 overflow-x-auto text-[11px] font-bold custom-scrollbar">
+              {currentCategories.map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setSelectedSubCat(cat)}
+                  className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
+                    selectedSubCat === cat
+                      ? 'bg-blue-600 text-white font-black shadow-xs'
+                      : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* PULSANTI GESTIONE MASSIVA CATALOGO ATTIVO E GLOBALE */}
+          <div className="flex items-center gap-2 shrink-0 flex-wrap">
+            {hasDeletedDefaultsInCurrentTab && (
               <button
-                key={cat}
                 type="button"
-                onClick={() => setSelectedSubCat(cat)}
-                className={`px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors ${
-                  selectedSubCat === cat
-                    ? 'bg-blue-600 text-white font-black shadow-xs'
-                    : 'bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-100 border border-slate-200 dark:border-slate-700'
-                }`}
+                onClick={handleRestoreDefaultsInCurrentTab}
+                className="px-2.5 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-950/60 hover:bg-amber-100 dark:hover:bg-amber-900/60 text-amber-800 dark:text-amber-300 border border-amber-300 dark:border-amber-800 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Ripristina tutte le schede predisposte di sistema per questo catalogo"
               >
-                {cat}
+                <span>🔄</span>
+                <span>Ripristina predisposte</span>
               </button>
-            ))}
+            )}
+            {currentTabTotalCount > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAllInCurrentTab}
+                className="px-2.5 py-1.5 rounded-xl bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Elimina tutte le schede (anche quelle predisposte dal sistema) da questo catalogo"
+              >
+                <span>🗑️</span>
+                <span>Svuota catalogo ({currentTabTotalCount})</span>
+              </button>
+            )}
+            {totalCardsAcrossAllCatalogs > 0 && (
+              <button
+                type="button"
+                onClick={handleDeleteAllAcrossAllCatalogs}
+                className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-rose-100 dark:hover:bg-rose-950/60 text-slate-700 dark:text-slate-300 hover:text-rose-700 dark:hover:text-rose-300 border border-slate-300 dark:border-slate-700 hover:border-rose-300 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Elimina tutte le schede da TUTTI i 4 cataloghi (anche predisposte)"
+              >
+                <span>⚠️🗑️</span>
+                <span>Svuota TUTTI i cataloghi ({totalCardsAcrossAllCatalogs})</span>
+              </button>
+            )}
+            {hasAnyDeletedDefaults && (
+              <button
+                type="button"
+                onClick={handleRestoreAllDefaults}
+                className="px-2.5 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/60 hover:bg-emerald-100 dark:hover:bg-emerald-900/60 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800 text-[11px] font-bold flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Ripristina tutte le schede predisposte di fabbrica in tutti i 4 cataloghi"
+              >
+                <span>🔄</span>
+                <span>Ripristina tutto</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -731,6 +1128,48 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
           
           {/* LISTA SCHEDE (A SINISTRA SU DESKTOP, OPPURE MOSTRATA SU MOBILE SE NON IN DETTAGLIO) */}
           <div className={`w-full md:w-5/12 p-3 sm:p-4 overflow-y-auto border-r border-slate-200 dark:border-slate-800 space-y-2.5 ${showMobileDetail ? 'hidden md:block' : 'block'}`}>
+            
+            {/* STATO VUOTO QUANDO NON CI SONO SCHEDE */}
+            {((activeTab === 'lavorazioni' && filteredLavorazioni.length === 0) ||
+              (activeTab === 'attrezzature' && filteredAttrezzature.length === 0) ||
+              (activeTab === 'opere' && filteredOpere.length === 0) ||
+              (activeTab === 'sostanze' && filteredSostanze.length === 0)) && (
+              <div className="p-8 text-center bg-white dark:bg-slate-800/60 rounded-2xl border border-dashed border-slate-300 dark:border-slate-700 space-y-3">
+                <div className="text-3xl">📭</div>
+                <p className="font-bold text-xs text-slate-700 dark:text-slate-200">
+                  {currentTabTotalCount === 0 
+                    ? "Tutte le schede di questa categoria sono state eliminate."
+                    : `Nessuna scheda trovata per "${searchTerm}".`}
+                </p>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  {currentTabTotalCount === 0
+                    ? "Il catalogo è attualmente vuoto. Puoi creare nuove schede personalizzate oppure ripristinare quelle predisposte di sistema."
+                    : "Prova a modificare il testo di ricerca o selezionare un'altra sottocategoria."}
+                </p>
+                {currentTabTotalCount === 0 && (
+                  <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+                    <button
+                      type="button"
+                      onClick={handleAddNew}
+                      className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold shadow-sm"
+                    >
+                      + Crea Nuova Scheda
+                    </button>
+                    {hasDeletedDefaultsInCurrentTab && (
+                      <button
+                        type="button"
+                        onClick={handleRestoreDefaultsInCurrentTab}
+                        className="px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-xs font-bold shadow-sm"
+                      >
+                        🔄 Ripristina predisposte
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB LAVORAZIONI */}
             {activeTab === 'lavorazioni' &&
               filteredLavorazioni.map(tpl => {
                 const isSelected = activeId === tpl.id;
@@ -762,9 +1201,13 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                         </div>
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
-                        {isCustom && (
+                        {isCustom ? (
                           <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[9px] font-black rounded uppercase">
-                            Modificabile
+                            Personalizzata
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[9px] font-bold rounded uppercase">
+                            Predisposta
                           </span>
                         )}
                         {onSelectTemplateForPos && (
@@ -781,6 +1224,17 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                             + Nel POS
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(tpl.id);
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors"
+                          title="Elimina questa scheda dalla libreria (anche predisposta)"
+                        >
+                          🗑️
+                        </button>
                       </div>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-2 line-clamp-2">
@@ -801,6 +1255,7 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                 );
               })}
 
+            {/* TAB ATTREZZATURE */}
             {activeTab === 'attrezzature' &&
               filteredAttrezzature.map(att => {
                 const isSelected = activeId === att.id;
@@ -831,11 +1286,28 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                           </span>
                         </div>
                       </div>
-                      {isCustom && (
-                        <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[9px] font-black rounded uppercase">
-                          Modificabile
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isCustom ? (
+                          <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[9px] font-black rounded uppercase">
+                            Personalizzata
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[9px] font-bold rounded uppercase">
+                            Predisposta
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(att.id);
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors"
+                          title="Elimina questa scheda dalla libreria (anche predisposta)"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-2 line-clamp-2">
                       {att.descrizione || att.prescrizioniSicurezza}
@@ -844,6 +1316,7 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                 );
               })}
 
+            {/* TAB OPERE PROVVISIONALI */}
             {activeTab === 'opere' &&
               filteredOpere.map(op => {
                 const isSelected = activeId === op.id;
@@ -874,11 +1347,28 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                           </span>
                         </div>
                       </div>
-                      {isCustom && (
-                        <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[9px] font-black rounded uppercase">
-                          Modificabile
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isCustom ? (
+                          <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[9px] font-black rounded uppercase">
+                            Personalizzata
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[9px] font-bold rounded uppercase">
+                            Predisposta
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(op.id);
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors"
+                          title="Elimina questa scheda dalla libreria (anche predisposta)"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-2 line-clamp-2">
                       {op.descrizione}
@@ -887,6 +1377,7 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                 );
               })}
 
+            {/* TAB SOSTANZE CHIMICHE */}
             {activeTab === 'sostanze' &&
               filteredSostanze.map(sost => {
                 const isSelected = activeId === sost.id;
@@ -917,11 +1408,28 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                           </span>
                         </div>
                       </div>
-                      {isCustom && (
-                        <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[9px] font-black rounded uppercase">
-                          Modificabile
-                        </span>
-                      )}
+                      <div className="flex items-center gap-1 shrink-0">
+                        {isCustom ? (
+                          <span className="px-1.5 py-0.5 bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 text-[9px] font-black rounded uppercase">
+                            Personalizzata
+                          </span>
+                        ) : (
+                          <span className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-[9px] font-bold rounded uppercase">
+                            Predisposta
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteItem(sost.id);
+                          }}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/60 rounded-lg transition-colors"
+                          title="Elimina questa scheda dalla libreria (anche predisposta)"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
                     <p className="text-slate-500 dark:text-slate-400 text-[11px] mt-2 line-clamp-2">
                       {sost.descrizione || sost.frasiH}
@@ -946,11 +1454,27 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
             {isEditing ? (
               /* MODALITA EDITING ATTIVA */
               <div className="space-y-5">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800">
-                  <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
-                    <span>✏️</span> <span>Modifica Scheda di Sicurezza</span>
-                  </h3>
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-800 gap-3">
+                  <div>
+                    <h3 className="text-sm font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+                      <span>{editLavorazione?.id.startsWith('custom_') && !(customTemplates || []).some(t => t.id === editLavorazione.id) ? '➕' : '✏️'}</span>
+                      <span>
+                        {activeTab === 'lavorazioni'
+                          ? (editLavorazione?.id.startsWith('custom_') && !(customTemplates || []).some(t => t.id === editLavorazione.id)
+                              ? 'Nuova Lavorazione - Inserimento in Libreria'
+                              : 'Modifica Scheda Lavorazione')
+                          : activeTab === 'attrezzature'
+                          ? 'Modifica / Configura Attrezzatura'
+                          : activeTab === 'opere'
+                          ? 'Modifica / Configura Opera Provvisionale'
+                          : 'Modifica / Configura Sostanza Chimica'}
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Configura tutti gli elementi normativi della scheda: macchine, opere provvisionali, sostanze, rischi analitici PxD, misure e DPI.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       type="button"
                       onClick={() => setIsEditing(false)}
@@ -958,6 +1482,16 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                     >
                       Annulla
                     </button>
+                    {activeTab === 'lavorazioni' && onSelectTemplateForPos && (
+                      <button
+                        type="button"
+                        onClick={handleSaveLavorazioneAndInsertIntoPos}
+                        className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs uppercase shadow-sm active:scale-95 transition-transform flex items-center gap-1"
+                        title="Salva la lavorazione in libreria e inseriscila subito nel POS"
+                      >
+                        <span>💾➕</span> <span>Salva e Inserisci nel POS</span>
+                      </button>
+                    )}
                     <button
                       type="button"
                       onClick={() => {
@@ -966,9 +1500,9 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                         else if (activeTab === 'opere') handleSaveOpera();
                         else handleSaveSostanza();
                       }}
-                      className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase shadow-sm active:scale-95 transition-transform"
+                      className="px-4 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-black text-xs uppercase shadow-sm active:scale-95 transition-transform flex items-center gap-1"
                     >
-                      Salva Modifiche
+                      <span>💾</span> <span>Salva in Libreria</span>
                     </button>
                   </div>
                 </div>
@@ -1108,6 +1642,240 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                           ))}
                         </select>
                       </div>
+                    </div>
+
+                    {/* COLLEGAMENTO OPERE PROVVISIONALI TIPICHE */}
+                    <div className="p-3 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <span>🪜</span> <span>Opere Provvisionali e Lavori in Quota</span>
+                        </label>
+                        <span className="text-[9px] text-slate-400">({(editLavorazione.opereProvvisionaliTipiche || []).length} associate)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(editLavorazione.opereProvvisionaliTipiche || []).map((op, opIdx) => (
+                          <span key={opIdx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-cyan-50 dark:bg-cyan-950/40 text-cyan-900 dark:text-cyan-200 border border-cyan-200 dark:border-cyan-800 text-[10px] font-bold">
+                            <span>{op}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditLavorazione({
+                                  ...editLavorazione,
+                                  opereProvvisionaliTipiche: editLavorazione.opereProvvisionaliTipiche.filter((_, i) => i !== opIdx),
+                                });
+                              }}
+                              className="text-cyan-700 hover:text-cyan-950 text-xs ml-0.5"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={newOperaInput}
+                          onChange={e => setNewOperaInput(e.target.value)}
+                          placeholder="Aggiungi opera provvisionale (es. Ponteggio a telai prefabbricati)..."
+                          className="flex-1 p-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && newOperaInput.trim()) {
+                              e.preventDefault();
+                              setEditLavorazione({
+                                ...editLavorazione,
+                                opereProvvisionaliTipiche: [...(editLavorazione.opereProvvisionaliTipiche || []), newOperaInput.trim()],
+                              });
+                              setNewOperaInput('');
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newOperaInput.trim()) return;
+                            setEditLavorazione({
+                              ...editLavorazione,
+                              opereProvvisionaliTipiche: [...(editLavorazione.opereProvvisionaliTipiche || []), newOperaInput.trim()],
+                            });
+                            setNewOperaInput('');
+                          }}
+                          className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg text-xs font-bold"
+                        >
+                          + Aggiungi
+                        </button>
+                        <select
+                          onChange={e => {
+                            if (e.target.value) {
+                              setEditLavorazione({
+                                ...editLavorazione,
+                                opereProvvisionaliTipiche: Array.from(new Set([...(editLavorazione.opereProvvisionaliTipiche || []), e.target.value])),
+                              });
+                              e.target.value = '';
+                            }
+                          }}
+                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[10px] font-bold"
+                        >
+                          <option value="">Seleziona da catalogo opere...</option>
+                          {allOpere.map(o => (
+                            <option key={o.id} value={o.tipo}>{o.tipo}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* COLLEGAMENTO SOSTANZE E PREPARATI CHIMICI */}
+                    <div className="p-3 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <span>🧪</span> <span>Sostanze Chimiche e Preparati Pericolosi</span>
+                        </label>
+                        <span className="text-[9px] text-slate-400">({(editLavorazione.sostanzeTipiche || []).length} associate)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(editLavorazione.sostanzeTipiche || []).map((sost, sIdx) => (
+                          <span key={sIdx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-purple-50 dark:bg-purple-950/40 text-purple-900 dark:text-purple-200 border border-purple-200 dark:border-purple-800 text-[10px] font-bold">
+                            <span>{sost}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditLavorazione({
+                                  ...editLavorazione,
+                                  sostanzeTipiche: editLavorazione.sostanzeTipiche.filter((_, i) => i !== sIdx),
+                                });
+                              }}
+                              className="text-purple-700 hover:text-purple-950 text-xs ml-0.5"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={newSostanzaInput}
+                          onChange={e => setNewSostanzaInput(e.target.value)}
+                          placeholder="Aggiungi prodotto chimico (es. Vernice bituminosa, Schiuma poliuretanica)..."
+                          className="flex-1 p-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && newSostanzaInput.trim()) {
+                              e.preventDefault();
+                              setEditLavorazione({
+                                ...editLavorazione,
+                                sostanzeTipiche: [...(editLavorazione.sostanzeTipiche || []), newSostanzaInput.trim()],
+                              });
+                              setNewSostanzaInput('');
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newSostanzaInput.trim()) return;
+                            setEditLavorazione({
+                              ...editLavorazione,
+                              sostanzeTipiche: [...(editLavorazione.sostanzeTipiche || []), newSostanzaInput.trim()],
+                            });
+                            setNewSostanzaInput('');
+                          }}
+                          className="px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-xs font-bold"
+                        >
+                          + Aggiungi
+                        </button>
+                        <select
+                          onChange={e => {
+                            if (e.target.value) {
+                              setEditLavorazione({
+                                ...editLavorazione,
+                                sostanzeTipiche: Array.from(new Set([...(editLavorazione.sostanzeTipiche || []), e.target.value])),
+                              });
+                              e.target.value = '';
+                            }
+                          }}
+                          className="p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-[10px] font-bold"
+                        >
+                          <option value="">Seleziona da catalogo sostanze...</option>
+                          {allSostanze.map(s => (
+                            <option key={s.id} value={s.nomeCommerciale}>{s.nomeCommerciale}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* COLLEGAMENTO MATERIALI TIPICI */}
+                    <div className="p-3 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[10.5px] font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+                          <span>🧱</span> <span>Materiali Tipici da Costruzione</span>
+                        </label>
+                        <span className="text-[9px] text-slate-400">({(editLavorazione.materialiTipici || []).length} associati)</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(editLavorazione.materialiTipici || []).map((mat, mIdx) => (
+                          <span key={mIdx} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-600 text-[10px] font-bold">
+                            <span>{mat}</span>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditLavorazione({
+                                  ...editLavorazione,
+                                  materialiTipici: editLavorazione.materialiTipici.filter((_, i) => i !== mIdx),
+                                });
+                              }}
+                              className="text-slate-500 hover:text-slate-800 text-xs ml-0.5"
+                            >
+                              ✕
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <input
+                          type="text"
+                          value={newMaterialeInput}
+                          onChange={e => setNewMaterialeInput(e.target.value)}
+                          placeholder="Aggiungi materiale (es. Calcestruzzo, Laterizi, Blocchi CLS, Ferro d'armatura)..."
+                          className="flex-1 p-1.5 px-2.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs"
+                          onKeyDown={e => {
+                            if (e.key === 'Enter' && newMaterialeInput.trim()) {
+                              e.preventDefault();
+                              setEditLavorazione({
+                                ...editLavorazione,
+                                materialiTipici: [...(editLavorazione.materialiTipici || []), newMaterialeInput.trim()],
+                              });
+                              setNewMaterialeInput('');
+                            }
+                          }}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (!newMaterialeInput.trim()) return;
+                            setEditLavorazione({
+                              ...editLavorazione,
+                              materialiTipici: [...(editLavorazione.materialiTipici || []), newMaterialeInput.trim()],
+                            });
+                            setNewMaterialeInput('');
+                          }}
+                          className="px-3 py-1.5 bg-slate-700 hover:bg-slate-800 text-white rounded-lg text-xs font-bold"
+                        >
+                          + Aggiungi
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* INTERFERENZE E MISURE DI COORDINAMENTO */}
+                    <div className="p-3 bg-white dark:bg-slate-800/80 rounded-xl border border-slate-200 dark:border-slate-700 space-y-1.5">
+                      <label className="text-[10.5px] font-black uppercase text-slate-900 dark:text-white flex items-center gap-1.5">
+                        <span>🔄</span> <span>Interferenze di Cantiere & Coordinamento Operativo (Art. 26 D.Lgs. 81/08)</span>
+                      </label>
+                      <textarea
+                        rows={2}
+                        value={editLavorazione.interferenze || ''}
+                        onChange={e => setEditLavorazione({ ...editLavorazione, interferenze: e.target.value })}
+                        className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-xs text-slate-800 dark:text-slate-200"
+                        placeholder="Descrivere le possibili interferenze con altre ditte/lavorazioni (es. sosta mezzi pesanti, transito pedonale, sovrapposizione in quota) e misure di coordinamento."
+                      />
                     </div>
 
                     {/* VALUTAZIONE RISCHI PxD E MISURE TECNICHE */}
@@ -1577,16 +2345,15 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                         >
                           ✏️ Modifica
                         </button>
-                        {isSelectedCustom() && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteItem(selectedLavorazione.id)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-xl"
-                            title="Elimina dalla libreria"
-                          >
-                            🗑️
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(selectedLavorazione.id)}
+                          className="px-2.5 py-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                          title="Elimina questa scheda dalla libreria (anche se predisposta)"
+                        >
+                          <span>🗑️</span>
+                          <span>Elimina Scheda</span>
+                        </button>
                       </div>
                     </div>
 
@@ -1698,16 +2465,15 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                         >
                           ✏️ Modifica
                         </button>
-                        {isSelectedCustom() && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteItem(selectedAttrezzatura.id)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl"
-                            title="Elimina dalla libreria"
-                          >
-                            🗑️
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(selectedAttrezzatura.id)}
+                          className="px-2.5 py-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                          title="Elimina questa scheda dalla libreria (anche se predisposta)"
+                        >
+                          <span>🗑️</span>
+                          <span>Elimina Scheda</span>
+                        </button>
                       </div>
                     </div>
 
@@ -1759,16 +2525,15 @@ export const PosTemplateLibraryModal: React.FC<PosTemplateLibraryModalProps> = (
                         >
                           ✏️ Modifica
                         </button>
-                        {isSelectedCustom() && (
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteItem(selectedOpera.id)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-xl"
-                            title="Elimina dalla libreria"
-                          >
-                            🗑️
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(selectedOpera.id)}
+                          className="px-2.5 py-1.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold flex items-center gap-1 shadow-2xs transition-colors"
+                          title="Elimina questa scheda dalla libreria (anche se predisposta)"
+                        >
+                          <span>🗑️</span>
+                          <span>Elimina Scheda</span>
+                        </button>
                       </div>
                     </div>
 

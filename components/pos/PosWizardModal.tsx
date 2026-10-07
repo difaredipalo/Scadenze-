@@ -25,6 +25,7 @@ interface PosWizardModalProps {
   personale: Personale[];
   settings: AppSettings;
   customTemplates?: PosAttivitaTemplate[];
+  deletedTemplateIds?: string[];
   onSave: (newPos: PosDocument) => void;
   onClose: () => void;
   onSaveAziendaDefaults?: (dati: PosDatiImpresa) => void;
@@ -35,6 +36,7 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
   personale,
   settings,
   customTemplates = [],
+  deletedTemplateIds = [],
   onSave,
   onClose,
   onSaveAziendaDefaults,
@@ -72,13 +74,14 @@ export const PosWizardModal: React.FC<PosWizardModalProps> = ({
     return createNewPosFromCantiere(dummyCantiere, settings, personale);
   });
 
-  // Available activity templates (custom templates override default with same ID)
+  // Available activity templates (custom templates override default with same ID; excludes deleted ones)
   const allTemplates = React.useMemo(() => {
+    const deletedSet = new Set(deletedTemplateIds || []);
     const map = new Map<string, PosAttivitaTemplate>();
-    DEFAULT_POS_TEMPLATES.forEach(t => map.set(t.id, t));
-    (customTemplates || []).forEach(t => map.set(t.id, t));
+    DEFAULT_POS_TEMPLATES.filter(t => !deletedSet.has(t.id)).forEach(t => map.set(t.id, t));
+    (customTemplates || []).filter(t => !deletedSet.has(t.id)).forEach(t => map.set(t.id, t));
     return Array.from(map.values());
-  }, [customTemplates]);
+  }, [customTemplates, deletedTemplateIds]);
   const [selectedTemplateIds, setSelectedTemplateIds] = useState<string[]>(
     draftPos.attivita.map(a => a.templateId || a.id).filter(Boolean)
   );

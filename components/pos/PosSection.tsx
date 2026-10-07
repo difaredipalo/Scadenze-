@@ -26,11 +26,19 @@ interface PosSectionProps {
   customAttrezzature?: PosAttrezzaturaItem[];
   customOpere?: PosOperaProvvisionaleItem[];
   customSostanze?: PosSostanzaItem[];
+  deletedTemplateIds?: string[];
+  deletedAttrezzatureIds?: string[];
+  deletedOpereIds?: string[];
+  deletedSostanzeIds?: string[];
   onUpdatePosList: (newList: PosDocument[]) => void;
   onUpdateCustomTemplates?: (templates: PosAttivitaTemplate[]) => void;
   onUpdateCustomAttrezzature?: (items: PosAttrezzaturaItem[]) => void;
   onUpdateCustomOpere?: (items: PosOperaProvvisionaleItem[]) => void;
   onUpdateCustomSostanze?: (items: PosSostanzaItem[]) => void;
+  onUpdateDeletedTemplateIds?: (ids: string[]) => void;
+  onUpdateDeletedAttrezzatureIds?: (ids: string[]) => void;
+  onUpdateDeletedOpereIds?: (ids: string[]) => void;
+  onUpdateDeletedSostanzeIds?: (ids: string[]) => void;
   onUpdateSettings?: (updatedSettings: AppSettings) => void;
 }
 
@@ -43,11 +51,19 @@ export const PosSection: React.FC<PosSectionProps> = ({
   customAttrezzature = [],
   customOpere = [],
   customSostanze = [],
+  deletedTemplateIds = [],
+  deletedAttrezzatureIds = [],
+  deletedOpereIds = [],
+  deletedSostanzeIds = [],
   onUpdatePosList,
   onUpdateCustomTemplates,
   onUpdateCustomAttrezzature,
   onUpdateCustomOpere,
   onUpdateCustomSostanze,
+  onUpdateDeletedTemplateIds,
+  onUpdateDeletedAttrezzatureIds,
+  onUpdateDeletedOpereIds,
+  onUpdateDeletedSostanzeIds,
   onUpdateSettings,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -435,6 +451,7 @@ export const PosSection: React.FC<PosSectionProps> = ({
           personale={personale}
           settings={settings}
           customTemplates={customTemplates}
+          deletedTemplateIds={deletedTemplateIds}
           onSave={handleSavePos}
           onClose={() => setIsWizardOpen(false)}
           onSaveAziendaDefaults={handleSaveAziendaDefaults}
@@ -451,6 +468,10 @@ export const PosSection: React.FC<PosSectionProps> = ({
           customAttrezzature={customAttrezzature}
           customOpere={customOpere}
           customSostanze={customSostanze}
+          deletedTemplateIds={deletedTemplateIds}
+          deletedAttrezzatureIds={deletedAttrezzatureIds}
+          deletedOpereIds={deletedOpereIds}
+          deletedSostanzeIds={deletedSostanzeIds}
           onSave={handleSavePos}
           onClose={() => setEditingPos(null)}
           onOpenPrint={p => setPrintingPos(p)}
@@ -460,6 +481,10 @@ export const PosSection: React.FC<PosSectionProps> = ({
           onUpdateCustomAttrezzature={onUpdateCustomAttrezzature}
           onUpdateCustomOpere={onUpdateCustomOpere}
           onUpdateCustomSostanze={onUpdateCustomSostanze}
+          onUpdateDeletedTemplateIds={onUpdateDeletedTemplateIds}
+          onUpdateDeletedAttrezzatureIds={onUpdateDeletedAttrezzatureIds}
+          onUpdateDeletedOpereIds={onUpdateDeletedOpereIds}
+          onUpdateDeletedSostanzeIds={onUpdateDeletedSostanzeIds}
         />
       )}
 
@@ -487,18 +512,26 @@ export const PosSection: React.FC<PosSectionProps> = ({
           onSaveTemplates={updated => {
             if (onUpdateCustomTemplates) onUpdateCustomTemplates(updated);
           }}
+          deletedTemplateIds={deletedTemplateIds}
+          onUpdateDeletedTemplateIds={onUpdateDeletedTemplateIds}
           customAttrezzature={customAttrezzature}
           onSaveAttrezzature={updated => {
             if (onUpdateCustomAttrezzature) onUpdateCustomAttrezzature(updated);
           }}
+          deletedAttrezzatureIds={deletedAttrezzatureIds}
+          onUpdateDeletedAttrezzatureIds={onUpdateDeletedAttrezzatureIds}
           customOpere={customOpere}
           onSaveOpere={updated => {
             if (onUpdateCustomOpere) onUpdateCustomOpere(updated);
           }}
+          deletedOpereIds={deletedOpereIds}
+          onUpdateDeletedOpereIds={onUpdateDeletedOpereIds}
           customSostanze={customSostanze}
           onSaveSostanze={updated => {
             if (onUpdateCustomSostanze) onUpdateCustomSostanze(updated);
           }}
+          deletedSostanzeIds={deletedSostanzeIds}
+          onUpdateDeletedSostanzeIds={onUpdateDeletedSostanzeIds}
           onClose={() => setIsLibraryOpen(false)}
         />
       )}
