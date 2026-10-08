@@ -13,6 +13,7 @@ import {
   AppSettings,
   PosDatiImpresa,
   PosOrganizzazioneCantiere,
+  PosDocumentoAllegato,
 } from '../../types';
 import {
   POS_DPI_LIST,
@@ -22,6 +23,7 @@ import {
   DEFAULT_OPERE_PROVVISIONALI_LIST,
   DEFAULT_CONTESTO_AMBIENTALE,
   DEFAULT_ORGANIZZAZIONE_CANTIERE,
+  DEFAULT_ALLEGATI_POS,
   CALCOLA_RISCHIO,
 } from '../../data/posDefaultData';
 import { auditPosDocument } from './posAuditHelper';
@@ -122,6 +124,51 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<string>('copertina');
   const [companyDefaultsSavedNotice, setCompanyDefaultsSavedNotice] = useState<string | null>(null);
+
+  // Gestione allegati personalizzati
+  const [newAllegatoTitolo, setNewAllegatoTitolo] = useState('');
+  const [newAllegatoObbligatorio, setNewAllegatoObbligatorio] = useState(false);
+  const [newAllegatoPresente, setNewAllegatoPresente] = useState(true);
+  const [showAddAllegatoForm, setShowAddAllegatoForm] = useState(false);
+
+  const handleAddNewAllegato = (presetTitolo?: string) => {
+    const titoloToAdd = (presetTitolo || newAllegatoTitolo).trim();
+    if (!titoloToAdd) return;
+
+    const newId = `all_custom_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+    const nuovoItem: PosDocumentoAllegato = {
+      id: newId,
+      titolo: titoloToAdd,
+      obbligatorio: presetTitolo ? false : newAllegatoObbligatorio,
+      allegatoPresente: presetTitolo ? true : newAllegatoPresente,
+    };
+
+    setFormData(prev => ({
+      ...prev,
+      allegati: [...prev.allegati, nuovoItem],
+    }));
+
+    setNewAllegatoTitolo('');
+    setNewAllegatoObbligatorio(false);
+    setNewAllegatoPresente(true);
+    setShowAddAllegatoForm(false);
+  };
+
+  const handleDeleteAllegato = (idOrIdx: string | number) => {
+    setFormData(prev => ({
+      ...prev,
+      allegati: prev.allegati.filter((item, idx) => (item.id ? item.id !== idOrIdx : idx !== idOrIdx)),
+    }));
+  };
+
+  const handleResetDefaultAllegati = () => {
+    if (window.confirm("Vuoi ripristinare l'elenco predefinito degli allegati dell'Allegato XVII?")) {
+      setFormData(prev => ({
+        ...prev,
+        allegati: DEFAULT_ALLEGATI_POS.map(a => ({ ...a })),
+      }));
+    }
+  };
 
   const audit = auditPosDocument(formData);
 
@@ -1390,38 +1437,227 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                 </p>
               </div>
 
-              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-3">
-                <h4 className="font-black text-xs uppercase text-slate-900 dark:text-white">
-                  14.2 Elenco della Documentazione Obbligatoria Allegata (All. XVII D.Lgs. 81/08)
-                </h4>
-                <div className="space-y-2">
-                  {formData.allegati.map((all, idx) => (
-                    <div key={all.id || idx} className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between">
-                      <div>
-                        <strong className="text-xs text-slate-900 dark:text-white block">{all.titolo}</strong>
-                        <span className="text-[10px] text-slate-400 font-bold uppercase">
-                          {all.obbligatorio ? 'Obbligatorio per Legge (All. XVII)' : 'Opzionale / Se applicabile'}
-                        </span>
-                      </div>
-                      <label className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={all.allegatoPresente}
-                          onChange={e => {
-                            const checked = e.target.checked;
-                            setFormData(prev => ({
-                              ...prev,
-                              allegati: prev.allegati.map((item, i) => i === idx ? { ...item, allegatoPresente: checked } : item),
-                            }));
-                          }}
-                          className="w-4 h-4 rounded text-blue-600"
-                        />
-                        <span className={`text-xs font-black uppercase ${all.allegatoPresente ? 'text-emerald-600' : 'text-slate-400'}`}>
-                          {all.allegatoPresente ? 'Allegato ✓' : 'Non Allegato'}
-                        </span>
-                      </label>
+              <div className="p-5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 dark:border-slate-700 pb-3">
+                  <div>
+                    <h4 className="font-black text-xs uppercase text-slate-900 dark:text-white flex items-center gap-2">
+                      <span>14.2 Elenco della Documentazione Obbligatoria Allegata (All. XVII D.Lgs. 81/08)</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300">
+                        {formData.allegati.filter(a => a.allegatoPresente).length} allegati attivi su {formData.allegati.length}
+                      </span>
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400 mt-1">
+                      💡 <strong>Regola di stampa:</strong> I documenti deselezionati (<strong>"Non Allegato"</strong>) vengono <strong>automaticamente eliminati dalla stampa finale</strong> (nessuna dicitura "da allegare"). Puoi anche rimuoverli definitivamente con l'icona cestino o aggiungere nuovi allegati tecnici.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setShowAddAllegatoForm(prev => !prev)}
+                      className="px-3 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <span>➕</span>
+                      <span>Aggiungi Allegato</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleResetDefaultAllegati}
+                      className="px-2.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 text-xs font-semibold"
+                      title="Ripristina l'elenco standard All. XVII"
+                    >
+                      ↺ Predefiniti
+                    </button>
+                  </div>
+                </div>
+
+                {/* Box Aggiunta Nuovo Allegato */}
+                {showAddAllegatoForm && (
+                  <div className="p-4 rounded-xl border-2 border-blue-500/30 bg-blue-50/40 dark:bg-slate-700/50 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-black uppercase text-blue-900 dark:text-blue-200 flex items-center gap-1.5">
+                        <span>📄</span> Inserimento Nuovo Documento / Allegato Personalizzato
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddAllegatoForm(false)}
+                        className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-xs font-bold"
+                      >
+                        ✕ Chiudi
+                      </button>
                     </div>
-                  ))}
+
+                    <div className="space-y-1.5">
+                      <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300">
+                        Titolo o Descrizione Documento <span className="text-rose-500">*</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={newAllegatoTitolo}
+                        onChange={e => setNewAllegatoTitolo(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddNewAllegato();
+                          }
+                        }}
+                        placeholder="Es. Planimetria di Cantiere con Evacuazione, Relazione Tecnica Impianto..."
+                        className="w-full px-3 py-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        autoFocus
+                      />
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={newAllegatoPresente}
+                            onChange={e => setNewAllegatoPresente(e.target.checked)}
+                            className="w-4 h-4 rounded text-blue-600"
+                          />
+                          <span className="font-semibold">Allegato presente subito (✓)</span>
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-slate-700 dark:text-slate-300">
+                          <input
+                            type="checkbox"
+                            checked={newAllegatoObbligatorio}
+                            onChange={e => setNewAllegatoObbligatorio(e.target.checked)}
+                            className="w-4 h-4 rounded text-amber-600"
+                          />
+                          <span className="font-semibold">Obbligatorio per Legge</span>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setShowAddAllegatoForm(false)}
+                          className="px-3 py-1.5 rounded-lg border border-slate-300 dark:border-slate-600 text-xs text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700"
+                        >
+                          Annulla
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!newAllegatoTitolo.trim()}
+                          onClick={() => handleAddNewAllegato()}
+                          className="px-4 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-black uppercase tracking-wider shadow"
+                        >
+                          Salva e Inserisci
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Suggerimenti rapidi */}
+                    <div className="pt-2 border-t border-blue-200/60 dark:border-slate-600">
+                      <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 block mb-1.5">
+                        Suggerimenti Rapidi (clicca per aggiungere al volo):
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {[
+                          'Planimetria di Cantiere con Vie di Fuga ed Emergenza',
+                          'Dichiarazione Conformità Impianto Elettrico (D.M. 37/08)',
+                          'Valutazione Impatto Acustico (D.Lgs. 81/08)',
+                          'Certificato Collaudo / Immatricolazione Mezzi e Gru',
+                          'Verbale Consegna DPI di III Categoria',
+                          'Designazione e Nomina Medico Competente',
+                          'Verbale di Coordinamento con Impresa Affidataria / CSE',
+                          'Certificato Idoneità Tecnico Professionale Lavoratori Autonomi',
+                        ].map((sugg, sIdx) => (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            onClick={() => handleAddNewAllegato(sugg)}
+                            className="px-2 py-1 rounded-md bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 text-[10.5px] font-medium text-slate-700 dark:text-slate-300 transition-all text-left"
+                          >
+                            + {sugg}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Elenco Allegati */}
+                <div className="space-y-2">
+                  {formData.allegati.length === 0 ? (
+                    <div className="p-6 text-center border-2 border-dashed border-slate-200 dark:border-slate-700 rounded-xl text-slate-400 text-xs">
+                      Nessun allegato presente. Clicca su "+ Aggiungi Allegato" o "Ripristina Predefiniti".
+                    </div>
+                  ) : (
+                    formData.allegati.map((all, idx) => (
+                      <div
+                        key={all.id || idx}
+                        className={`p-3 rounded-xl border transition-all flex items-center justify-between gap-3 ${
+                          all.allegatoPresente
+                            ? 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800'
+                            : 'border-slate-200 dark:border-slate-800 bg-slate-50/80 dark:bg-slate-900/40 opacity-75'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <span className="text-base leading-none mt-0.5">
+                            {all.allegatoPresente ? '📎' : '📄'}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            <strong className="text-xs text-slate-900 dark:text-white block truncate">
+                              {all.titolo}
+                            </strong>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className={`text-[10px] font-bold uppercase ${all.obbligatorio ? 'text-amber-600 dark:text-amber-400' : 'text-slate-400'}`}>
+                                {all.obbligatorio ? 'Obbligatorio (All. XVII)' : 'Opzionale / Integrativo'}
+                              </span>
+                              {!all.allegatoPresente && (
+                                <span className="text-[10px] font-semibold text-rose-500 dark:text-rose-400 italic">
+                                  (Escluso dalla stampa finale)
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-3 shrink-0">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={all.allegatoPresente}
+                              onChange={e => {
+                                const checked = e.target.checked;
+                                setFormData(prev => ({
+                                  ...prev,
+                                  allegati: prev.allegati.map((item, i) =>
+                                    (item.id && all.id ? item.id === all.id : i === idx)
+                                      ? { ...item, allegatoPresente: checked }
+                                      : item
+                                  ),
+                                }));
+                              }}
+                              className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer"
+                            />
+                            <span
+                              className={`text-xs font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                                all.allegatoPresente
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-800'
+                                  : 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400 border border-slate-300 dark:border-slate-700'
+                              }`}
+                            >
+                              {all.allegatoPresente ? 'Allegato ✓' : 'Non Allegato'}
+                            </span>
+                          </label>
+
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAllegato(all.id || idx)}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/50 transition-colors"
+                            title="Elimina questo allegato dal POS"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 

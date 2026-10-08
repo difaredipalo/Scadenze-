@@ -2418,16 +2418,28 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                   <span className="w-2 h-2 rounded-full bg-slate-800" />
                   14.2 Elenco della Documentazione Obbligatoria Allegata in Atti (Allegato XVII):
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[10px]">
-                  {pos.allegati.map((all, idx) => (
-                    <div key={all.id || idx} className="flex items-center justify-between p-2 border border-slate-300 rounded bg-white shadow-2xs">
-                      <span className="font-medium text-slate-800 truncate mr-2">{all.titolo}</span>
-                      <span className="font-bold text-emerald-700 text-[9px] shrink-0 font-mono">
-                        {all.allegatoPresente ? '✓ PRESENTE' : 'DA ALLEGARE'}
-                      </span>
+                {(() => {
+                  const allegatiEffettivi = (pos.allegati || []).filter(a => a.allegatoPresente);
+                  if (allegatiEffettivi.length === 0) {
+                    return (
+                      <div className="p-2.5 border border-slate-300 rounded bg-slate-50 text-[10px] text-slate-600 italic">
+                        Nessun documento integrativo allegato al piano (documentazione custodita in atti presso la sede legale dell'impresa).
+                      </div>
+                    );
+                  }
+                  return (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-[10px]">
+                      {allegatiEffettivi.map((all, idx) => (
+                        <div key={all.id || idx} className="flex items-center justify-between p-2 border border-slate-300 rounded bg-white shadow-2xs">
+                          <span className="font-medium text-slate-800 truncate mr-2">{all.titolo}</span>
+                          <span className="font-bold text-emerald-700 text-[9px] shrink-0 font-mono">
+                            ✓ ALLEGATO
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  );
+                })()}
               </div>
 
               {pos.notePrescrizioni && (

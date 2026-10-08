@@ -918,15 +918,16 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
   // ==========================================
   addChapterHeader(14, 'Disposizioni Finali, Allegati e Firme');
 
-  const allRows = (pos.allegati || []).map((a, i) => [
+  const allegatiPresenti = (pos.allegati || []).filter(a => a.allegatoPresente);
+  const allRows = allegatiPresenti.map((a, i) => [
     `${i + 1}. ${a.titolo}`,
-    a.allegatoPresente ? 'ALLEGATO (PRESENTE)' : 'IN ATTI C/O SEDE',
+    'ALLEGATO (PRESENTE)',
   ]);
 
   (doc as any).autoTable({
     startY: margin + 11,
     head: [['Documentazione Allegata e Tenuta in Cantiere (All. XVII D.Lgs. 81/08)', 'Stato']],
-    body: allRows.length > 0 ? allRows : [['Documenti di conformità standard', 'Presso sede legale']],
+    body: allRows.length > 0 ? allRows : [['Nessun documento integrativo allegato al piano (atti custoditi c/o sede legale)', 'IN ATTI C/O SEDE']],
     theme: 'grid',
     headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7.5 },
     bodyStyles: { fontSize: 6.8, textColor: [15, 23, 42] },
