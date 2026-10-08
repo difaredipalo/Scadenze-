@@ -76,6 +76,20 @@
         .dark * {
             scrollbar-color: #334155 transparent;
         }
+        /* Tema scuro per tutti i campi di compilazione POS e form: scritte sempre bianche e nitide */
+        .dark input:not([type="checkbox"]):not([type="radio"]),
+        .dark select,
+        .dark textarea {
+            color: #ffffff !important;
+        }
+        .dark input::placeholder,
+        .dark textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+        .dark option {
+            background-color: #0f172a !important;
+            color: #ffffff !important;
+        }
         @media print {
             body {
                 overflow: visible !important;

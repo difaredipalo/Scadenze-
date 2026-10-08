@@ -455,7 +455,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4 animate-fadeIn">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-7xl h-[95vh] rounded-2xl shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div className="bg-white dark:bg-slate-900 text-slate-900 dark:text-white w-full max-w-7xl h-[95vh] rounded-2xl shadow-2xl flex flex-col border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Header Bar */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-900/50 shrink-0">
           <div className="flex items-center gap-3">
@@ -523,7 +523,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
         </div>
 
         {/* Contenuto Tab Principale */}
-        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/30 dark:bg-slate-950/20">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50/30 dark:bg-slate-950/20 text-slate-900 dark:text-white">
           {/* TAB COPERTINA */}
           {activeTab === 'copertina' && (
             <div className="max-w-4xl mx-auto space-y-5">
@@ -532,17 +532,17 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                   <h3 className="font-black text-sm uppercase text-slate-900 dark:text-white">
                     Frontespizio e Dati Generali del Documento
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Definizione del titolo ufficiale, numero di revisione, date e collegamento al cantiere del gestionale.
                   </p>
                 </div>
                 {cantieri.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-500">Collega Cantiere:</span>
+                    <span className="text-xs font-bold text-slate-500 dark:text-slate-400">Collega Cantiere:</span>
                     <select
                       value={formData.cantiereId || ''}
                       onChange={e => handleApplyCantiere(e.target.value)}
-                      className="p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-xs font-bold"
+                      className="p-2 rounded-xl border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
                     >
                       <option value="">-- Seleziona Cantiere --</option>
                       {cantieri.map(c => (
@@ -557,49 +557,49 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="sm:col-span-2">
-                  <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">
                     Titolo Ufficiale Documento {renderBadgeMissing(formData.titolo)}
                   </label>
                   <input
                     type="text"
                     value={formData.titolo}
                     onChange={e => setFormData(prev => ({ ...prev, titolo: e.target.value }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-black text-xs"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-black text-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">
                     Numero di Revisione
                   </label>
                   <input
                     type="text"
                     value={formData.versione || formData.revisione || ''}
                     onChange={e => setFormData(prev => ({ ...prev, revisione: e.target.value, versione: e.target.value }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">
                     Data di Redazione / Emissione
                   </label>
                   <input
                     type="date"
                     value={formData.dataRedazione}
                     onChange={e => setFormData(prev => ({ ...prev, dataRedazione: e.target.value }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">
                     Stato del Documento
                   </label>
                   <select
                     value={formData.stato === 'emesso' ? 'emesso' : 'bozza'}
                     onChange={e => setFormData(prev => ({ ...prev, stato: e.target.value as PosStato }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                   >
                     <option value="bozza">Bozza</option>
                     <option value="emesso">Emesso</option>
@@ -607,14 +607,14 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-black uppercase text-slate-500 mb-1">
+                  <label className="block text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 mb-1">
                     Data Trasmissione al CSE
                   </label>
                   <input
                     type="date"
                     value={formData.dataTrasmissioneCse || ''}
                     onChange={e => setFormData(prev => ({ ...prev, dataTrasmissioneCse: e.target.value }))}
-                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                    className="w-full p-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                   />
                 </div>
               </div>
@@ -659,78 +659,78 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Ragione Sociale {renderBadgeMissing(formData.datiImpresa.ragioneSociale)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.ragioneSociale}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, ragioneSociale: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Partita IVA {renderBadgeMissing(formData.datiImpresa.partitaIva)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.partitaIva}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, partitaIva: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Sede Legale {renderBadgeMissing(formData.datiImpresa.sedeLegale)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.sedeLegale}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, sedeLegale: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Codice Fiscale</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Codice Fiscale</label>
                     <input
                       type="text"
                       value={formData.datiImpresa.codiceFiscale}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, codiceFiscale: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Telefono / Cellulare</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Telefono / Cellulare</label>
                     <input
                       type="text"
                       value={formData.datiImpresa.telefono}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, telefono: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">PEC Aziendale</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">PEC Aziendale</label>
                     <input
                       type="text"
                       value={formData.datiImpresa.pec}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, pec: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Codice Iscrizione Cassa Edile</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Codice Iscrizione Cassa Edile</label>
                     <input
                       type="text"
                       value={formData.datiImpresa.cassaEdileIscrizione}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, cassaEdileIscrizione: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
                 </div>
@@ -743,80 +743,80 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   <div className="sm:col-span-2">
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Denominazione Cantiere {renderBadgeMissing(formData.datiCantiere.nome)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiCantiere.nome}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, nome: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Comune Cantiere
                     </label>
                     <input
                       type="text"
                       value={formData.datiCantiere.comune}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, comune: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Indirizzo Completo Cantiere {renderBadgeMissing(formData.datiCantiere.indirizzo)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiCantiere.indirizzo}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, indirizzo: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Committente dei Lavori {renderBadgeMissing(formData.datiCantiere.committente)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiCantiere.committente}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, committente: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Codice Fiscale / P.IVA Committente</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Codice Fiscale / P.IVA Committente</label>
                     <input
                       type="text"
                       value={formData.datiCantiere.committenteCfPiva}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, committenteCfPiva: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Direttore dei Lavori (D.L.)</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Direttore dei Lavori (D.L.)</label>
                     <input
                       type="text"
                       value={formData.datiCantiere.direttoreLavori}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, direttoreLavori: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Coordinatore Sicurezza Esecuzione (CSE)</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Coordinatore Sicurezza Esecuzione (CSE)</label>
                     <input
                       type="text"
                       value={formData.datiCantiere.cse}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, cse: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
                 </div>
@@ -829,72 +829,72 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Datore di Lavoro {renderBadgeMissing(formData.datiImpresa.datoreDiLavoro)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.datoreDiLavoro}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, datoreDiLavoro: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       R.S.P.P. (Resp. Servizio Prevenzione e Protezione) {renderBadgeMissing(formData.datiImpresa.rspp)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.rspp}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, rspp: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Medico Competente Nominato
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.medicoCompetente}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, medicoCompetente: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       R.L.S. (Rappresentante Lavoratori Sicurezza)
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.rls}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, rls: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">
                       Preposto di Cantiere {renderBadgeMissing(formData.datiImpresa.prepostoCantiere)}
                     </label>
                     <input
                       type="text"
                       value={formData.datiImpresa.prepostoCantiere}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, prepostoCantiere: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 font-bold text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white font-bold text-xs"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Addetto Primo Soccorso</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Addetto Primo Soccorso</label>
                     <input
                       type="text"
                       value={formData.datiImpresa.addettoPrimoSoccorso}
                       onChange={e => setFormData(prev => ({ ...prev, datiImpresa: { ...prev.datiImpresa, addettoPrimoSoccorso: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                     />
                   </div>
                 </div>
@@ -909,7 +909,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                   rows={2}
                   value={formData.datiCantiere.subappalti}
                   onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, subappalti: e.target.value } }))}
-                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                  className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                   placeholder="Elencare eventuali ditte o lavoratori autonomi subappaltatori..."
                 />
               </div>
@@ -927,7 +927,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                   rows={4}
                   value={formData.datiCantiere.descrizioneLavori}
                   onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, descrizioneLavori: e.target.value } }))}
-                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs leading-relaxed"
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs leading-relaxed"
                   placeholder="Descrizione generale dell'opera nel suo complesso..."
                 />
               </div>
@@ -940,7 +940,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                   rows={4}
                   value={formData.datiCantiere.attivitaSvolteImpresa}
                   onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, attivitaSvolteImpresa: e.target.value } }))}
-                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs leading-relaxed"
+                  className="w-full p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs leading-relaxed"
                   placeholder="Dettaglio delle specifiche lavorazioni affidate alla presente impresa..."
                 />
               </div>
@@ -951,30 +951,30 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Data Presunta Inizio</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Data Presunta Inizio</label>
                     <input
                       type="date"
                       value={formData.datiCantiere.dataInizio}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, dataInizio: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Data Presunta Fine</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Data Presunta Fine</label>
                     <input
                       type="date"
                       value={formData.datiCantiere.dataFine}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, dataFine: e.target.value } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-black uppercase text-slate-400 mb-0.5">Durata Presunta (Giorni)</label>
+                    <label className="block text-[9px] font-black uppercase text-slate-600 dark:text-slate-300 mb-0.5">Durata Presunta (Giorni)</label>
                     <input
                       type="number"
                       value={formData.datiCantiere.durataGiorniPresunti}
                       onChange={e => setFormData(prev => ({ ...prev, datiCantiere: { ...prev.datiCantiere, durataGiorniPresunti: Number(e.target.value) || 0 } }))}
-                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                      className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
                     />
                   </div>
                 </div>
@@ -990,7 +990,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                   <h3 className="font-black text-sm uppercase text-slate-900 dark:text-white">
                     Lavoratori Assegnati al Cantiere ({formData.lavoratori.length})
                   </h3>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Mansioni, idoneità sanitaria periodica e attestati formativi (All. XV Punto 2.1 Lett. c).
                   </p>
                 </div>
@@ -1027,7 +1027,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="block text-[9px] font-bold uppercase text-slate-400 mb-0.5">Mansione Contrattuale</label>
+                        <label className="block text-[9px] font-bold uppercase text-slate-600 dark:text-slate-300 mb-0.5">Mansione Contrattuale</label>
                         <input
                           type="text"
                           value={w.mansione}
@@ -1038,11 +1038,11 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                               lavoratori: prev.lavoratori.map((item, i) => i === idx ? { ...item, mansione: val } : item),
                             }));
                           }}
-                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[9px] font-bold uppercase text-slate-400 mb-0.5">Ruolo Specifico in Cantiere</label>
+                        <label className="block text-[9px] font-bold uppercase text-slate-600 dark:text-slate-300 mb-0.5">Ruolo Specifico in Cantiere</label>
                         <input
                           type="text"
                           value={w.ruoloCantiere}
@@ -1053,11 +1053,11 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                               lavoratori: prev.lavoratori.map((item, i) => i === idx ? { ...item, ruoloCantiere: val } : item),
                             }));
                           }}
-                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                         />
                       </div>
                       <div>
-                        <label className="block text-[9px] font-bold uppercase text-slate-400 mb-0.5">Scadenza Idoneità Sanitaria</label>
+                        <label className="block text-[9px] font-bold uppercase text-slate-600 dark:text-slate-300 mb-0.5">Scadenza Idoneità Sanitaria</label>
                         <input
                           type="text"
                           value={w.dataVisitaMedica}
@@ -1068,7 +1068,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                               lavoratori: prev.lavoratori.map((item, i) => i === idx ? { ...item, dataVisitaMedica: val } : item),
                             }));
                           }}
-                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold"
+                          className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs font-bold"
                           placeholder="es. 15/10/2026 (Idoneo)"
                         />
                       </div>
@@ -1158,7 +1158,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                         return { ...prev, organizzazioneCantiere: updatedOrg, organizzazione: updatedOrg };
                       });
                     }}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                   />
                 </div>
 
@@ -1181,7 +1181,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                         return { ...prev, organizzazioneCantiere: updatedOrg, organizzazione: updatedOrg };
                       });
                     }}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                   />
                 </div>
 
@@ -1203,7 +1203,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                         return { ...prev, organizzazioneCantiere: updatedOrg, organizzazione: updatedOrg };
                       });
                     }}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                   />
                 </div>
 
@@ -1226,7 +1226,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                         return { ...prev, organizzazioneCantiere: updatedOrg, organizzazione: updatedOrg };
                       });
                     }}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                   />
                 </div>
 
@@ -1249,7 +1249,7 @@ export const PosEditorModal: React.FC<PosEditorModalProps> = ({
                         return { ...prev, organizzazioneCantiere: updatedOrg, organizzazione: updatedOrg };
                       });
                     }}
-                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs"
+                    className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white text-xs"
                   />
                 </div>
               </div>

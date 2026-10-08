@@ -2454,57 +2454,41 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
               )}
             </div>
 
-            {/* Riquadro Firme Ufficiali (Datore di Lavoro/RSPP, Preposto di Cantiere e RLS) */}
+            {/* Riquadro Firme Ufficiali (Solo Datore di Lavoro/RSPP e RLS/RLST) */}
             <div className="pt-3 border-t-2 border-slate-900 mt-4 page-break-avoid">
               <h3 className="font-black text-xs uppercase text-slate-900 mb-3 text-center tracking-wider">
                 SOTTOSCRIZIONI UFFICIALI, ASSEVERAZIONE E CONVALIDA DEL PIANO OPERATIVO
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-center text-xs">
-                <div className="border-2 border-slate-300 p-3 rounded bg-slate-50 shadow-xs">
-                  <span className="block text-[10px] font-black text-slate-900 uppercase">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-center text-xs">
+                <div className="border-2 border-slate-300 p-4 rounded bg-slate-50 shadow-xs">
+                  <span className="block text-[11px] font-black text-slate-900 uppercase">
                     Datore di Lavoro e RSPP
                   </span>
                   <span className="block text-[8.5px] text-slate-500 mb-2">
-                    (Funzioni svolte direttamente ex Art. 34)
+                    (Funzioni svolte direttamente ex Art. 34 D.Lgs. 81/08)
                   </span>
                   <strong className="block text-slate-900 text-xs my-1 font-mono">
-                    {formatMissingData(pos.datiImpresa.datoreDiLavoro || pos.datiImpresa.rspp, 'Datore di Lavoro')}
+                    {formatMissingData(pos.datiImpresa.datoreDiLavoro || pos.datiImpresa.rspp, 'Datore di Lavoro e RSPP')}
                   </strong>
-                  <div className="border-b-2 border-slate-400 mt-8 mb-1" />
-                  <span className="text-[8px] text-slate-500 block">
-                    (Timbro e Firma per Asseverazione)
+                  <div className="border-b-2 border-slate-400 mt-10 mb-1" />
+                  <span className="text-[8.5px] text-slate-500 block">
+                    (Timbro dell'Impresa e Firma per Asseverazione)
                   </span>
                 </div>
 
-                <div className="border-2 border-slate-300 p-3 rounded bg-slate-50 shadow-xs">
-                  <span className="block text-[10px] font-black text-slate-900 uppercase">
-                    Preposto di Cantiere
-                  </span>
-                  <span className="block text-[8.5px] text-slate-500 mb-2">
-                    (Vigilanza Operativa ex Art. 19 D.Lgs. 81/08)
-                  </span>
-                  <strong className="block text-slate-900 text-xs my-1 font-mono">
-                    {formatMissingData(pos.datiImpresa.prepostoCantiere, 'Preposto di Cantiere')}
-                  </strong>
-                  <div className="border-b-2 border-slate-400 mt-8 mb-1" />
-                  <span className="text-[8px] text-slate-500 block">
-                    (Firma per Ricevuta e Presa in Carico)
-                  </span>
-                </div>
-
-                <div className="border-2 border-slate-300 p-3 rounded bg-slate-50 shadow-xs">
-                  <span className="block text-[10px] font-black text-slate-900 uppercase">
+                <div className="border-2 border-slate-300 p-4 rounded bg-slate-50 shadow-xs">
+                  <span className="block text-[11px] font-black text-slate-900 uppercase">
                     R.L.S. / R.L.S.T.
                   </span>
                   <span className="block text-[8.5px] text-slate-500 mb-2">
-                    (Rappr. Lavoratori ex Art. 50 D.Lgs. 81/08)
+                    (Rappresentante Lavoratori per la Sicurezza ex Art. 50 D.Lgs. 81/08)
                   </span>
                   <strong className="block text-slate-900 text-xs my-1 font-mono">
                     {formatMissingData(pos.datiImpresa.rls, 'RLST Territoriale')}
                   </strong>
-                  <div className="border-b-2 border-slate-400 mt-8 mb-1" />
-                  <span className="text-[8px] text-slate-500 block">
-                    (Firma per Avvenuta Consultazione)
+                  <div className="border-b-2 border-slate-400 mt-10 mb-1" />
+                  <span className="text-[8.5px] text-slate-500 block">
+                    (Firma per Avvenuta Consultazione ex Art. 50)
                   </span>
                 </div>
               </div>
