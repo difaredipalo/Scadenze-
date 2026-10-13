@@ -241,13 +241,13 @@ export const DpiPictogram: React.FC<DpiPictogramProps> = ({
   );
 };
 
-// Badge completo DPI con etichetta, norma e cartello grafico
 interface PosDpiBadgeProps {
   name: string;
   customLogoUrl?: string;
   showNorma?: boolean;
   size?: 'sm' | 'md' | 'lg';
   variant?: 'light' | 'dark' | 'card';
+  className?: string;
   onRemove?: () => void;
 }
 
@@ -257,13 +257,14 @@ export const PosDpiBadge: React.FC<PosDpiBadgeProps> = ({
   showNorma = true,
   size = 'md',
   variant = 'light',
+  className = '',
   onRemove,
 }) => {
   const meta = getDpiVisualMeta(name);
 
   if (variant === 'card') {
     return (
-      <div className="flex items-start gap-2.5 p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 text-slate-800 dark:text-slate-200 transition-all hover:border-blue-300">
+      <div className={`flex items-start gap-2.5 p-2 rounded-xl bg-blue-50/60 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-900/60 text-slate-800 dark:text-slate-200 transition-all hover:border-blue-300 ${className}`}>
         <DpiPictogram name={name} size="lg" customLogoUrl={customLogoUrl} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-1">
@@ -293,11 +294,11 @@ export const PosDpiBadge: React.FC<PosDpiBadgeProps> = ({
   }
 
   return (
-    <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs text-slate-900 dark:text-white">
+    <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-xs text-slate-900 dark:text-white ${className}`}>
       <DpiPictogram name={name} size={size === 'sm' ? 'sm' : 'md'} customLogoUrl={customLogoUrl} />
-      <span className="text-[11px] font-bold leading-tight">{meta.nome}</span>
+      <span className="text-[10.5px] font-bold leading-tight truncate">{meta.nome}</span>
       {showNorma && (
-        <span className="text-[9px] font-mono font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1 py-0.2 rounded">
+        <span className="text-[8.5px] font-mono font-semibold text-blue-700 dark:text-blue-400 bg-blue-50 dark:bg-blue-950/40 px-1 py-0.5 rounded shrink-0 whitespace-nowrap">
           {meta.norma.replace('UNI EN ', 'EN ')}
         </span>
       )}

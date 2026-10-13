@@ -9,6 +9,7 @@ import {
   CRITERI_DANNO,
   CLASSI_RISCHIO_DEF,
   DEFAULT_ORGANIZZAZIONE_CANTIERE,
+  CALCOLA_RISCHIO,
   CALCOLA_RISCHIO_TECNICO,
 } from '../../data/posDefaultData';
 import { Icons } from '../../constants';
@@ -100,7 +101,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
-          .print\\:hidden, #pos-floating-nav, #pos-top-actionbar {
+          .print\:hidden, #pos-floating-nav, #pos-top-actionbar {
             display: none !important;
           }
           #pos-scroll-container {
@@ -116,7 +117,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
           #pos-document-root {
             width: 100% !important;
             max-width: 100% !important;
-            margin: 0 auto !important;
+            margin: 0 !important;
             padding: 0 !important;
             box-shadow: none !important;
             border: none !important;
@@ -129,27 +130,106 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             page-break-after: always !important;
             break-after: page !important;
           }
-          .pos-chapter-page {
-            page-break-before: always !important;
-            break-before: page !important;
+          /* Copertina A4 rigida e impeccabile in unico foglio */
+          #pos-cap-copertina {
+            height: 279mm !important;
+            max-height: 279mm !important;
             min-height: 275mm !important;
+            box-sizing: border-box !important;
+            page-break-before: auto !important;
+            break-before: auto !important;
+            page-break-after: always !important;
+            break-after: page !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+            overflow: hidden !important;
+            margin: 0 !important;
+            padding: 10px !important;
+            border: 3.5px solid #0f172a !important;
+          }
+          #pos-cap-copertina > div {
+            height: 100% !important;
+            box-sizing: border-box !important;
             display: flex !important;
             flex-direction: column !important;
             justify-content: space-between !important;
-            box-sizing: border-box !important;
+            padding: 14px !important;
+            border: 1.5px solid #94a3b8 !important;
           }
-          .page-break-avoid {
+          #pos-cap-indice {
+            page-break-before: always !important;
+            break-before: page !important;
+            page-break-after: always !important;
+            break-after: page !important;
             page-break-inside: avoid !important;
             break-inside: avoid !important;
+            min-height: 0 !important;
+            height: auto !important;
+            display: block !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+          }
+          /* I capitoli devono fluire come blocco naturale senza flex spezzati o altezze forzate */
+          .pos-chapter-page {
+            page-break-before: always !important;
+            break-before: page !important;
+            page-break-after: auto !important;
+            break-after: auto !important;
+            min-height: 0 !important;
+            height: auto !important;
+            max-height: none !important;
+            display: block !important;
+            border: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            overflow: visible !important;
+          }
+          .page-break-avoid,
+          .pos-card-avoid {
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          /* Intestazioni mai orfane */
+          h1, h2, h3, h4, h5, h6 {
+            page-break-after: avoid !important;
+            break-after: avoid !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          /* Tabelle con righe integre che non si tagliano */
+          table {
+            page-break-inside: auto !important;
+            break-inside: auto !important;
+            width: 100% !important;
+            border-collapse: collapse !important;
           }
           tr {
             page-break-inside: avoid !important;
             break-inside: avoid !important;
           }
-          table {
-            page-break-inside: auto !important;
-            width: 100% !important;
-            border-collapse: collapse !important;
+          thead {
+            display: table-header-group !important;
+          }
+          tfoot {
+            display: table-footer-group !important;
+          }
+          .overflow-x-auto,
+          .overflow-y-auto,
+          .overflow-auto {
+            overflow: visible !important;
+          }
+          img {
+            max-width: 100% !important;
+            page-break-inside: avoid !important;
+            break-inside: avoid !important;
+          }
+          /* Evita che paragrafi e righe vengano tagliati o lasciati isolati */
+          p, li {
+            orphans: 3 !important;
+            widows: 3 !important;
           }
         }
       `}} />
@@ -371,12 +451,12 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         className="w-full max-w-[210mm] bg-white text-slate-900 shadow-2xl p-6 sm:p-10 mb-16 rounded-sm border border-slate-200 font-sans print:p-0 print:shadow-none print:border-none print:m-0 print:w-full print:max-w-none leading-relaxed text-[11px]"
       >
         {/* ================= COPERTINA (PAGINA 1 DEDICATA) ================= */}
-        <div id="pos-cap-copertina" className="border-4 border-slate-900 p-8 mb-10 print:mb-0 text-center relative min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-after print:break-after-page">
-          <div className="border border-slate-400 p-6 flex-1 flex flex-col justify-between">
+        <div id="pos-cap-copertina" className="border-4 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 text-center relative min-h-[265mm] flex flex-col justify-between page-break-after print:break-after-page">
+          <div className="border border-slate-400 p-4 sm:p-6 flex-1 flex flex-col justify-between">
             {/* Testata Istituzionale */}
             <div>
-              <div className="text-center mb-6">
-                <span className="inline-block px-3 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest mb-3">
+              <div className="text-center mb-4">
+                <span className="inline-block px-3 py-1 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest mb-2.5">
                   REPUBBLICA ITALIANA - D.LGS. 9 APRILE 2008 N. 81 E S.M.I.
                 </span>
                 <h1 className="text-2xl sm:text-3xl font-black uppercase tracking-tight text-slate-900 leading-tight">
@@ -385,54 +465,54 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                 <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mt-1">
                   (P.O.S. - TITOLO IV, CAPO I - ART. 89 COMMA 1 LETT. H E ALLEGATO XV)
                 </p>
-                <div className="text-[10px] text-slate-500 mt-2 font-mono">
+                <div className="text-[10px] text-slate-500 mt-1.5 font-mono">
                   CODICE DOCUMENTO: {pos.codice} | REVISIONE: {pos.versione} | DATA: {pos.dataRedazione}
                 </div>
               </div>
 
               {/* Riquadri Copertina */}
-              <div className="my-8 py-6 border-y-2 border-slate-900 grid grid-cols-1 sm:grid-cols-2 gap-6 text-left">
-                <div className="bg-slate-50 p-4 border border-slate-300 rounded">
-                  <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest block mb-2 border-b pb-1">
+              <div className="my-4 sm:my-6 py-3 sm:py-5 border-y-2 border-slate-900 grid grid-cols-1 sm:grid-cols-2 gap-4 text-left">
+                <div className="bg-slate-50 p-3.5 border border-slate-300 rounded">
+                  <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest block mb-1.5 border-b pb-1">
                     IMPRESA ESECUTRICE
                   </span>
-                  <p className="text-base font-black text-slate-900 uppercase">
+                  <p className="text-sm sm:text-base font-black text-slate-900 uppercase">
                     {formatMissingData(pos.datiImpresa.ragioneSociale, 'Denominazione Impresa')}
                   </p>
-                  <p className="text-xs text-slate-700 mt-1">
+                  <p className="text-[11px] text-slate-700 mt-1">
                     Sede Legale: {formatMissingData(pos.datiImpresa.sedeLegale, 'Indirizzo Sede')}
                   </p>
-                  <p className="text-xs text-slate-700">
+                  <p className="text-[11px] text-slate-700">
                     P.IVA: {formatMissingData(pos.datiImpresa.partitaIva, 'P.IVA')} | C.F.: {formatMissingData(pos.datiImpresa.codiceFiscale, 'C.F.')}
                   </p>
-                  <p className="text-xs text-slate-700">
+                  <p className="text-[11px] text-slate-700">
                     Tel: {formatMissingData(pos.datiImpresa.telefono, 'Telefono')} | PEC: {formatMissingData(pos.datiImpresa.pec, 'PEC')}
                   </p>
-                  <p className="text-xs text-slate-900 font-bold mt-2">
+                  <p className="text-[11px] text-slate-900 font-bold mt-1.5">
                     Datore di Lavoro e RSPP: {formatMissingData(pos.datiImpresa.datoreDiLavoro || pos.datiImpresa.rspp, 'Datore di Lavoro e RSPP')}
                   </p>
                 </div>
 
-                <div className="bg-slate-50 p-4 border border-slate-300 rounded">
-                  <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest block mb-2 border-b pb-1">
+                <div className="bg-slate-50 p-3.5 border border-slate-300 rounded">
+                  <span className="text-[10px] font-black text-blue-900 uppercase tracking-widest block mb-1.5 border-b pb-1">
                     CANTIERE & COMMITTENZA
                   </span>
-                  <p className="text-base font-black text-slate-900 uppercase">
+                  <p className="text-sm sm:text-base font-black text-slate-900 uppercase">
                     {formatMissingData(pos.datiCantiere.nome, 'Denominazione Cantiere')}
                   </p>
-                  <p className="text-xs text-slate-700 mt-1">
+                  <p className="text-[11px] text-slate-700 mt-1">
                     Indirizzo: {formatMissingData(pos.datiCantiere.indirizzo, 'Ubicazione Cantiere')}
                   </p>
-                  <p className="text-xs text-slate-700">
+                  <p className="text-[11px] text-slate-700">
                     Committente: {formatMissingData(pos.datiCantiere.committente, 'Nome Committente')}
                   </p>
-                  <p className="text-xs text-slate-700">
+                  <p className="text-[11px] text-slate-700">
                     Direttore Lavori: {formatMissingData(pos.datiCantiere.direttoreLavori, 'Non nominato / Privato')}
                   </p>
-                  <p className="text-xs text-slate-700">
+                  <p className="text-[11px] text-slate-700">
                     Coordinatore Sicurezza (CSE): {formatMissingData(pos.datiCantiere.cse, 'Da nominare a cura Committente')}
                   </p>
-                  <p className="text-xs text-slate-900 font-bold mt-2">
+                  <p className="text-[11px] text-slate-900 font-bold mt-1.5">
                     Preposto di Cantiere: {formatMissingData(pos.datiImpresa.prepostoCantiere, 'Nome Preposto Incaricato')}
                   </p>
                 </div>
@@ -440,7 +520,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
             </div>
 
             {/* Note di Copertina */}
-            <div className="text-center text-[10px] text-slate-500 uppercase tracking-widest border-t pt-4">
+            <div className="text-center text-[9.5px] text-slate-500 uppercase tracking-widest border-t pt-3">
               Documento Tecnico di Sicurezza redatto ai sensi del D.Lgs. 9 aprile 2008 n. 81 integrato con le disposizioni del D.Lgs. 106/2009.
             </div>
           </div>
@@ -449,7 +529,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         {/* ================= INDICE GENERALE DEI 14 CAPITOLI (PAGINA 2 DEDICATA) ================= */}
         <div
           id="pos-cap-indice"
-          className="border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before page-break-after print:break-before-page print:break-after-page"
+          className="border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before page-break-after print:break-before-page print:break-after-page"
         >
           <div>
             {/* Testata Istituzionale Indice */}
@@ -616,7 +696,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 1: DATI IDENTIFICATIVI (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-1" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-1" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 1 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -768,7 +848,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 2: DESCRIZIONE DELL'OPERA (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-2" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-2" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 2 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -881,7 +961,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 3: PERSONALE E FORMAZIONE (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-3" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-3" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 3 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1000,7 +1080,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 4: QUADRO NORMATIVO (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-4" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-4" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 4 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1095,7 +1175,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 5: LOGISTICA E IMPIANTI (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-5" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-5" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 5 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1191,7 +1271,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 6: METODOLOGIA VALUTAZIONE RISCHI 4x4 (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-6" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-6" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 6 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1327,7 +1407,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 7: CONTESTO AMBIENTALE (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-7" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-7" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 7 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1412,7 +1492,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 8: TURNI E PRESENZE (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-8" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-8" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 8 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1492,7 +1572,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 9: SCHEDE LAVORAZIONI E VALUTAZIONE RISCHI (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-9" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-9" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 9 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1579,61 +1659,55 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                       <span className="text-[9px] font-bold text-slate-500 font-mono">D.Lgs. 81/08 Art. 15 e 28</span>
                     </div>
 
+                    {/* Valutazione Semplificata dei Rischi: Descrizione | Liv. Probabilità | Entità Danno | Classe */}
                     <div className="overflow-x-auto">
                       <table className="w-full border-collapse border border-slate-300 text-[9.5px]">
                         <thead>
                           <tr className="bg-slate-900 text-white font-bold text-left">
-                            <th className="p-1.5 border border-slate-400 w-1/4">Pericolo / Fonte & Conseguenze</th>
-                            <th className="p-1.5 border border-slate-400 text-center w-20" title="Rischio Iniziale a vuoto prima delle cautele">R_in (P×D)</th>
-                            <th className="p-1.5 border border-slate-400">Protezione Collettiva (DPC) & Tecniche</th>
-                            <th className="p-1.5 border border-slate-400">Misure Organizzative & Preposto</th>
-                            <th className="p-1.5 border border-slate-400 text-center w-20" title="Rischio Residuo controllato dopo le cautele">R_res (P×D)</th>
+                            <th className="p-2 border border-slate-400">Descrizione del Rischio</th>
+                            <th className="p-2 border border-slate-400 text-center w-36">Liv. Probabilità (P)</th>
+                            <th className="p-2 border border-slate-400 text-center w-36">Entità Danno (D)</th>
+                            <th className="p-2 border border-slate-400 text-center w-36">Classe di Rischio</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-200">
                           {att.rischi.map((r, rIdx) => {
-                            const tec = CALCOLA_RISCHIO_TECNICO(r);
-                            const clInColor =
-                              tec.classeIniziale === 'Elevato'
-                                ? 'bg-rose-100 text-rose-900 border-rose-300'
-                                : tec.classeIniziale === 'Notevole'
-                                ? 'bg-amber-100 text-amber-900 border-amber-300'
-                                : 'bg-blue-100 text-blue-900 border-blue-300';
+                            const p = r.probabilita || r.probabilitaResidua || 2;
+                            const d = r.danno || r.dannoResiduo || 2;
+                            const calc = CALCOLA_RISCHIO(p, d);
+                            const nomeP = p === 1 ? 'P1 - Improbabile' : p === 2 ? 'P2 - Poco probabile' : p === 3 ? 'P3 - Probabile' : 'P4 - Altamente probabile';
+                            const nomeD = d === 1 ? 'D1 - Lieve' : d === 2 ? 'D2 - Modesto' : d === 3 ? 'D3 - Significativo' : 'D4 - Grave';
 
-                            const clResColor =
-                              tec.classeResidua === 'Basso'
-                                ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
-                                : 'bg-blue-100 text-blue-900 border-blue-300';
+                            const clColor =
+                              calc.classe === 'Elevato'
+                                ? 'bg-rose-100 text-rose-900 border-rose-300'
+                                : calc.classe === 'Notevole'
+                                ? 'bg-amber-100 text-amber-900 border-amber-300'
+                                : calc.classe === 'Accettabile'
+                                ? 'bg-blue-100 text-blue-900 border-blue-300'
+                                : 'bg-emerald-100 text-emerald-900 border-emerald-300';
 
                             return (
                               <tr key={r.id || rIdx} className="hover:bg-slate-50">
-                                <td className="p-1.5 border border-slate-300">
-                                  <strong className="block text-slate-900 font-black">{r.descrizione}</strong>
-                                  {r.fonteRischio && <span className="text-[8.5px] text-slate-600 block">Fonte: {r.fonteRischio}</span>}
-                                  {r.conseguenze && <span className="text-[8.5px] text-rose-800 font-medium block">Danno: {r.conseguenze}</span>}
+                                <td className="p-2 border border-slate-300 font-bold text-slate-900">
+                                  {r.descrizione}
                                 </td>
-                                <td className="p-1.5 border border-slate-300 text-center">
-                                  <div className="font-mono font-black text-rose-700 text-[10px]">
-                                    P{tec.pIniziale}×D{tec.dIniziale} = {tec.rIniziale}
-                                  </div>
-                                  <span className={`inline-block px-1 py-0.2 rounded text-[7.5px] font-black uppercase border mt-0.5 ${clInColor}`}>
-                                    {tec.classeIniziale}
+                                <td className="p-2 border border-slate-300 text-center font-medium text-slate-800">
+                                  <span className="inline-block font-mono font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 text-[9.5px]">
+                                    {nomeP}
                                   </span>
                                 </td>
-                                <td className="p-1.5 border border-slate-300 text-slate-700 leading-tight">
-                                  <strong className="text-slate-900 text-[8.5px] block font-bold">DPC & Misure Tecniche:</strong>
-                                  <span>{r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC || tec.misuraTecnicaPrimaria}</span>
+                                <td className="p-2 border border-slate-300 text-center font-medium text-slate-800">
+                                  <span className="inline-block font-mono font-bold text-indigo-800 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 text-[9.5px]">
+                                    {nomeD}
+                                  </span>
                                 </td>
-                                <td className="p-1.5 border border-slate-300 text-slate-700 leading-tight">
-                                  <strong className="text-slate-900 text-[8.5px] block font-bold">Procedura & Vigilanza:</strong>
-                                  <span>{r.misurePreventive || tec.misuraOrganizzativa}</span>
-                                </td>
-                                <td className="p-1.5 border border-slate-300 text-center">
-                                  <div className="font-mono font-black text-emerald-700 text-[10px]">
-                                    P{tec.pResiduo}×D{tec.dResiduo} = {tec.rResiduo}
+                                <td className="p-2 border border-slate-300 text-center">
+                                  <div className="font-mono font-black text-slate-900 text-[10px] mb-0.5">
+                                    R = {calc.livello}
                                   </div>
-                                  <span className={`inline-block px-1 py-0.2 rounded text-[7.5px] font-black uppercase border mt-0.5 ${clResColor}`}>
-                                    {tec.classeResidua}
+                                  <span className={`inline-block px-2 py-0.5 rounded text-[8.5px] font-black uppercase border ${clColor}`}>
+                                    {calc.classe}
                                   </span>
                                 </td>
                               </tr>
@@ -1664,13 +1738,14 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                         DPI Obbligatori per la Fase Lavorativa (D.Lgs. 81/08 Titolo III Capo II):
                       </span>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
                       {att.dpiNecessari.map((dpiNome, dIdx) => (
                         <PosDpiBadge
                           key={dIdx}
                           name={dpiNome}
                           size="md"
                           showNorma={true}
+                          className="w-full justify-start h-10"
                         />
                       ))}
                     </div>
@@ -1689,7 +1764,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 10: ATTREZZATURE, MEZZI E MACCHINE (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-10" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-10" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 10 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -1853,21 +1928,27 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                     <span>{att.prescrizioniSicurezza || 'Verifica visiva dell’integrità delle protezioni prima dell’avviamento; divieto di manomissione dei ripari; arresto motore durante manutenzione o pulizia; esclusione alimentazione a fine turno.'}</span>
                   </div>
 
-                  <div className="border-t border-slate-300 pt-2 flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-black uppercase text-slate-900">
-                      DPI Obbligatori per l'Operatore:
-                    </span>
-                    {(att.dpiNecessari && att.dpiNecessari.length > 0
-                      ? att.dpiNecessari
-                      : ['Casco di protezione / Elmetto', 'Calzature di sicurezza S3', 'Guanti rischio meccanico', 'Otoprotettori (Cuffie / Inserti)']
-                    ).map((dpiNome, dIdx) => (
-                      <PosDpiBadge
-                        key={dIdx}
-                        name={dpiNome}
-                        size="sm"
-                        showNorma={true}
-                      />
-                    ))}
+                  <div className="border-t border-slate-300 pt-2.5 bg-blue-50/30 p-2 rounded-b">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#005ea6]" />
+                      <span className="text-[10px] font-black uppercase text-slate-900 tracking-wider">
+                        DPI Obbligatori per l'Operatore:
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {(att.dpiNecessari && att.dpiNecessari.length > 0
+                        ? att.dpiNecessari
+                        : ['Casco di protezione / Elmetto', 'Calzature di sicurezza S3', 'Guanti rischio meccanico', 'Otoprotettori (Cuffie / Inserti)']
+                      ).map((dpiNome, dIdx) => (
+                        <PosDpiBadge
+                          key={dIdx}
+                          name={dpiNome}
+                          size="md"
+                          showNorma={true}
+                          className="w-full justify-start h-10"
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -1883,7 +1964,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 11: OPERE PROVVISIONALI E LAVORI IN QUOTA (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-11" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-11" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 11 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -2012,21 +2093,27 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                     <span>{op.prescrizioniSicurezza || 'Verifica visiva giornaliera prima dell’accesso; ancoraggi strutturali secondo schema tecnico; divieto di sovraccarico degli impalcati oltre la portata indicata; presenza di fermapiedi e parapetti completi.'}</span>
                   </div>
 
-                  <div className="border-t border-slate-300 pt-2 flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-black uppercase text-slate-900">
-                      DPI Obbligatori & Anticaduta:
-                    </span>
-                    {(op.dpiNecessari && op.dpiNecessari.length > 0
-                      ? op.dpiNecessari
-                      : ['Casco di protezione con sottogola', 'Calzature di sicurezza S3', 'Imbracatura completa anticaduta EN 361']
-                    ).map((dpiNome, dIdx) => (
-                      <PosDpiBadge
-                        key={dIdx}
-                        name={dpiNome}
-                        size="sm"
-                        showNorma={true}
-                      />
-                    ))}
+                  <div className="border-t border-slate-300 pt-2.5 bg-blue-50/30 p-2 rounded-b">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#005ea6]" />
+                      <span className="text-[10px] font-black uppercase text-slate-900 tracking-wider">
+                        DPI Obbligatori & Anticaduta:
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {(op.dpiNecessari && op.dpiNecessari.length > 0
+                        ? op.dpiNecessari
+                        : ['Casco di protezione con sottogola', 'Calzature di sicurezza S3', 'Imbracatura completa anticaduta EN 361']
+                      ).map((dpiNome, dIdx) => (
+                        <PosDpiBadge
+                          key={dIdx}
+                          name={dpiNome}
+                          size="md"
+                          showNorma={true}
+                          className="w-full justify-start h-10"
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2042,7 +2129,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 12: SOSTANZE CHIMICHE E SCHEDE SDS (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-12" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-12" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 12 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -2122,9 +2209,9 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                       <tr key={sost.id || idx} className="hover:bg-slate-50">
                         <td className="p-1.5 border border-slate-300 font-bold text-slate-900">{sost.nomeCommerciale}</td>
                         <td className="p-1.5 border border-slate-300 text-slate-700">{sost.utilizzoFase}</td>
-                        <td className="p-1.5 border border-slate-300 text-center font-bold">
-                          <span className="px-1.5 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded text-[8.5px]">
-                            {sost.schedaSicurezzaPresente ? 'ALLEGATA IN ATTI' : 'PRESENTE'}
+                        <td className="p-1.5 border border-slate-300 text-center font-bold whitespace-nowrap">
+                          <span className="inline-block px-2 py-0.5 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded text-[8.5px] uppercase font-black whitespace-nowrap">
+                            {sost.schedaSicurezzaPresente ? 'ALLEGATA' : 'PRESENTE'}
                           </span>
                         </td>
                         <td className="p-1.5 border border-slate-300 text-[9px] text-slate-700">{sost.frasiRischio || sost.frasiH || 'Consultare scheda SDS del produttore'}</td>
@@ -2177,10 +2264,10 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                         </strong>
                       </div>
                     </div>
-                    <div className="text-right shrink-0">
+                    <div className="text-right shrink-0 whitespace-nowrap">
                       <span className="text-[9px] font-bold text-slate-500 uppercase block">Scheda SDS c/o Cantiere</span>
-                      <span className="text-[10px] font-black text-emerald-800 font-mono">
-                        {sost.schedaSicurezzaPresente ? 'ALLEGATA (PRESENTE)' : 'DISPONIBILE'}
+                      <span className="text-[10px] font-black text-emerald-800 font-mono inline-block px-1.5 py-0.5 bg-emerald-50 border border-emerald-300 rounded whitespace-nowrap">
+                        {sost.schedaSicurezzaPresente ? 'ALLEGATA' : 'DISPONIBILE'}
                       </span>
                     </div>
                   </div>
@@ -2213,21 +2300,27 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                     <span>{sost.frasiH || sost.frasiRischio || sost.prescrizioniSicurezza || 'Manipolare in ambiente ventilato; evitare il contatto con pelle e occhi; non inalare vapori o polveri; lavare accuratamente le mani a fine turno.'}</span>
                   </div>
 
-                  <div className="border-t border-slate-300 pt-2 flex flex-wrap items-center gap-2">
-                    <span className="text-[10px] font-black uppercase text-slate-900">
-                      DPI Specifici di Protezione Chimica:
-                    </span>
-                    {(sost.dpiSpecifici && sost.dpiSpecifici.length > 0
-                      ? sost.dpiSpecifici
-                      : ['Guanti rischio chimico EN 374', 'Occhiali a mascherina EN 166', 'Respiratore FFP2 antipolvere EN 149', 'Calzature di sicurezza S3']
-                    ).map((dpiNome, dIdx) => (
-                      <PosDpiBadge
-                        key={dIdx}
-                        name={dpiNome}
-                        size="sm"
-                        showNorma={true}
-                      />
-                    ))}
+                  <div className="border-t border-slate-300 pt-2.5 bg-blue-50/30 p-2 rounded-b">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className="w-2 h-2 rounded-full bg-[#005ea6]" />
+                      <span className="text-[10px] font-black uppercase text-slate-900 tracking-wider">
+                        DPI Specifici di Protezione Chimica:
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                      {(sost.dpiSpecifici && sost.dpiSpecifici.length > 0
+                        ? sost.dpiSpecifici
+                        : ['Guanti rischio chimico EN 374', 'Occhiali a mascherina EN 166', 'Respiratore FFP2 antipolvere EN 149', 'Calzature di sicurezza S3']
+                      ).map((dpiNome, dIdx) => (
+                        <PosDpiBadge
+                          key={dIdx}
+                          name={dpiNome}
+                          size="md"
+                          showNorma={true}
+                          className="w-full justify-start h-10"
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2243,7 +2336,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 13: GESTIONE EMERGENZE, PRIMO SOCCORSO E ANTINCENDIO (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-13" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-13" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 13 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -2375,7 +2468,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
         </div>
 
         {/* ================= CAPITOLO 14: DISPOSIZIONI FINALI, REVISIONE, ALLEGATI E FIRME (PAGINA DEDICATA) ================= */}
-        <div id="pos-cap-14" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] print:min-h-[285mm] flex flex-col justify-between page-break-before print:break-before-page">
+        <div id="pos-cap-14" className="pos-chapter-page border-2 border-slate-900 p-6 sm:p-8 mb-10 print:mb-0 bg-white min-h-[265mm] flex flex-col justify-between page-break-before print:break-before-page">
           <div>
             {/* Header Capitolo 14 */}
             <div className="border-b-2 border-slate-900 pb-3 mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">

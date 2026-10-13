@@ -6,6 +6,7 @@ import {
   MATRICE_RISCHIO_4X4,
   CLASSI_RISCHIO_DEF,
   DEFAULT_ORGANIZZAZIONE_CANTIERE,
+  CALCOLA_RISCHIO,
   CALCOLA_RISCHIO_TECNICO,
 } from '../../data/posDefaultData';
 
@@ -629,35 +630,32 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
     currentY = (doc as any).lastAutoTable.finalY + 1.5;
 
     const risksRows = (att.rischi || []).map(r => {
-      const tec = CALCOLA_RISCHIO_TECNICO(r);
-      const fonteText = r.fonteRischio ? `\nFonte: ${r.fonteRischio}` : '';
-      const dannoText = r.conseguenze ? `\nDanno: ${r.conseguenze}` : '';
-      const hazardDesc = `${r.descrizione}${fonteText}${dannoText}`;
-      const dpcText = r.misureProtezioneCollettiva || tec.protezioneCollettivaDPC || tec.misuraTecnicaPrimaria;
-      const orgText = r.misurePreventive || tec.misuraOrganizzativa;
+      const p = r.probabilita || r.probabilitaResidua || 2;
+      const d = r.danno || r.dannoResiduo || 2;
+      const calc = CALCOLA_RISCHIO(p, d);
+      const pDesc = p === 1 ? 'P1 - Improbabile' : p === 2 ? 'P2 - Poco probabile' : p === 3 ? 'P3 - Probabile' : 'P4 - Altamente probabile';
+      const dDesc = d === 1 ? 'D1 - Lieve' : d === 2 ? 'D2 - Modesto' : d === 3 ? 'D3 - Significativo' : 'D4 - Grave';
 
       return [
-        hazardDesc,
-        `P${tec.pIniziale}×D${tec.dIniziale}=${tec.rIniziale}\n[${tec.classeIniziale}]`,
-        dpcText,
-        orgText,
-        `P${tec.pResiduo}×D${tec.dResiduo}=${tec.rResiduo}\n[${tec.classeResidua}]`,
+        r.descrizione,
+        pDesc,
+        dDesc,
+        `R = ${calc.livello} [${calc.classe}]`,
       ];
     });
 
     (doc as any).autoTable({
       startY: currentY,
-      head: [['Pericolo / Fonte & Conseguenze', 'R_in (P×D)', 'Protezione Collettiva (DPC)', 'Misure Organizzative & Vigilanza', 'R_res (P×D)']],
-      body: risksRows.length > 0 ? risksRows : [['Nessun rischio specifico indicato', 'P2×D2=4', 'Misure ordinarie', 'Vigilanza preposto', 'P1×D2=2']],
+      head: [['Descrizione del Rischio', 'Liv. Probabilità (P)', 'Entità Danno (D)', 'Classe di Rischio']],
+      body: risksRows.length > 0 ? risksRows : [['Nessun rischio specifico indicato', 'P2 - Poco probabile', 'D2 - Modesto', 'R = 4 [Accettabile]']],
       theme: 'grid',
-      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 6.8 },
-      bodyStyles: { fontSize: 6.2, textColor: [15, 23, 42] },
+      headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+      bodyStyles: { fontSize: 6.5, textColor: [15, 23, 42] },
       columnStyles: {
-        0: { cellWidth: 46, fontStyle: 'bold' },
-        1: { cellWidth: 20, fontStyle: 'bold', textColor: [185, 28, 28], halign: 'center' },
-        2: { cellWidth: 48 },
-        3: { cellWidth: 48 },
-        4: { cellWidth: 20, fontStyle: 'bold', textColor: [16, 149, 79], halign: 'center' },
+        0: { cellWidth: 78, fontStyle: 'bold' },
+        1: { cellWidth: 36, halign: 'center' },
+        2: { cellWidth: 36, halign: 'center' },
+        3: { cellWidth: 32, fontStyle: 'bold', halign: 'center' },
       },
       margin: { left: margin, right: margin },
     });

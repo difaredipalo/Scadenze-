@@ -25,6 +25,29 @@ import {
 } from './PosSafetyCardVisuals';
 import { PosTemplateLibraryModal } from './PosTemplateLibraryModal';
 
+export const RISCHI_PREDEFINITI_BASE: string[] = [
+  "Caduta dall'alto da quota superiore a 2 metri",
+  "Caduta di materiale, attrezzi o elementi murari dall'alto",
+  "Scivolamento, inciampo e caduta a livello / in piano",
+  "Urti, colpi, tagli e abrasioni con attrezzature e materiali",
+  "Elettrocuzione e contatti elettrici diretti o indiretti",
+  "Esposizione a rumore e vibrazioni meccaniche",
+  "Inalazione polveri, silice libera cristallina, fibre o fumi",
+  "Ribaltamento, collisione o urto con macchine operatrici",
+  "Seppellimento e sprofondamento pareti di scavo",
+  "Movimentazione manuale dei carichi (sforzi dorso-lombari)",
+  "Proiezione di schegge, scintille e corpi estranei negli occhi",
+  "Investimento di lavoratori da parte di veicoli e mezzi d'opera",
+  "Contatto con sostanze chimiche pericolose, vernici o solventi",
+  "Ustioni da contatto con superfici calde, bitume o fiamme libere",
+  "Schiacciamento o intrappolamento arti durante sollevamento carichi",
+  "Interferenze spaziali o temporali con altre lavorazioni",
+  "Cedimento strutturale di ponteggi, trabattelli o opere provvisionali",
+  "Sfondamento o cedimento di superfici calpestabili fragili o lucernari",
+  "Caduta all'interno di scavi o aperture nei solai prive di protezione",
+  "Colpo di calore o esposizione ad agenti atmosferici avversi",
+];
+
 interface PosSmartLinkingEditorProps {
   attivita: PosAttivitaItem[];
   lavoratori: PosLavoratoreAssegnato[];
@@ -85,6 +108,38 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
   const [syncNotice, setSyncNotice] = useState<string | null>(null);
   const [isLogoPickerOpen, setIsLogoPickerOpen] = useState<boolean>(false);
   const [customDpiText, setCustomDpiText] = useState<string>('');
+
+  // Elenco descrizioni rischi predefinite espandibile dall'utente con persistenza locale
+  const [predefinedRisks, setPredefinedRisks] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('pos_custom_risk_descriptions');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return Array.from(new Set([...RISCHI_PREDEFINITI_BASE, ...parsed]));
+        }
+      }
+    } catch {
+      // ignore
+    }
+    return RISCHI_PREDEFINITI_BASE;
+  });
+  const [nuovaDescrizioneRischio, setNuovaDescrizioneRischio] = useState<string>('');
+  const [mostraAggiungiPredefinito, setMostraAggiungiPredefinito] = useState<boolean>(false);
+
+  const handleSalvaNuovaDescrizionePredefinita = (desc?: string) => {
+    const textToAdd = (desc || nuovaDescrizioneRischio).trim();
+    if (!textToAdd) return;
+    if (!predefinedRisks.includes(textToAdd)) {
+      const updated = [...predefinedRisks, textToAdd];
+      setPredefinedRisks(updated);
+      try {
+        localStorage.setItem('pos_custom_risk_descriptions', JSON.stringify(updated));
+      } catch {}
+    }
+    setNuovaDescrizioneRischio('');
+    setMostraAggiungiPredefinito(false);
+  };
 
   const currentAttivita = attivita[selectedIdx] || null;
 
@@ -331,13 +386,13 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
     onChangeAttivita(attivita.map((a, i) => (i === selectedIdx ? updated : a)));
   };
 
-  // Helper per Rischi PxD
+  // Helper per Rischi PxD semplificato
   const handleUpdateRisk = (rIdx: number, patch: Partial<PosRischio>) => {
     if (!currentAttivita) return;
     const updatedRisks = currentAttivita.rischi.map((r, i) => {
       if (i !== rIdx) return r;
-      const p = patch.probabilita !== undefined ? patch.probabilita : r.probabilita;
-      const d = patch.danno !== undefined ? patch.danno : r.danno;
+      const p = patch.probabilita !== undefined ? patch.probabilita : (r.probabilita || 2);
+      const d = patch.danno !== undefined ? patch.danno : (r.danno || 2);
       const calc = CALCOLA_RISCHIO(p, d);
       return {
         ...r,
@@ -346,21 +401,33 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
         danno: d,
         livelloRischio: calc.livello,
         classeRischio: calc.classe,
+        probabilitaResidua: p,
+        dannoResiduo: d,
+        rischioResiduo: calc.livello,
+        classeRischioResiduo: calc.classe,
       };
     });
     updateCurrentActivity({ rischi: updatedRisks });
   };
 
-  const handleAddRisk = () => {
+  const handleAddRisk = (desc?: string) => {
     if (!currentAttivita) return;
+    const descToUse = desc || predefinedRisks[0] || 'Nuovo Rischio Specifico di Fase';
+    const p = 2;
+    const d = 2;
+    const calc = CALCOLA_RISCHIO(p, d);
     const newRisk: PosRischio = {
-      id: Math.random().toString(),
-      descrizione: 'Nuovo Rischio Specifico di Fase',
-      probabilita: 2,
-      danno: 2,
-      livelloRischio: 4,
-      classeRischio: 'Accettabile',
-      misurePreventive: 'Adozione di misure tecniche e organizzative secondo norma.',
+      id: `r-${Date.now()}-${Math.random().toString(36).substr(2, 6)}`,
+      descrizione: descToUse,
+      probabilita: p,
+      danno: d,
+      livelloRischio: calc.livello,
+      classeRischio: calc.classe,
+      probabilitaResidua: p,
+      dannoResiduo: d,
+      rischioResiduo: calc.livello,
+      classeRischioResiduo: calc.classe,
+      misurePreventive: 'Adozione di cautele e conformità operative di cantiere.',
       dpiRichiesti: ['Calzature di sicurezza S3'],
     };
     updateCurrentActivity({ rischi: [...currentAttivita.rischi, newRisk] });
@@ -990,110 +1057,218 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
               </div>
             </div>
 
-            {/* SEZIONE 5: RISCHI CON MATRICE P × D = R */}
+            {/* SEZIONE 5: VALUTAZIONE SEMPLIFICATA DEI RISCHI (P × D = R) */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-slate-200 dark:border-slate-700 pb-1">
+              <datalist id="rischi-predefiniti-list">
+                {predefinedRisks.map((d, dIdx) => (
+                  <option key={dIdx} value={d} />
+                ))}
+              </datalist>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-200 dark:border-slate-700 pb-2">
                 <label className="text-xs font-black uppercase text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
-                  <span>⚠️</span> <span>5. Rischi Specifici con Matrice 4×4 (P × D = R)</span>
+                  <span>⚠️</span> <span>5. Valutazione Semplificata Rischi (P × D = R)</span>
                 </label>
-                <button
-                  type="button"
-                  onClick={handleAddRisk}
-                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
-                >
-                  + Aggiungi Rischio
-                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <select
+                    value=""
+                    onChange={e => {
+                      if (e.target.value) {
+                        handleAddRisk(e.target.value);
+                        e.target.value = '';
+                      }
+                    }}
+                    className="p-1 px-2 text-[11px] font-bold rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                  >
+                    <option value="">⚡ + Aggiungi Rischio Predefinito...</option>
+                    {predefinedRisks.map((pRisk, pIdx) => (
+                      <option key={pIdx} value={pRisk}>
+                        {pRisk}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => handleAddRisk()}
+                    className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                  >
+                    + Nuovo Rischio
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setMostraAggiungiPredefinito(!mostraAggiungiPredefinito)}
+                    className="px-2.5 py-1 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg text-[10px] font-black uppercase tracking-wider transition-colors"
+                    title="Aggiungi una nuova descrizione all'elenco dei rischi predefiniti"
+                  >
+                    {mostraAggiungiPredefinito ? 'Chiudi' : '➕ Nuova Descrizione Predefinita'}
+                  </button>
+                </div>
               </div>
+
+              {/* Box rapido per aggiungere nuova descrizione all'elenco dei predefiniti */}
+              {mostraAggiungiPredefinito && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-800 space-y-2">
+                  <div className="text-xs font-bold text-amber-900 dark:text-amber-200">
+                    Aggiungi una nuova descrizione all'elenco dei rischi predefiniti:
+                  </div>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={nuovaDescrizioneRischio}
+                      onChange={e => setNuovaDescrizioneRischio(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleSalvaNuovaDescrizionePredefinita();
+                        }
+                      }}
+                      placeholder="es. Rischio investimento da pale gommate in retromarcia..."
+                      className="flex-1 p-2 rounded-lg text-xs border border-amber-300 dark:border-amber-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/40"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleSalvaNuovaDescrizionePredefinita()}
+                      className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold shadow-sm"
+                    >
+                      Salva
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setMostraAggiungiPredefinito(false)}
+                      className="px-3 py-1.5 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg text-xs font-medium"
+                    >
+                      Annulla
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {currentAttivita.rischi.map((r, rIdx) => {
                   const p = r.probabilita || 2;
                   const d = r.danno || 2;
                   const calc = CALCOLA_RISCHIO(p, d);
+                  const isPredefined = predefinedRisks.includes(r.descrizione);
+
+                  const clColor =
+                    calc.classe === 'Elevato'
+                      ? 'bg-rose-100 dark:bg-rose-900/50 text-rose-800 dark:text-rose-200 border-rose-300 dark:border-rose-700'
+                      : calc.classe === 'Notevole'
+                      ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700'
+                      : calc.classe === 'Accettabile'
+                      ? 'bg-blue-100 dark:bg-blue-900/50 text-blue-800 dark:text-blue-200 border-blue-300 dark:border-blue-700'
+                      : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-800 dark:text-emerald-200 border-emerald-300 dark:border-emerald-700';
+
                   return (
                     <div
                       key={r.id || rIdx}
-                      className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/40 space-y-2.5"
+                      className="p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/70 dark:bg-slate-800/50 space-y-3 shadow-xs"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <input
-                          type="text"
-                          value={r.descrizione}
-                          onChange={e => handleUpdateRisk(rIdx, { descrizione: e.target.value })}
-                          className="w-full font-black text-xs p-1.5 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                          placeholder="Descrizione del pericolo o rischio..."
-                        />
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveRisk(rIdx)}
-                          className="text-slate-400 dark:text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 text-xs"
-                          title="Rimuovi rischio"
-                        >
-                          ✕
-                        </button>
+                      {/* 1. DESCRIZIONE DEL RISCHIO */}
+                      <div>
+                        <div className="flex items-center justify-between mb-1">
+                          <label className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                            Descrizione del Rischio / Pericolo
+                          </label>
+                          <div className="flex items-center gap-2">
+                            {!isPredefined && r.descrizione && (
+                              <button
+                                type="button"
+                                onClick={() => handleSalvaNuovaDescrizionePredefinita(r.descrizione)}
+                                className="text-[10px] font-bold text-amber-700 dark:text-amber-400 hover:underline"
+                                title="Salva questa descrizione nella lista dei rischi predefiniti"
+                              >
+                                + Salva tra i predefiniti
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRisk(rIdx)}
+                              className="text-slate-400 hover:text-rose-600 dark:hover:text-rose-400 p-1 text-xs"
+                              title="Rimuovi questo rischio"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          <input
+                            list="rischi-predefiniti-list"
+                            type="text"
+                            value={r.descrizione}
+                            onChange={e => handleUpdateRisk(rIdx, { descrizione: e.target.value })}
+                            className="flex-1 font-bold text-xs p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            placeholder="Seleziona dalla lista o digita una nuova descrizione..."
+                          />
+
+                          <select
+                            value=""
+                            onChange={e => {
+                              if (e.target.value) handleUpdateRisk(rIdx, { descrizione: e.target.value });
+                            }}
+                            className="p-2 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 sm:w-48"
+                            title="Scegli una descrizione predefinita"
+                          >
+                            <option value="">📋 Scegli predefinita...</option>
+                            {predefinedRisks.map((pRisk, pIdx) => (
+                              <option key={pIdx} value={pRisk}>
+                                {pRisk}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
                       </div>
 
-                      {/* Calcolo Matrice R = P x D */}
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center bg-white dark:bg-slate-800 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
+                      {/* 2. LIVELLO PROBABILITÀ, 3. ENTITÀ DANNO, 4. CLASSE */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center bg-white dark:bg-slate-800/80 p-2.5 rounded-lg border border-slate-200 dark:border-slate-700">
                         <div>
-                          <label className="block text-[9px] font-black uppercase text-slate-400 dark:text-slate-400 mb-0.5">
-                            Probabilità (P 1-4)
+                          <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                            Liv. Probabilità (P)
                           </label>
                           <select
                             value={p}
                             onChange={e => handleUpdateRisk(rIdx, { probabilita: Number(e.target.value) })}
-                            className="w-full p-1 rounded text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            className="w-full p-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                           >
-                            <option value={1}>1 - Improbabile</option>
-                            <option value={2}>2 - Poco probabile</option>
-                            <option value={3}>3 - Probabile</option>
-                            <option value={4}>4 - Altamente probabile</option>
+                            <option value={1}>P1 - Improbabile</option>
+                            <option value={2}>P2 - Poco probabile</option>
+                            <option value={3}>P3 - Probabile</option>
+                            <option value={4}>P4 - Altamente probabile</option>
                           </select>
                         </div>
 
                         <div>
-                          <label className="block text-[9px] font-black uppercase text-slate-400 dark:text-slate-400 mb-0.5">
-                            Gravità Danno (D 1-4)
+                          <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                            Entità Danno (D)
                           </label>
                           <select
                             value={d}
                             onChange={e => handleUpdateRisk(rIdx, { danno: Number(e.target.value) })}
-                            className="w-full p-1 rounded text-xs font-bold border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+                            className="w-full p-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                           >
-                            <option value={1}>1 - Danno Lieve</option>
-                            <option value={2}>2 - Danno Medio</option>
-                            <option value={3}>3 - Danno Grave</option>
-                            <option value={4}>4 - Danno Gravissimo</option>
+                            <option value={1}>D1 - Lieve</option>
+                            <option value={2}>D2 - Modesto</option>
+                            <option value={3}>D3 - Significativo</option>
+                            <option value={4}>D4 - Grave</option>
                           </select>
                         </div>
 
-                        <div className="flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0">
-                          <div className="text-right">
-                            <span className="text-[10px] text-slate-400 dark:text-slate-400 block font-bold">R = {p} × {d} = {calc.livello}</span>
-                            <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-black uppercase ${
-                              calc.classe === 'Accettabile' ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' :
-                              calc.classe === 'Notevole' ? 'bg-amber-100 text-amber-800 border border-amber-300' :
-                              calc.classe === 'Elevato' ? 'bg-orange-100 text-orange-800 border border-orange-300' :
-                              'bg-rose-100 text-rose-800 border border-rose-300'
-                            }`}>
+                        <div>
+                          <label className="block text-[10px] font-black uppercase text-slate-600 dark:text-slate-400 mb-1">
+                            Classe di Rischio
+                          </label>
+                          <div className="flex items-center justify-between p-1 px-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900/50">
+                            <span className="text-[11px] font-mono font-bold text-slate-700 dark:text-slate-300">
+                              R = {p}×{d} = {calc.livello}
+                            </span>
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase border ${clColor}`}>
                               {calc.classe}
                             </span>
                           </div>
                         </div>
-                      </div>
-
-                      {/* Misure preventive del rischio */}
-                      <div>
-                        <label className="block text-[9px] font-black uppercase text-slate-400 dark:text-slate-400 mb-0.5">
-                          Misure Preventive Adottate
-                        </label>
-                        <input
-                          type="text"
-                          value={r.misurePreventive}
-                          onChange={e => handleUpdateRisk(rIdx, { misurePreventive: e.target.value })}
-                          className="w-full p-1.5 rounded border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-900 dark:text-white placeholder:text-slate-400 dark:placeholder:text-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500/30"
-                          placeholder="es. Presenza del preposto, montaggio parapetti prima dell'avvio..."
-                        />
                       </div>
                     </div>
                   );

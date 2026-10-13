@@ -28,6 +28,29 @@ export const CALCOLA_RISCHIO = (p: number = 2, d: number = 2): { r: number; clas
   return { r, classe, livello: r };
 };
 
+export const RISCHI_PREDEFINITI_BASE: string[] = [
+  "Caduta dall'alto da quota superiore a 2 metri",
+  "Caduta di materiale, attrezzi o elementi murari dall'alto",
+  "Scivolamento, inciampo e caduta a livello / in piano",
+  "Urti, colpi, tagli e abrasioni con attrezzature e materiali",
+  "Elettrocuzione e contatti elettrici diretti o indiretti",
+  "Esposizione a rumore e vibrazioni meccaniche",
+  "Inalazione polveri, silice libera cristallina, fibre o fumi",
+  "Ribaltamento, collisione o urto con macchine operatrici",
+  "Seppellimento e sprofondamento pareti di scavo",
+  "Movimentazione manuale dei carichi (sforzi dorso-lombari)",
+  "Proiezione di schegge, scintille e corpi estranei negli occhi",
+  "Investimento di lavoratori da parte di veicoli e mezzi d'opera",
+  "Contatto con sostanze chimiche pericolose, vernici o solventi",
+  "Ustioni da contatto con superfici calde, bitume o fiamme libere",
+  "Schiacciamento o intrappolamento arti durante sollevamento carichi",
+  "Interferenze spaziali o temporali con altre lavorazioni",
+  "Cedimento strutturale di ponteggi, trabattelli o opere provvisionali",
+  "Sfondamento o cedimento di superfici calpestabili fragili o lucernari",
+  "Caduta all'interno di scavi o aperture nei solai prive di protezione",
+  "Colpo di calore o esposizione ad agenti atmosferici avversi",
+];
+
 // ==================== VALUTAZIONE TECNICA REALISTICA DEI RISCHI (D.Lgs. 81/08 & All. XV) ====================
 export interface ValutazioneRischioTecnicoResult {
   pIniziale: number;
