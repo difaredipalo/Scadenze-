@@ -1312,8 +1312,8 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                     Scala della Probabilità di Accadimento (P 1 - 4):
                   </strong>
                   <ul className="space-y-1 text-[9px] text-slate-700">
-                    <li><strong className="text-blue-900 font-mono">P1 - Improbabile:</strong> Evento eccezionale o quasi mai verificatosi nelle ordinarie condizioni operative.</li>
-                    <li><strong className="text-blue-900 font-mono">P2 - Poco probabile:</strong> L'evento può verificarsi solo in presenza di circostanze inconsuete.</li>
+                    <li><strong className="text-blue-900 font-mono">P1 - Non probabile:</strong> Evento eccezionale o quasi mai verificatosi nelle ordinarie condizioni operative.</li>
+                    <li><strong className="text-blue-900 font-mono">P2 - Possibile:</strong> L'evento può verificarsi solo in presenza di circostanze o manovre inconsuete.</li>
                     <li><strong className="text-blue-900 font-mono">P3 - Probabile:</strong> Evento noto con frequenza media nel comparto edile in assenza di cautele.</li>
                     <li><strong className="text-blue-900 font-mono">P4 - Altamente probabile:</strong> Evento certo o quasi certo durante l'operazione in assenza di presidi.</li>
                   </ul>
@@ -1325,9 +1325,9 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                   </strong>
                   <ul className="space-y-1 text-[9px] text-slate-700">
                     <li><strong className="text-rose-900 font-mono">D1 - Lieve:</strong> Lesione reversibile senza esiti permanenti, inabilità temporanea &lt; 3 giorni.</li>
-                    <li><strong className="text-rose-900 font-mono">D2 - Medio:</strong> Inabilità reversibile da 3 a 30 giorni senza postumi permanenti (ferite, contusioni).</li>
-                    <li><strong className="text-rose-900 font-mono">D3 - Grave:</strong> Infortunio grave con ricovero, inabilità prolungata &gt; 30 gg o danno permanente parziale.</li>
-                    <li><strong className="text-rose-900 font-mono">D4 - Gravissimo:</strong> Invalidità permanente totale o pericolo di vita / infortunio mortale.</li>
+                    <li><strong className="text-rose-900 font-mono">D2 - Modesto:</strong> Inabilità reversibile da 3 a 30 giorni senza postumi permanenti (ferite, contusioni).</li>
+                    <li><strong className="text-rose-900 font-mono">D3 - Significativo:</strong> Infortunio grave con ricovero, inabilità prolungata &gt; 30 gg o danno permanente parziale.</li>
+                    <li><strong className="text-rose-900 font-mono">D4 - Grave:</strong> Invalidità permanente totale o pericolo di vita / infortunio mortale.</li>
                   </ul>
                 </div>
               </div>
@@ -1342,9 +1342,9 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                     <tr className="bg-slate-200 text-slate-900 font-bold text-[10px]">
                       <th className="p-1 border border-slate-400 text-left w-36">Probabilità (P) \ Danno (D)</th>
                       <th className="p-1 border border-slate-400">D1: Lieve</th>
-                      <th className="p-1 border border-slate-400">D2: Medio</th>
-                      <th className="p-1 border border-slate-400">D3: Grave</th>
-                      <th className="p-1 border border-slate-400">D4: Gravissimo</th>
+                      <th className="p-1 border border-slate-400">D2: Modesto</th>
+                      <th className="p-1 border border-slate-400">D3: Significativo</th>
+                      <th className="p-1 border border-slate-400">D4: Grave</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1675,7 +1675,7 @@ export const PosDocumentPrintView: React.FC<PosDocumentPrintViewProps> = ({ pos,
                             const p = r.probabilita || r.probabilitaResidua || 2;
                             const d = r.danno || r.dannoResiduo || 2;
                             const calc = CALCOLA_RISCHIO(p, d);
-                            const nomeP = p === 1 ? 'P1 - Improbabile' : p === 2 ? 'P2 - Poco probabile' : p === 3 ? 'P3 - Probabile' : 'P4 - Altamente probabile';
+                            const nomeP = p === 1 ? 'P1 - Non probabile' : p === 2 ? 'P2 - Possibile' : p === 3 ? 'P3 - Probabile' : 'P4 - Altamente probabile';
                             const nomeD = d === 1 ? 'D1 - Lieve' : d === 2 ? 'D2 - Modesto' : d === 3 ? 'D3 - Significativo' : 'D4 - Grave';
 
                             const clColor =

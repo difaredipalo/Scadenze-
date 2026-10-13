@@ -251,8 +251,8 @@ export const POS_DEFINIZIONI_RICORRENTI = [
 export const POS_RISK_MATRIX_INFO = {
   formula: 'R = P × D',
   probabilitaScale: [
-    { livello: 1, nome: 'Non probabile / Improbabile', sigla: 'P1', descrizione: 'L’evento lesivo si verifica eccezionalmente o quasi mai nelle ordinarie condizioni.' },
-    { livello: 2, nome: 'Possibile / Poco probabile', sigla: 'P2', descrizione: 'L’evento lesivo può verificarsi solo in presenza di circostanze o manovre inconsuete.' },
+    { livello: 1, nome: 'Non probabile', sigla: 'P1', descrizione: 'L’evento lesivo si verifica eccezionalmente o quasi mai nelle ordinarie condizioni.' },
+    { livello: 2, nome: 'Possibile', sigla: 'P2', descrizione: 'L’evento lesivo può verificarsi solo in presenza di circostanze o manovre inconsuete.' },
     { livello: 3, nome: 'Probabile', sigla: 'P3', descrizione: 'L’evento lesivo è noto e si verifica con frequenza media nello svolgimento della fase.' },
     { livello: 4, nome: 'Altamente probabile', sigla: 'P4', descrizione: 'L’evento lesivo è strettamente correlato all’operazione e certo in assenza di presidi.' },
   ],
@@ -282,7 +282,7 @@ export const CLASSI_RISCHIO_DEF = [
 export const MATRICE_RISCHIO_4X4 = [
   {
     probabilita: 1,
-    nomeProbabilita: 'P1 - Improbabile',
+    nomeProbabilita: 'Non probabile',
     celle: [
       { danno: 1, livelloRischio: 1, classeRischio: 'Basso' },
       { danno: 2, livelloRischio: 2, classeRischio: 'Basso' },
@@ -292,7 +292,7 @@ export const MATRICE_RISCHIO_4X4 = [
   },
   {
     probabilita: 2,
-    nomeProbabilita: 'P2 - Poco probabile',
+    nomeProbabilita: 'Possibile',
     celle: [
       { danno: 1, livelloRischio: 2, classeRischio: 'Basso' },
       { danno: 2, livelloRischio: 4, classeRischio: 'Accettabile' },
@@ -302,7 +302,7 @@ export const MATRICE_RISCHIO_4X4 = [
   },
   {
     probabilita: 3,
-    nomeProbabilita: 'P3 - Probabile',
+    nomeProbabilita: 'Probabile',
     celle: [
       { danno: 1, livelloRischio: 3, classeRischio: 'Accettabile' },
       { danno: 2, livelloRischio: 6, classeRischio: 'Notevole' },
@@ -312,7 +312,7 @@ export const MATRICE_RISCHIO_4X4 = [
   },
   {
     probabilita: 4,
-    nomeProbabilita: 'P4 - Altamente probabile',
+    nomeProbabilita: 'Altamente probabile',
     celle: [
       { danno: 1, livelloRischio: 4, classeRischio: 'Accettabile' },
       { danno: 2, livelloRischio: 8, classeRischio: 'Notevole' },

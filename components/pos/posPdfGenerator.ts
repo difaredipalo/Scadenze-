@@ -511,8 +511,8 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
     head: [['Elemento Metodologico', 'Dettaglio Algoritmo Matrice 4x4 (R = P x D)']],
     body: [
       ['Formula di Valutazione', 'Rischio R = Probabilità (P 1-4) x Danno (D 1-4). Indici compresi tra 1 e 16.'],
-      ['Scala Probabilità di Accadimento (P)', 'P1: Improbabile (evento eccezionale) | P2: Poco probabile | P3: Probabile | P4: Altamente probabile (frequente)'],
-      ['Scala Gravità del Danno (D)', 'D1: Lieve (infortunio reversibile <3 gg) | D2: Medio (inabilità >3 gg) | D3: Grave (danno permanente) | D4: Gravissimo (mortale)'],
+      ['Scala Probabilità di Accadimento (P)', 'P1: Non probabile | P2: Possibile | P3: Probabile | P4: Altamente probabile'],
+      ['Scala Gravità del Danno (D)', 'D1: Lieve | D2: Modesto | D3: Significativo | D4: Grave'],
       ['Classi di Rischio e Priorità', 'Basso/Accettabile (R 1-4): monitoraggio ordinario | Notevole (R 6-9): misure correttive programmate | Elevato (R 12-16): blocco e bonifica immediata'],
     ],
     theme: 'grid',
@@ -633,7 +633,7 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
       const p = r.probabilita || r.probabilitaResidua || 2;
       const d = r.danno || r.dannoResiduo || 2;
       const calc = CALCOLA_RISCHIO(p, d);
-      const pDesc = p === 1 ? 'P1 - Improbabile' : p === 2 ? 'P2 - Poco probabile' : p === 3 ? 'P3 - Probabile' : 'P4 - Altamente probabile';
+      const pDesc = p === 1 ? 'P1 - Non probabile' : p === 2 ? 'P2 - Possibile' : p === 3 ? 'P3 - Probabile' : 'P4 - Altamente probabile';
       const dDesc = d === 1 ? 'D1 - Lieve' : d === 2 ? 'D2 - Modesto' : d === 3 ? 'D3 - Significativo' : 'D4 - Grave';
 
       return [
@@ -647,7 +647,7 @@ export const generatePosPdf = async (pos: PosDocument): Promise<void> => {
     (doc as any).autoTable({
       startY: currentY,
       head: [['Descrizione del Rischio', 'Liv. Probabilità (P)', 'Entità Danno (D)', 'Classe di Rischio']],
-      body: risksRows.length > 0 ? risksRows : [['Nessun rischio specifico indicato', 'P2 - Poco probabile', 'D2 - Modesto', 'R = 4 [Accettabile]']],
+      body: risksRows.length > 0 ? risksRows : [['Nessun rischio specifico indicato', 'P2 - Possibile', 'D2 - Modesto', 'R = 4 [Accettabile]']],
       theme: 'grid',
       headStyles: { fillColor: [30, 41, 59], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
       bodyStyles: { fontSize: 6.5, textColor: [15, 23, 42] },

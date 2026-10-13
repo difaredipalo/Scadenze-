@@ -1233,8 +1233,8 @@ export const PosSmartLinkingEditor: React.FC<PosSmartLinkingEditorProps> = ({
                             onChange={e => handleUpdateRisk(rIdx, { probabilita: Number(e.target.value) })}
                             className="w-full p-1.5 rounded-lg text-xs font-bold border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                           >
-                            <option value={1}>P1 - Improbabile</option>
-                            <option value={2}>P2 - Poco probabile</option>
+                            <option value={1}>P1 - Non probabile</option>
+                            <option value={2}>P2 - Possibile</option>
                             <option value={3}>P3 - Probabile</option>
                             <option value={4}>P4 - Altamente probabile</option>
                           </select>

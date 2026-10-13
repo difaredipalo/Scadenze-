@@ -117,9 +117,9 @@ export const PosRiskMatrixView: React.FC = () => {
                   Probabilità (P) \ Danno (D)
                 </th>
                 <th className="p-2.5 border border-slate-300 dark:border-slate-700 text-center font-bold">D1: Lieve</th>
-                <th className="p-2.5 border border-slate-300 dark:border-slate-700 text-center font-bold">D2: Medio</th>
-                <th className="p-2.5 border border-slate-300 dark:border-slate-700 text-center font-bold">D3: Grave</th>
-                <th className="p-2.5 border border-slate-300 dark:border-slate-700 text-center font-bold">D4: Gravissimo</th>
+                <th className="p-2.5 border border-slate-300 dark:border-slate-700 text-center font-bold">D2: Modesto</th>
+                <th className="p-2.5 border border-slate-300 dark:border-slate-700 text-center font-bold">D3: Significativo</th>
+                <th className="p-2.5 border border-slate-300 dark:border-slate-700 text-center font-bold">D4: Grave</th>
               </tr>
             </thead>
             <tbody>
@@ -183,8 +183,8 @@ export const PosRiskMatrixView: React.FC = () => {
               onChange={e => setTestP(Number(e.target.value))}
               className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             >
-              <option value={1} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">1 - Improbabile</option>
-              <option value={2} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">2 - Poco probabile</option>
+              <option value={1} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">1 - Non probabile</option>
+              <option value={2} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">2 - Possibile</option>
               <option value={3} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">3 - Probabile</option>
               <option value={4} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">4 - Altamente probabile</option>
             </select>
@@ -198,9 +198,9 @@ export const PosRiskMatrixView: React.FC = () => {
               className="w-full p-2 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-xs font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             >
               <option value={1} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">1 - Lieve</option>
-              <option value={2} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">2 - Medio</option>
-              <option value={3} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">3 - Grave</option>
-              <option value={4} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">4 - Gravissimo</option>
+              <option value={2} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">2 - Modesto</option>
+              <option value={3} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">3 - Significativo</option>
+              <option value={4} className="bg-white dark:bg-slate-800 text-slate-900 dark:text-white">4 - Grave</option>
             </select>
           </div>
 
