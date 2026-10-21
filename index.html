@@ -76,17 +76,121 @@
         .dark * {
             scrollbar-color: #334155 transparent;
         }
-        /* Tema scuro per tutti i campi di compilazione POS e form: scritte sempre bianche e nitide */
-        .dark input:not([type="checkbox"]):not([type="radio"]),
-        .dark select,
-        .dark textarea {
+        /* 1. Campi con sfondo scuro (nel modulo POS, o con classi dark:bg-slate-* / bg-slate-800/900 / dark:text-white):
+              il testo deve essere bianco nitido (#ffffff) con placeholder visibile */
+        .pos-module input:not([type="checkbox"]):not([type="radio"]),
+        .pos-module select,
+        .pos-module textarea,
+        .dark [data-pos-module] input:not([type="checkbox"]):not([type="radio"]),
+        .dark [data-pos-module] select,
+        .dark [data-pos-module] textarea,
+        .dark .pos-scope input:not([type="checkbox"]):not([type="radio"]),
+        .dark .pos-scope select,
+        .dark .pos-scope textarea,
+        .dark input.dark\:text-white,
+        .dark select.dark\:text-white,
+        .dark textarea.dark\:text-white,
+        .dark input[class*="dark:bg-slate-"],
+        .dark select[class*="dark:bg-slate-"],
+        .dark textarea[class*="dark:bg-slate-"],
+        .dark input[class*="bg-slate-800"],
+        .dark select[class*="bg-slate-800"],
+        .dark textarea[class*="bg-slate-800"],
+        .dark input[class*="bg-slate-900"],
+        .dark select[class*="bg-slate-900"],
+        .dark textarea[class*="bg-slate-900"] {
             color: #ffffff !important;
         }
-        .dark input::placeholder,
-        .dark textarea::placeholder {
+
+        .dark input[class*="dark:bg-slate-"]::placeholder,
+        .dark textarea[class*="dark:bg-slate-"]::placeholder,
+        .dark input[class*="bg-slate-800"]::placeholder,
+        .dark textarea[class*="bg-slate-800"]::placeholder,
+        .dark input[class*="bg-slate-900"]::placeholder,
+        .dark textarea[class*="bg-slate-900"]::placeholder,
+        .dark input.dark\:text-white::placeholder,
+        .dark textarea.dark\:text-white::placeholder {
             color: #94a3b8 !important;
         }
-        .dark option {
+
+        /* 2. RISOLUZIONE BIANCO SU BIANCO:
+              Tutti i campi con sfondo chiaro (modali Nuovo Record, Modifica Cantiere, Dipendente, Mezzo, Documento, Tesserini Badge,
+              form con bg-white, bg-slate-50 o text-slate-900/text-slate-800):
+              IL TESTO DEVE ESSERE NERO/ARDESIA SCURO (#0f172a) E PERFETTAMENTE LEGGIBILE,
+              anche se l'app è in modalità Dark! */
+        input.bg-white,
+        select.bg-white,
+        textarea.bg-white,
+        input.bg-slate-50,
+        select.bg-slate-50,
+        textarea.bg-slate-50,
+        input[class*="text-slate-900"],
+        select[class*="text-slate-900"],
+        textarea[class*="text-slate-900"],
+        input[class*="text-slate-800"],
+        select[class*="text-slate-800"],
+        textarea[class*="text-slate-800"],
+        .bg-white input:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .bg-white select:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .bg-white textarea:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .bg-slate-50 input:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .bg-slate-50 select:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .bg-slate-50 textarea:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .dark input.bg-white:not([class*="dark:bg-slate-800"]):not([class*="dark:bg-slate-900"]):not(.dark\:text-white),
+        .dark select.bg-white:not([class*="dark:bg-slate-800"]):not([class*="dark:bg-slate-900"]):not(.dark\:text-white),
+        .dark textarea.bg-white:not([class*="dark:bg-slate-800"]):not([class*="dark:bg-slate-900"]):not(.dark\:text-white),
+        .dark input[class*="text-slate-900"]:not([class*="dark:text-white"]),
+        .dark select[class*="text-slate-900"]:not([class*="dark:text-white"]),
+        .dark textarea[class*="text-slate-900"]:not([class*="dark:text-white"]),
+        .dark input[class*="text-slate-800"]:not([class*="dark:text-white"]),
+        .dark select[class*="text-slate-800"]:not([class*="dark:text-white"]),
+        .dark textarea[class*="text-slate-800"]:not([class*="dark:text-white"]),
+        .dark .bg-white input:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .dark .bg-white select:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .dark .bg-white textarea:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .dark .bg-slate-50 input:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .dark .bg-slate-50 select:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white),
+        .dark .bg-slate-50 textarea:not([class*="dark:bg-slate-"]):not([class*="bg-slate-800"]):not([class*="bg-slate-900"]):not(.dark\:text-white) {
+            color: #0f172a !important;
+        }
+
+        /* Placeholder scuro e nitido sui campi chiari */
+        .bg-white input::placeholder,
+        .bg-white textarea::placeholder,
+        .dark .bg-white input::placeholder,
+        .dark .bg-white textarea::placeholder,
+        .dark input.bg-white::placeholder,
+        .dark textarea.bg-white::placeholder,
+        input[class*="text-slate-900"]::placeholder,
+        input[class*="text-slate-800"]::placeholder,
+        .dark input[class*="text-slate-900"]::placeholder,
+        .dark input[class*="text-slate-800"]::placeholder {
+            color: #64748b !important;
+        }
+
+        /* Indicatori dei calendari nei campi data */
+        .bg-white input[type="date"]::-webkit-calendar-picker-indicator,
+        input.bg-white[type="date"]::-webkit-calendar-picker-indicator,
+        .dark .bg-white input[type="date"]::-webkit-calendar-picker-indicator,
+        .dark input.bg-white[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0) !important;
+            opacity: 0.7;
+        }
+        .dark input[class*="dark:bg-slate-"][type="date"]::-webkit-calendar-picker-indicator,
+        .dark input[class*="bg-slate-800"][type="date"]::-webkit-calendar-picker-indicator,
+        .dark input[class*="bg-slate-900"][type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(1) !important;
+            opacity: 0.8;
+        }
+
+        /* Opzioni select ad alto contrasto */
+        select option {
+            background-color: #ffffff !important;
+            color: #0f172a !important;
+        }
+        .dark select[class*="dark:bg-slate-"] option,
+        .dark select[class*="bg-slate-800"] option,
+        .dark select[class*="bg-slate-900"] option {
             background-color: #0f172a !important;
             color: #ffffff !important;
         }
